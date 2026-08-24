@@ -16,7 +16,11 @@ async function osvQueryPackagist(name, version) {
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(12000),
     });
-    if (!r.ok) return [];
+    if (!r.ok) {
+      const e = new Error(`OSV returned HTTP ${r.status}`);
+      e.status = 502;
+      throw e;
+    }
 
     const ct = r.headers.get('content-type') || '';
     if (!ct.includes('application/json') && !ct.includes('text/json')) {
@@ -34,8 +38,11 @@ async function osvQueryPackagist(name, version) {
         _refs: (v.references || []).map(r => r.url),
       }))
       .sort((a, b) => SEV_ORD.indexOf(a._sev) - SEV_ORD.indexOf(b._sev));
-  } catch {
-    return [];
+  } catch (e) {
+    if (e.status) throw e;
+    const upstream = new Error(`OSV query failed: ${e.message}`);
+    upstream.status = 502;
+    throw upstream;
   }
 }
 

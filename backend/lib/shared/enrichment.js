@@ -115,7 +115,11 @@ async function osvQuery(pkgName, ecosystem, version) {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body), signal: AbortSignal.timeout(12000),
     });
-    if (!r.ok) return [];
+    if (!r.ok) {
+      const e = new Error(`OSV returned HTTP ${r.status}`);
+      e.status = 502;
+      throw e;
+    }
     const d = await r.json();
     return (d.vulns || []).map(v => ({
       ...v,
@@ -124,7 +128,12 @@ async function osvQuery(pkgName, ecosystem, version) {
       _aliases: v.aliases || [],
       _refs   : (v.references || []).map(ref => ref.url),
     })).sort((a, b) => SEV_ORD.indexOf(a._sev) - SEV_ORD.indexOf(b._sev));
-  } catch { return []; }
+  } catch (e) {
+    if (e.status) throw e;
+    const upstream = new Error(`OSV query failed: ${e.message}`);
+    upstream.status = 502;
+    throw upstream;
+  }
 }
 
 async function bulkEnrich(cveIds) {

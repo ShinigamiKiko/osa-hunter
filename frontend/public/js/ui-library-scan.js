@@ -9,8 +9,11 @@ const ECOS=[
   {id:'packagist',label:'PHP',   logo:'🐘',osv:'Packagist'},
 ];
 
-let libScans=safeLoad('es_lib',[]);
+const libStored=safeLoad('es_lib',[]);
+let libScans=pruneLocalScans(libStored);
+if(libScans.length!==libStored.length) safeSave('es_lib',libScans);
 let selEco=null;
+let libScanInFlight=false;
 const saveLib=()=>safeSave('es_lib',libScans);
 
 function renderEcos(){
@@ -38,12 +41,14 @@ async function doLibScan(){
   document.getElementById('lmerr').style.display='none';
   if(!eco) return showErr('lmerr','Select an ecosystem');
   if(!pkg) return showErr('lmerr','Enter a package name');
+  if(libScanInFlight) return;
+  libScanInFlight=true;
   setBtn('btnLibGo',true);
   try{
     const r=await fetch('/api/libscan',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({name:pkg,ecosystem:eco.osv,version:ver||undefined})});
-    if(!r.ok) throw new Error(`Server error ${r.status}`);
     const data=await readJson(r);
+    if(!r.ok) throw new Error(data.error||`Error ${r.status}`);
     if(data.error) throw new Error(data.error);
     const vulns=(data.vulns||[]).map(v=>({...v,_sev:v.severity,_fix:v.fix,_aliases:v.aliases||[],_refs:v.refs||[]}));
     const _ck = `lib:${eco.osv||eco.id}:${data.package}:${data.version||'latest'}`;
@@ -57,7 +62,10 @@ async function doLibScan(){
     });
     saveLib();closeLibModal();updateLibBadge();navTo('lib-list');
   }catch(e){showErr('lmerr',e.message||'Request failed');}
-  setBtn('btnLibGo',false,'▶ Scan');
+  finally {
+    libScanInFlight=false;
+    setBtn('btnLibGo',false,'▶ Scan');
+  }
 }
 
 function updateLibBadge(){
@@ -183,6 +191,5 @@ function toggleVI(vi){
 }
 
 document.addEventListener('keydown',e=>{
-  if(e.key==='Escape'&&document.getElementById('libModal').style.display!=='none') closeLibModal();
-  if(e.key==='Enter' &&document.getElementById('libModal').style.display!=='none') doLibScan();
+  if(e.key==='Enter' && document.getElementById('libModal').style.display!=='none') doLibScan();
 });

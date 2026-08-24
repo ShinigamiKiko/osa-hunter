@@ -8,8 +8,10 @@ const DEP_SYSTEMS = [
   { id:'COMPOSER', label:'Composer', logo:'🐘', hint:'monolog/monolog' },
 ];
 
-let depScans  = safeLoad('es_dep', []);
+const depStored = safeLoad('es_dep', []);
+let depScans  = pruneLocalScans(depStored);
+if(depScans.length!==depStored.length) safeSave('es_dep',depScans);
 let selDepSys = null;
 let currentDepScan = null;
+let depScanInFlight = false;
 const saveDep = () => safeSave('es_dep', depScans);
-

@@ -176,8 +176,16 @@ function renderDepDetail(scan){
       </div>
     </div>`;
 
-  const noVulnsHtml    =sm.withVulns
-    ?`<span style="color:var(--h)">&#9888; ${sm.withVulns} with vulns</span>`
+  const legacyVulnerabilityCount = ['CRITICAL','HIGH','MEDIUM','LOW','UNKNOWN']
+    .reduce((total,sev)=>total+Number(sm[sev]||0),0);
+  const dependencyVulnerabilityCount = Array.isArray(scan.deps)
+    ? scan.deps.reduce((total,d)=>total+(d.vulns||[]).length,0)
+    : 0;
+  const vulnCount = sm.vulnerabilityCount ??
+    (dependencyVulnerabilityCount || legacyVulnerabilityCount);
+  const hasVulnerabilities = vulnCount>0 || Number(sm.withVulns||0)>0;
+  const noVulnsHtml    =hasVulnerabilities
+    ?`<span style="color:var(--h)">&#9888; ${sm.withVulns||'Some'} deps · ${vulnCount||'?'} vulnerabilities</span>`
     :'<span style="color:var(--l)">&#10003; no vulns</span>';
   const emptyHtml=(!direct.length&&!indirect.length)
     ?'<div style="text-align:center;padding:60px;color:var(--muted);font-size:14px">No dependencies found in the graph.</div>'

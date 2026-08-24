@@ -39,7 +39,14 @@
       };
     },
     dep(e)      { return {...e, id:e._cacheKey, desc:e.desc||'', scannedAt:e.scannedAt||e._cachedAt}; },
-    composer(e) { return {...e, id:e._cacheKey, desc:e.desc||'', scannedAt:e.scannedAt||e._cachedAt}; },
+    composer(e) {
+      const deps = Array.isArray(e.deps) ? e.deps : [
+        e.deps?.root ? {...e.deps.root, relation:'ROOT'} : null,
+        ...(e.deps?.direct||[]).map(d=>({...d, relation:d.relation||'DIRECT'})),
+        ...(e.deps?.transitive||[]).map(d=>({...d, relation:d.relation||'INDIRECT'})),
+      ].filter(Boolean);
+      return {...e, deps, id:e._cacheKey, desc:e.desc||'', scannedAt:e.scannedAt||e._cachedAt};
+    },
     os(e) {
       const d = distroMeta(e.distro);
       return {
@@ -103,7 +110,8 @@
     for (const e of entries) {
       const key = e._cacheKey;
       if (existing.has(key)) continue;
-      if (e._cachedAt && Date.now() - new Date(e._cachedAt) > TTL_MS) continue;
+      const scannedAt = e._cachedAt || e.scannedAt;
+      if (scannedAt && Date.now() - new Date(scannedAt) > TTL_MS) continue;
       arr.push(converters[type](e));
       existing.add(key);
       added++;
