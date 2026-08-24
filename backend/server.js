@@ -55,6 +55,7 @@ runMigrations()
     await seedAdmin();
 
     app.use(session({
+      name: 'osa.sid',
       store: new pgSession({
         pool: getPool(),
         tableName: 'session',
@@ -64,9 +65,10 @@ runMigrations()
       resave: false,
       saveUninitialized: false,
       cookie: {
-        secure: process.env.NODE_ENV === 'production' && process.env.HTTPS === 'true',
+        secure: process.env.SESSION_COOKIE_SECURE === 'true',
         httpOnly: true,
         sameSite: 'lax',
+        path: '/',
         maxAge: 7 * 24 * 60 * 60 * 1000,
       },
     }));

@@ -20,17 +20,20 @@ async function openLibFromDep(ev, systemId, name, version){
     const data = await readJson(r);
     if(!r.ok) throw new Error(data?.error || 'libscan failed');
     const vulns = (data.vulns||[]).map(v=>({...v,_sev:v.severity,_fix:v.fix,_aliases:v.aliases||[],_refs:v.refs||[]}));
-    window.libScans = window.libScans || [];
-    window.libScans.unshift({
+    const _ck = `lib:${eco.osv}:${data.package}:${data.version||'latest'}`;
+    const existing = libScans.findIndex(s => s._cacheKey === _ck);
+    if(existing !== -1) libScans.splice(existing, 1);
+    libScans.unshift({
       id:Date.now(), pkg:data.package, ver:data.version||'',
       eco:eco.ecoId, ecoLabel:eco.label, ecoLogo:eco.logo, desc:'',
-      vulns, toxic:data.toxic, topSev:data.topSeverity||'NONE', scannedAt:data.scannedAt,
+      _cacheKey:_ck, vulns, toxic:data.toxic, topSev:data.topSeverity||'NONE', scannedAt:data.scannedAt,
     });
-    if(typeof window.saveLib === 'function') window.saveLib();
-    navTo('lib-detail', { scan: window.libScans[0] });
+    if(libScans.length>50) libScans=libScans.slice(0,50);
+    saveLib();
+    updateLibBadge();
+    navTo('lib-detail', { scan: libScans[0] });
   }catch(e){
     console.error(e);
     alert(e.message || 'Failed to open library');
   }
 }
-

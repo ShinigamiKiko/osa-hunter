@@ -47,7 +47,7 @@ async function doOsScan(){
       body:JSON.stringify({name:pkg,version:pkgVer||undefined,distro:distro.id,distroVersion:distroVer||undefined})});
     const data=await readJson(r);
     if(!r.ok) throw new Error(data.error||`Error ${r.status}`);
-    const _ck = `os:${distro.id}:${pkg}:${pkgVer||'any'}`;
+    const _ck = `os:${distro.id}:${distroVer||'latest'}:${pkg}:${pkgVer||'any'}`;
     const ckIdx = osScans.findIndex(s => s._cacheKey === _ck);
     if (ckIdx !== -1) osScans.splice(ckIdx, 1);
     osScans.unshift({
@@ -273,7 +273,6 @@ function _osVexHtml(vex){
 document.addEventListener('keydown',e=>{
   const m=document.getElementById('osModal');
   if(m?.style.display!=='none'){
-    if(e.key==='Escape') closeOsModal();
     if(e.key==='Enter')  doOsScan();
   }
 });

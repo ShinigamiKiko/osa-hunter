@@ -176,8 +176,9 @@ function renderDepDetail(scan){
       </div>
     </div>`;
 
+  const vulnCount = sm.vulnerabilityCount ?? 0;
   const noVulnsHtml    =sm.withVulns
-    ?`<span style="color:var(--h)">&#9888; ${sm.withVulns} with vulns</span>`
+    ?`<span style="color:var(--h)">&#9888; ${sm.withVulns} deps · ${vulnCount} vulnerabilities</span>`
     :'<span style="color:var(--l)">&#10003; no vulns</span>';
   const emptyHtml=(!direct.length&&!indirect.length)
     ?'<div style="text-align:center;padding:60px;color:var(--muted);font-size:14px">No dependencies found in the graph.</div>'

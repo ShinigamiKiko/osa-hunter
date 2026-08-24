@@ -35,6 +35,5 @@ function enrichDepPkgVulns(vulns){
 }
 
 document.addEventListener('keydown',e=>{
-  if(e.key==='Escape'&&document.getElementById('depModal').style.display!=='none') closeDepModal();
   if(e.key==='Enter' &&document.getElementById('depModal').style.display!=='none') doDepScan();
 });

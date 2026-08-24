@@ -78,7 +78,9 @@ router.post('/depscan', rateLimit(scanLimiter), async (req, res) => {
     try {
       const depGraph = await depsDevGet(`/systems/${sys.toLowerCase()}/packages/${encName}/versions/${encVer}:dependencies`);
       rawDeps = depGraph.nodes || [];
-    } catch (e) { console.warn('[depscan] dep graph unavailable:', e.message); }
+    } catch (e) {
+      throw new ScanError(502, `deps.dev dependency graph unavailable: ${e.message}`);
+    }
   } catch (e) {
     throw new ScanError(502, `deps.dev version lookup failed: ${e.message}`);
   }
@@ -159,6 +161,7 @@ router.post('/depscan', rateLimit(scanLimiter), async (req, res) => {
     totalDeps : finalDeps.length,
     directDeps: finalDeps.filter(d => d.relation === 'DIRECT').length,
     withVulns : finalDeps.filter(d => d.vulnCount > 0).length,
+    vulnerabilityCount: rootEnrichedVulns.length + finalDeps.reduce((a, d) => a + d.vulnCount, 0),
     rootVulnCount: rootEnrichedVulns.length,
     toxic     : finalDeps.filter(d => d.toxic?.found).length,
     CRITICAL  : rootCounts.CRITICAL + finalDeps.reduce((a, d) => a + d.counts.CRITICAL, 0),

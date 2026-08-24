@@ -322,7 +322,8 @@ function showKeyModal(key, name) {
   const safeName = esc(name);
   const safeKey  = esc(key);
 
-  modal.innerHTML = '<div style="background:#0b0f18;border:1px solid #34d399;border-radius:16px;padding:36px 40px;max-width:620px;width:100%;box-shadow:0 0 60px rgba(52,211,153,.12)">'
+  modal.innerHTML = '<div style="position:relative;background:#0b0f18;border:1px solid #34d399;border-radius:16px;padding:36px 40px;max-width:620px;width:100%;box-shadow:0 0 60px rgba(52,211,153,.12)">'
+    + '<button onclick="closeKeyModal()" aria-label="Close" style="position:absolute;top:12px;right:12px;width:30px;height:30px;background:#111827;border:1px solid #1a2030;border-radius:7px;color:#8a9ab0;font-size:15px;cursor:pointer">✕</button>'
     + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">'
     +   '<span style="font-size:20px">🔑</span>'
     +   '<span style="font-size:16px;font-weight:800;color:#fff">API Key Created</span>'
@@ -337,12 +338,10 @@ function showKeyModal(key, name) {
     + '</div>'
     + '<div style="display:flex;gap:10px">'
     +   '<button id="copyModalBtn" onclick="copyModalKey()" style="flex:1;padding:11px;background:#5ef0c8;border:none;border-radius:8px;color:#07090f;font-size:13px;font-weight:800;cursor:pointer">Copy Key</button>'
-    +   '<button onclick="closeKeyModal()" style="padding:11px 20px;background:none;border:1px solid #1a2030;border-radius:8px;color:#8a9ab0;font-size:13px;font-weight:600;cursor:pointer">Done</button>'
-    + '</div>'
+     + '</div>'
     + '</div>';
 
   document.body.appendChild(modal);
-  modal.addEventListener('click', e => { if (e.target === modal) closeKeyModal(); });
 }
 
 function copyModalKey() {

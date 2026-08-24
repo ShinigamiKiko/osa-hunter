@@ -143,7 +143,7 @@
 </div>
 </div>
 
-<div class="ov" id="libModal" style="display:none" onclick="if(event.target===this)closeLibModal()">
+  <div class="ov" id="libModal" style="display:none">
   <div class="modal" onclick="event.stopPropagation()">
     <div class="mhdr">
       <span class="mtitle">Add library scan</span>
@@ -156,13 +156,12 @@
     <div class="mfld"><label>Version</label><input id="fVer" placeholder="4.17.15  (blank = any)"/></div>
     <div id="lmerr" style="display:none" class="merr"></div>
     <div class="mactions">
-      <button class="btn-cancel" onclick="closeLibModal()">Cancel</button>
       <button class="btn-go" id="btnLibGo" onclick="doLibScan()">▶ Scan</button>
     </div>
   </div>
 </div>
 
-<div class="ov" id="depModal" style="display:none" onclick="if(event.target===this)closeDepModal()">
+  <div class="ov" id="depModal" style="display:none">
   <div class="modal" onclick="event.stopPropagation()">
     <div class="mhdr">
       <span class="mtitle">Dependency Scan</span>
@@ -175,13 +174,12 @@
     <div class="mfld"><label>Version</label><input id="dVer" placeholder="latest  (blank = resolve latest)"/></div>
     <div id="dmerr" style="display:none" class="merr"></div>
     <div class="mactions">
-      <button class="btn-cancel" onclick="closeDepModal()">Cancel</button>
       <button class="btn-go" id="btnDepGo" style="background:#a78bfa;color:#07090f" onclick="doDepScan()">▶ Scan</button>
     </div>
   </div>
 </div>
 
-<div class="ov" id="osModal" style="display:none" onclick="if(event.target===this)closeOsModal()">
+  <div class="ov" id="osModal" style="display:none">
   <div class="modal" onclick="event.stopPropagation()">
     <div class="mhdr">
       <span class="mtitle">OS Package Scan</span>
@@ -195,7 +193,6 @@
     <div class="mfld"><label>Description</label><input id="osDesc" placeholder="PROJ-42 audit (optional)"/></div>
     <div id="osmerr" style="display:none" class="merr"></div>
     <div class="mactions">
-      <button class="btn-cancel" onclick="closeOsModal()">Cancel</button>
       <button class="btn-go" id="btnOsGo" style="background:#f97316;color:#fff" onclick="doOsScan()">▶ Scan</button>
     </div>
   </div>
