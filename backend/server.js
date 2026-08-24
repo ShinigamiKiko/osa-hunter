@@ -65,7 +65,8 @@ runMigrations()
       resave: false,
       saveUninitialized: false,
       cookie: {
-        secure: process.env.SESSION_COOKIE_SECURE === 'true',
+        secure: process.env.SESSION_COOKIE_SECURE === 'true'
+          || (process.env.NODE_ENV === 'production' && process.env.HTTPS === 'true'),
         httpOnly: true,
         sameSite: 'lax',
         path: '/',

@@ -34,8 +34,6 @@ function openLibModal(){
 function closeLibModal(){document.getElementById('libModal').style.display='none';}
 
 async function doLibScan(){
-  if(libScanInFlight) return;
-  libScanInFlight=true;
   const eco=ECOS.find(e=>e.id===selEco);
   const pkg=document.getElementById('fPkg').value.trim();
   const ver=document.getElementById('fVer').value.trim();
@@ -43,6 +41,8 @@ async function doLibScan(){
   document.getElementById('lmerr').style.display='none';
   if(!eco) return showErr('lmerr','Select an ecosystem');
   if(!pkg) return showErr('lmerr','Enter a package name');
+  if(libScanInFlight) return;
+  libScanInFlight=true;
   setBtn('btnLibGo',true);
   try{
     const r=await fetch('/api/libscan',{method:'POST',headers:{'Content-Type':'application/json'},

@@ -1,6 +1,4 @@
 async function doDepScan(){
-  if(depScanInFlight) return;
-  depScanInFlight=true;
   const sys  = selDepSys;
   const pkg  = document.getElementById('dPkg').value.trim();
   const ver  = document.getElementById('dVer').value.trim();
@@ -8,6 +6,8 @@ async function doDepScan(){
   document.getElementById('dmerr').style.display='none';
   if(!sys) return showErr('dmerr','Select a package system');
   if(!pkg) return showErr('dmerr','Enter a package name');
+  if(depScanInFlight) return;
+  depScanInFlight=true;
   setBtn('btnDepGo',true,'Scanning…');
   try{
     const ep = (sys==='COMPOSER') ? '/api/composerscan' : '/api/depscan';
