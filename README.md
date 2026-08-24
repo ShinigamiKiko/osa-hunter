@@ -95,6 +95,7 @@ Full endpoint list: `libscan` · `depscan` · `composer` · `osscan` · `trivy/s
 NVD_API_KEY=your-key-here         # nvd.nist.gov/developers/request-an-api-key
 SESSION_SECRET=long-random-string # change this
 PGPASSWORD=strong-db-password     # change this
+SESSION_COOKIE_SECURE=false        # set true when served over HTTPS
 ```
 
 ---

@@ -50,7 +50,8 @@ router.post('/osscan', async (req, res) => {
   const dm = DISTRO_MAP[distro.toLowerCase()];
   if (!dm) return res.status(400).json({ error: `Unknown distro: ${distro}` });
 
-  const _cacheKey = `os:${distro}:${name}:${version||'any'}`;
+  const distroKey = distro.toLowerCase();
+  const _cacheKey = `os:${distroKey}:${distroVersion||'latest'}:${name}:${version||'any'}`;
   return withCache(_cacheKey, 'os', res, async () => {
 
   const purl = `pkg:${dm.type}/${dm.ns}/${encodeURIComponent(name)}${version ? '@' + version : ''}`;

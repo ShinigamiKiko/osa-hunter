@@ -6,6 +6,8 @@ async function doDepScan(){
   document.getElementById('dmerr').style.display='none';
   if(!sys) return showErr('dmerr','Select a package system');
   if(!pkg) return showErr('dmerr','Enter a package name');
+  if(depScanInFlight) return;
+  depScanInFlight=true;
   setBtn('btnDepGo',true,'Scanning…');
   try{
     const ep = (sys==='COMPOSER') ? '/api/composerscan' : '/api/depscan';
@@ -68,6 +70,7 @@ async function doDepScan(){
         LOW       : sevTotals.LOW,
         toxic     : toxicCount,
         withVulns : data.deps.filter(d=>(d.vulns||[]).length>0).length,
+        vulnerabilityCount: data.deps.reduce((total,d)=>(total+(d.vulns||[]).length),0),
       };
     }
     const _ck = `dep:${(data.system||'').toUpperCase()}:${data.package||''}:${data.resolvedVersion||data.version||'latest'}`;
@@ -79,6 +82,8 @@ async function doDepScan(){
     saveDep(); closeDepModal(); updateDepBadge();
     navTo('dep-detail',{scan});
   }catch(e){ showErr('dmerr',e.message||'Scan failed'); }
-  setBtn('btnDepGo',false,'▶ Scan');
+  finally {
+    depScanInFlight=false;
+    setBtn('btnDepGo',false,'▶ Scan');
+  }
 }
-

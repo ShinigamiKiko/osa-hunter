@@ -20,7 +20,7 @@ async function renderDepList(){
     <div class="tbl-wrap"><table class="tbl">
       <thead><tr>
         <th>Package</th><th>Description</th><th>System</th>
-        <th>Version</th><th>Deps</th><th>Vulns</th><th>Toxic</th><th>Scanned</th><th style="width:28px"></th>
+        <th>Version</th><th>Deps</th><th>Vulnerabilities</th><th>Toxic</th><th>Scanned</th><th style="width:28px"></th>
       </tr></thead>
       <tbody>
         ${depScans.map((s,i)=>{
@@ -28,7 +28,17 @@ async function renderDepList(){
           const _sum=s.summary||{};
           const pills=['CRITICAL','HIGH','MEDIUM','LOW'].filter(sv=>_sum[sv])
             .map(sv=>`<span class="sev ${sv}" style="font-size:9px;padding:2px 6px">${_sum[sv]} ${sv}</span>`).join(' ');
-          const vulnCell  = _sum.withVulns===0 ? '<span style="color:var(--l);font-size:11px">&#10003; clean</span>' : (pills||`<span style="color:var(--muted)">${_sum.withVulns||'?'}</span>`);
+          const legacyVulnerabilityCount = ['CRITICAL','HIGH','MEDIUM','LOW','UNKNOWN']
+            .reduce((total,sev)=>total+Number(_sum[sev]||0),0);
+          const dependencyVulnerabilityCount = Array.isArray(s.deps)
+            ? s.deps.reduce((total,d)=>total+(d.vulns||[]).length,0)
+            : 0;
+          const vulnerabilityCount = _sum.vulnerabilityCount ??
+            (dependencyVulnerabilityCount || legacyVulnerabilityCount);
+          const hasVulnerabilities = vulnerabilityCount>0 || Number(_sum.withVulns||0)>0;
+          const vulnCell  = !hasVulnerabilities
+            ? '<span style="color:var(--l);font-size:11px">&#10003; clean</span>'
+            : (pills||`<span style="color:var(--muted)">${vulnerabilityCount||'?'}</span>`);
           const toxicCell = _sum.toxic>0 ? `<span style="color:#ff3b30;font-size:11px">&#9760; ${_sum.toxic}</span>` : '<span style="color:var(--l);font-size:11px">&#10003;</span>';
           const toxicBadge= s.toxic?.found ? '<span style="background:rgba(255,59,48,.15);border:1px solid rgba(255,59,48,.4);color:#ff3b30;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-top:2px;display:inline-block">&#9760; TOXIC</span>' : '';
           return `<tr class="row" onclick="currentDepScan=depScans[${i}];navTo('dep-detail',{scan:depScans[${i}]})">

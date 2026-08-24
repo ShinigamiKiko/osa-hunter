@@ -4,6 +4,7 @@
     .then(({ user }) => {
       window._authUser = user;
       injectUserChip(user);
+      document.documentElement.classList.remove('auth-pending');
       navTo('lib-list');
     })
     .catch(() => {

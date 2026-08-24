@@ -7,6 +7,13 @@ function showErr(id,msg){ const e=document.getElementById(id); if(e){ e.textCont
 function setBtn(id,loading,label){ const b=document.getElementById(id); if(!b)return; b.disabled=loading; if(label)b.textContent=loading?'⏳ Scanning…':label; }
 function safeLoad(key,def){ try{ const v=localStorage.getItem(key); return v?JSON.parse(v):def; }catch{ return def; } }
 function safeSave(key,val){ try{ localStorage.setItem(key,JSON.stringify(val)); }catch{} }
+function pruneLocalScans(list){
+  const cutoff=Date.now()-24*60*60*1000;
+  return Array.isArray(list)?list.filter(s=>{
+    const ts=Date.parse(s?.scannedAt||s?._cachedAt||'');
+    return !Number.isFinite(ts)||ts>=cutoff;
+  }):[];
+}
 
 // Parse a fetch() response as JSON, but fail with a readable message when the
 // body isn't JSON — e.g. nginx returns an HTML error page (504/502/413) when a

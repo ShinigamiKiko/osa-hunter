@@ -36,8 +36,10 @@ async function withCache(key, type, res, scanFn) {
   try {
     result = await scanFn();
   } catch (e) {
-    const status = e.status || 500;
-    return res.status(status).json({ error: e.message });
+    const status = e.status ?? e.statusCode ?? 500;
+    const payload = { error: e.message || 'Scan failed' };
+    if (e.details) payload.details = e.details;
+    return res.status(status).json(payload);
   }
 
   if (result != null && typeof result === 'object' && typeof result.socket !== 'undefined') {
