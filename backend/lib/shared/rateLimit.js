@@ -14,6 +14,10 @@ const scanLimiter = new RateLimiter(
   parseInt(process.env.SCAN_RATE_LIMIT || '20'),
   parseInt(process.env.SCAN_RATE_WINDOW || '60000')
 );
+const gatewayLimiter = new RateLimiter(
+  parseInt(process.env.GATE_RATE_LIMIT || '120'),
+  parseInt(process.env.GATE_RATE_WINDOW || '60000')
+);
 
 function rateLimit(limiter) {
   return (req, res, next) => {
@@ -23,4 +27,4 @@ function rateLimit(limiter) {
   };
 }
 
-module.exports = { trivyLimiter, apiLimiter, scanLimiter, rateLimit };
+module.exports = { trivyLimiter, apiLimiter, scanLimiter, gatewayLimiter, rateLimit };

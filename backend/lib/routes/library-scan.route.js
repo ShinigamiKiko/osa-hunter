@@ -3,7 +3,7 @@ const { withCache, ScanError } = require('../auth/scanCache');
 const express = require('express');
 const router  = express.Router();
 const {
-  OSV_URL, SEV_ORD, scanLimiter, rateLimit,
+  SEV_ORD, scanLimiter, rateLimit,
   checkToxic,
   osvQuery, bulkEnrich, enrichVulns, extractCVEs,
 } = require('../shared');

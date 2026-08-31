@@ -60,6 +60,10 @@
       <span class="nav-label">GitHub Scan</span>
       <span class="nav-badge" id="ghBadge" style="display:none;background:#a78bfa">0</span>
     </button>
+    <button class="nav-item" id="nav-proxy" onclick="navTo('proxy')">
+      <span style="font-size:16px;line-height:1">🛡️</span>
+      <span class="nav-label">Proxy</span>
+    </button>
   </nav>
   <div style="padding:0 16px 10px">
     <button onclick="clearScanCache()" style="width:100%;padding:8px;background:rgba(255,59,48,.08);border:1px solid rgba(255,59,48,.25);border-radius:8px;color:rgba(255,59,48,.8);font-size:11px;cursor:pointer;font-family:var(--font-mono);transition:all .15s" onmouseover="this.style.background='rgba(255,59,48,.15)'" onmouseout="this.style.background='rgba(255,59,48,.08)'" id="btnClearCache">🗑 Clear scan cache</button>
@@ -159,6 +163,8 @@
 
   <div class="page" id="page-gh-list"><div id="ghListContent"></div></div>
   <div class="page" id="page-gh-detail"><div id="ghDetailContent"></div></div>
+
+  <div class="page" id="page-proxy"><div id="proxyContent"></div></div>
 </div>
 </div>
 
@@ -242,6 +248,7 @@
   <script src="/js/dependency-scan/54-vulns-and-events.js"></script>
 <script src="/js/ui-os-scan.js"></script>
 <script src="/js/ui-gh-scan.js"></script>
+<script src="/js/ui-proxy.js"></script>
 <script src="/js/ui-app.js"></script>
 <script src="/js/ui-auth.js"></script>
 <script src="/js/ui-admin.js"></script>

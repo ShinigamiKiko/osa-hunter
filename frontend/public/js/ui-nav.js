@@ -49,12 +49,21 @@ async function navTo(page, opts={}){
   const isImg=page.startsWith('img');
   const isOs =page.startsWith('os');
   const isGh =page.startsWith('gh');
+  const isProxy = page==='proxy';
   document.getElementById('nav-lib').classList.toggle('active',isLib);
   document.getElementById('nav-dep').classList.toggle('active',isDep);
   document.getElementById('nav-img').classList.toggle('active',isImg);
   document.getElementById('nav-os')?.classList.toggle('active',isOs);
   document.getElementById('nav-gh')?.classList.toggle('active',isGh);
+  document.getElementById('nav-proxy')?.classList.toggle('active',isProxy);
   document.getElementById('nav-admin')?.classList.toggle('active', page==='admin');
+
+  if(isProxy){
+    document.getElementById('topbarLeft').innerHTML=`<span style="font-family:'Syne',sans-serif;font-size:17px;font-weight:700;color:#fff">Proxy activity</span>`;
+    document.getElementById('topbarActions').innerHTML='';
+    if(typeof renderProxy==='function') renderProxy();
+    return;
+  }
 
   if(page==='admin'){
     document.getElementById('topbarLeft').innerHTML='<span style="font-size:17px;font-weight:700;color:#fff">User Management</span>';

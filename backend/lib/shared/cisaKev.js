@@ -3,8 +3,11 @@
 const { CISA_URL } = require('./constants');
 const { TtlCache } = require('./primitives');
 
+const KEV_ENABLED = process.env.OSA_KEV_ENABLED !== 'false';
+
 let cisaCache = { set: null, ts: 0 };
 async function getCisaSet() {
+  if (!KEV_ENABLED) return new Set();
   if (cisaCache.set && Date.now() - cisaCache.ts < 3_600_000) return cisaCache.set;
   try {
     const r = await fetch(CISA_URL, { signal: AbortSignal.timeout(15000) });
