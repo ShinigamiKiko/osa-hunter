@@ -1,0 +1,16 @@
+# Semgrep Scan
+# Engine: Semgrep OSS
+# Mode: run-all
+# Target: /mnt/c/Users/5080/Downloads/github/osa-hunter
+
+p/security-audit
+p/secrets
+p/javascript
+p/nodejs
+p/express
+p/dockerfile
+p/yaml
+p/owasp-top-ten
+p/sql-injection
+p/insecure-transport
+/mnt/c/Users/5080/Downloads/github/osa-hunter/static_analysis_semgrep_1/repos/trailofbits

@@ -1,0 +1,10 @@
+{
+  "name": "osa-hunter-frontend",
+  "private": true,
+  "scripts": {
+    "build:css": "sass public/css/scss/main.scss public/css/main.css --style=compressed --no-source-map"
+  },
+  "devDependencies": {
+    "sass": "1.77.8"
+  }
+}
