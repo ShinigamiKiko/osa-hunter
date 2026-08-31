@@ -105,22 +105,3 @@ OSA_NEXUS_REPOSITORIES={"ubuntu-2404":{"ecosystem":"Ubuntu:24.04","upstream":"ht
 ```
 
 RHEL normally requires a subscription mirror or an internal Nexus repository.
-
-## Verification
-
-Run unit and connector tests:
-
-```bash
-cd backend
-npm test
-```
-
-Run live checks through Node.js `fetch`, without `curl` and without installing
-packages:
-
-```bash
-OSA_LIVE_CONNECTORS=true node --test test/connectors.integration.test.js
-```
-
-The live suite checks metadata and archive paths for every connector, Cargo
-download URL rewriting, policy `403`, and controlled `502` upstream failures.

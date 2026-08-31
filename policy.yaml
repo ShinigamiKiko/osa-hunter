@@ -1,23 +1,47 @@
-version: 8
+version: 9
 
 defaults:
   decision: allow
   on_gate_error: deny
 
 rules:
-  # Блок 1: пакет с уязвимостью из каталога CISA KEV (активно эксплуатируется).
+  - id: toxic-repository
+    action: deny
+    when:
+      toxic.found: yes
+    detail: package is listed as a toxic repository
+
   - id: actively-exploited
     action: deny
     when:
       kev: yes
     detail: package contains a vulnerability listed in CISA KEV
 
-  # Блок 2: пакет с любым CVE 2026 года.
-  - id: any-2026-cve
+  - id: critical
     action: deny
     when:
-      cves: "CVE-2026-*"
-    detail: package carries a 2026 CVE
+      counts.CRITICAL: ">= 1"
+    detail: package contains a critical vulnerability
+
+  - id: high-epss
+    action: deny
+    when:
+      all:
+        - counts.HIGH: ">= 1"
+        - epssMax: ">= 0.5"
+    detail: package contains a high vulnerability with EPSS >= 0.5
+
+  - id: high
+    action: warn
+    when:
+      counts.HIGH: ">= 1"
+    detail: package contains a high vulnerability
+
+  - id: public-poc
+    action: warn
+    when:
+      pocCount: ">= 1"
+    detail: package has a public proof of concept
 
 exceptions:
   allow: []

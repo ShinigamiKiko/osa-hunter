@@ -27,6 +27,22 @@ function allowedDownloadUrl(value, repoCfg) {
   return true;
 }
 
+async function fetchDownload(url, repoCfg) {
+  let current = url;
+  for (let redirects = 0; redirects <= 3; redirects++) {
+    const response = await fetch(current, {
+      headers: { 'User-Agent': 'osa-gate', Accept: 'application/zip, application/octet-stream' },
+      redirect: 'manual', signal: AbortSignal.timeout(60000),
+    });
+    if (response.status < 300 || response.status >= 400) return response;
+    const location = response.headers.get('location');
+    if (!location) throw new Error('Composer download redirect has no location');
+    current = new URL(location, current).toString();
+    if (!allowedDownloadUrl(current, repoCfg)) throw new Error('Composer download redirect is not trusted');
+  }
+  throw new Error('Composer download redirect limit exceeded');
+}
+
 // We generate this download path inside the p2 metadata we serve:
 //   dist/<vendor>/<pkg>/<version>.zip
 function parse(path) {
@@ -95,11 +111,7 @@ async function download(req, res, repoCfg, repository, artifactPath) {
     console.warn(`[composer] blocked untrusted dist URL for ${key}`);
     return res.status(502).json({ error: 'Composer dist URL is not trusted' });
   }
-  const upstream = await fetch(url, {
-    headers: { 'User-Agent': 'osa-gate', Accept: 'application/zip, application/octet-stream' },
-    redirect: 'error',
-    signal: AbortSignal.timeout(60000),
-  });
+  const upstream = await fetchDownload(url, repoCfg);
   res.status(upstream.status);
   upstream.headers.forEach((val, hk) => {
     if (!['content-encoding', 'transfer-encoding', 'connection'].includes(hk)) res.setHeader(hk, val);
@@ -108,4 +120,4 @@ async function download(req, res, repoCfg, repository, artifactPath) {
   return Readable.fromWeb(upstream.body).pipe(res);
 }
 
-module.exports = { handles, parse, serveIndex, download, allowedDownloadUrl };
+module.exports = { handles, parse, serveIndex, download, allowedDownloadUrl, fetchDownload };
