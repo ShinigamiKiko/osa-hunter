@@ -38,6 +38,7 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY backend/server.js .
 COPY backend/lib ./lib
 COPY backend/migrations ./migrations
+COPY policy.yaml ./policy.yaml
 COPY frontend/public/assets/osa.png ./frontend/public/assets/osa.png
 
 ENV PUPPETEER_SKIP_DOWNLOAD=1

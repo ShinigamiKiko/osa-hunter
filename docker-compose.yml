@@ -1,5 +1,3 @@
-version: '3.9'
-
 networks:
   osvguard:
     driver: bridge
@@ -41,6 +39,10 @@ services:
       - PGDATABASE=${PGDATABASE:-osa}
       - PGUSER=${PGUSER:-osa}
       - PGPASSWORD=${PGPASSWORD:-osa}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
+      - OSA_POLICY_FILE=/app/policy.yaml
+      - NEXUS_UPSTREAM=${NEXUS_UPSTREAM:-http://nexus:8081}
+      - OSA_NEXUS_REPOSITORIES=${OSA_NEXUS_REPOSITORIES:-{"npm-proxy":"npm","pypi-proxy":"PyPI","go-proxy":"Go","composer":"Packagist","maven-public":"Maven","nuget-proxy":"NuGet","cargo-proxy":{"ecosystem":"crates.io","upstream":"https://index.crates.io","downloadUpstream":"https://static.crates.io/crates","direct":true},"rubygems-proxy":"RubyGems","ubuntu-2204":{"ecosystem":"Ubuntu:22.04","upstream":"https://archive.ubuntu.com/ubuntu","direct":true},"ubuntu-2404":{"ecosystem":"Ubuntu:24.04","upstream":"https://archive.ubuntu.com/ubuntu","direct":true},"centos-stream9-baseos":{"ecosystem":"CentOS:9","upstream":"https://mirror.stream.centos.org/9-stream/BaseOS/x86_64/os","direct":true},"centos-stream9-appstream":{"ecosystem":"CentOS:9","upstream":"https://mirror.stream.centos.org/9-stream/AppStream/x86_64/os","direct":true},"rhel9-baseos":{"ecosystem":"Red Hat:9"},"rhel9-appstream":{"ecosystem":"Red Hat:9"}}}
       - NODE_ENV=production
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
@@ -48,7 +50,26 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      nexus:
+        condition: service_started
     restart: unless-stopped
+
+  nexus:
+    image: sonatype/nexus3:3.70.1
+    container_name: osvguard-nexus
+    networks:
+      - osvguard
+    ports:
+      - "8081:8081"
+    volumes:
+      - nexus-data:/nexus-data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8081/service/rest/v1/status || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 30
+      start_period: 150s
 
   frontend:
     build:
@@ -66,3 +87,4 @@ services:
 volumes:
   trivy-cache:
   postgres-data:
+  nexus-data:

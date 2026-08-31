@@ -3,14 +3,14 @@ FROM node:20-slim AS scss-build
 
 WORKDIR /scss
 
-# Install sass compiler
-RUN npm install -g sass
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci --ignore-scripts
 
 # Copy only what's needed for compilation
 COPY frontend/public/css ./css
 
 # Compile SCSS → main.css (compressed, no source maps in prod)
-RUN sass css/scss/main.scss css/main.css --style=compressed --no-source-map
+RUN npx sass css/scss/main.scss css/main.css --style=compressed --no-source-map
 
 # ── Stage 2: serve with nginx ──────────────────────────────────
 FROM nginx:alpine

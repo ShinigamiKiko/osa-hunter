@@ -20,4 +20,5 @@ module.exports = {
   trivyLimiter: rateLimiter.trivyLimiter,
   apiLimiter  : rateLimiter.apiLimiter,
   scanLimiter : rateLimiter.scanLimiter,
+  gatewayLimiter: rateLimiter.gatewayLimiter,
 };

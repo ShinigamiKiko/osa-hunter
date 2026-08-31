@@ -81,7 +81,7 @@ function renderDepDetail(scan){
           onmouseover="this.style.background='var(--s3)'" onmouseout="this.style.background=''">
           <div class="vbar ${topSev}" style="height:28px"></div>
           <div style="flex:1;min-width:0">
-            <a href="javascript:void(0)" onclick="openLibFromDep(event,'${sysId}','${depName}','${depVer}')"
+            <a href="#" data-open-lib data-system="${sysId}" data-name="${depName}" data-version="${depVer}"
               style="font-size:17px;font-weight:700;color:#fff;text-decoration:none"
               onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${esc(dep.name)}</a>
             <span style="color:var(--muted);font-size:14px;margin-left:7px">${esc(dep.version)}</span>
@@ -221,7 +221,13 @@ function renderDepDetail(scan){
     ${rootVulnsHtml}
     ${depSection(direct,   'Direct Dependencies',    false,'direct')}
     ${depSection(indirect, 'Transitive Dependencies', true, 'transitive')}
-    ${emptyHtml}`;
+     ${emptyHtml}`;
+
+  el.querySelectorAll('[data-open-lib]').forEach(link => link.addEventListener('click', event => {
+    event.preventDefault();
+    event.stopPropagation();
+    openLibFromDep(event, link.dataset.system, link.dataset.name, link.dataset.version);
+  }));
 
   window._currentDepScanDeps=allDeps;
   window._currentDepScanRoot = rootDep || {

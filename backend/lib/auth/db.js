@@ -60,7 +60,11 @@ async function seedAdmin() {
   if (parseInt(rows[0].count, 10) > 0) return;
 
   const bcrypt = require('bcryptjs');
-  const hash = await bcrypt.hash('admin', 12);
+  const password = process.env.ADMIN_PASSWORD;
+  if (!password && process.env.NODE_ENV === 'production') {
+    throw new Error('ADMIN_PASSWORD must be set before creating the initial admin account');
+  }
+  const hash = await bcrypt.hash(password || 'admin', 12);
   await pool.query(
     `INSERT INTO users (username, password, role) VALUES ('admin', $1, 'admin')`,
     [hash]

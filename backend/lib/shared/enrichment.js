@@ -3,10 +3,12 @@
 const { EPSS_URL, POC_BASE, OSV_URL, SEV_ORD } = require('./constants');
 const { pLimit } = require('./primitives');
 const { nvdCache, getCisaSet } = require('./cisaKev');
+const { getPool } = require('../auth/db');
 
 const NVD_API_KEY     = process.env.NVD_API_KEY || '';
 const NVD_CONCURRENCY = NVD_API_KEY ? 10 : 3;
 const NVD_TIMEOUT_MS  = NVD_API_KEY ? 8000 : 10000;
+const CVE_CACHE_TTL_HOURS = parseInt(process.env.CVE_CACHE_TTL_HOURS || '24', 10) || 0;
 
 if (NVD_API_KEY) {
   console.log('[NVD] API key detected — high-throughput mode (concurrency 10)');
@@ -14,8 +16,10 @@ if (NVD_API_KEY) {
   console.log('[NVD] No API key — conservative mode (concurrency 3). Set NVD_API_KEY for faster enrichment.');
 }
 
+const EPSS_ENABLED = process.env.OSA_EPSS_ENABLED !== 'false';
+
 async function fetchEpss(cveIds) {
-  if (!cveIds.length) return {};
+  if (!cveIds.length || !EPSS_ENABLED) return {};
   const results = {};
   for (let i = 0; i < cveIds.length; i += 30) {
     const chunk = cveIds.slice(i, i + 30);
@@ -63,8 +67,10 @@ async function fetchCvss(cveIds) {
   return result;
 }
 
+const POC_ENABLED = process.env.OSA_POC_ENABLED !== 'false';
+
 async function fetchPocs(cveIds) {
-  if (!cveIds.length) return {};
+  if (!cveIds.length || !POC_ENABLED) return {};
   const result = {};
   await pLimit(cveIds, 10, async (cveId) => {
     const m = cveId.match(/CVE-(\d{4})-/);
@@ -136,24 +142,96 @@ async function osvQuery(pkgName, ecosystem, version) {
   }
 }
 
+// Persistent per-CVE cache for the stable, slow-to-fetch fields (CVSS, PoC).
+// Reads what's cached, fetches only the missing CVEs, writes them back. Falls
+// back to a direct fetch if the DB is unavailable. EPSS and KEV are NOT cached
+// here - EPSS shifts daily (kept live, one batched call) and KEV is a local set.
+async function loadCveCache(cveIds) {
+  if (!cveIds.length) return {};
+  try {
+    const query = CVE_CACHE_TTL_HOURS > 0
+      ? `SELECT cve, cvss, poc FROM cve_enrichment WHERE cve = ANY($1)
+         AND updated_at > NOW() - ($2 || ' hours')::interval`
+      : `SELECT cve, cvss, poc FROM cve_enrichment WHERE cve = ANY($1)`;
+    const params = CVE_CACHE_TTL_HOURS > 0 ? [cveIds, CVE_CACHE_TTL_HOURS] : [cveIds];
+    const { rows } = await getPool().query(query, params);
+    const out = {};
+    for (const r of rows) out[r.cve] = { cvss: r.cvss, poc: r.poc };
+    return out;
+  } catch (e) { console.error('[cve-cache] read failed:', e.message); return {}; }
+}
+
+async function saveCveCache(entries) {
+  const items = Object.entries(entries);
+  if (!items.length) return;
+  try {
+    await pLimit(items, 20, async ([cve, v]) => {
+      await getPool().query(
+        `INSERT INTO cve_enrichment (cve, cvss, poc, updated_at)
+         VALUES ($1, $2::jsonb, $3::jsonb, NOW())
+         ON CONFLICT (cve) DO UPDATE SET cvss = EXCLUDED.cvss, poc = EXCLUDED.poc, updated_at = NOW()`,
+        [cve, JSON.stringify(v.cvss ?? null), JSON.stringify(v.poc ?? [])]);
+    });
+  } catch (e) { console.error('[cve-cache] write failed:', e.message); }
+}
+
+// CVSS + PoC via the persistent cache; only misses hit NVD / PoC-in-GitHub.
+async function cachedCvssPoc(cveIds) {
+  const cache = await loadCveCache(cveIds);
+  const missing = cveIds.filter(c => !(c in cache));
+  const cvssMap = {}, pocMap = {};
+  for (const c of cveIds) if (cache[c]) { cvssMap[c] = cache[c].cvss; pocMap[c] = cache[c].poc || []; }
+
+  if (missing.length) {
+    const [freshCvss, freshPoc] = await Promise.all([fetchCvss(missing), fetchPocs(missing)]);
+    const toSave = {};
+    for (const c of missing) {
+      cvssMap[c] = freshCvss[c] ?? null;
+      pocMap[c]  = freshPoc[c]  ?? [];
+      toSave[c]  = { cvss: cvssMap[c], poc: pocMap[c] };
+    }
+    saveCveCache(toSave); // fire-and-forget
+  }
+  return { cvssMap, pocMap };
+}
+
 async function bulkEnrich(cveIds) {
-  const [epssRes, kevRes, cvssRes, pocRes] = await Promise.allSettled([
+  const [epssRes, kevRes, cvssPocRes] = await Promise.allSettled([
     fetchEpss(cveIds),
     (async () => { const s = await getCisaSet(); return cveIds.filter(c => s.has(c)); })(),
-    fetchCvss(cveIds),
-    fetchPocs(cveIds),
+    cachedCvssPoc(cveIds),
   ]);
+  const cvssPoc = cvssPocRes.status === 'fulfilled' ? cvssPocRes.value : { cvssMap: {}, pocMap: {} };
   return {
     epssMap: epssRes.status === 'fulfilled' ? epssRes.value : {},
     kevSet : new Set(kevRes.status === 'fulfilled' ? kevRes.value : []),
-    cvssMap: cvssRes.status === 'fulfilled' ? cvssRes.value : {},
-    pocMap : pocRes.status  === 'fulfilled' ? pocRes.value  : {},
+    cvssMap: cvssPoc.cvssMap,
+    pocMap : cvssPoc.pocMap,
   };
 }
 
 function enrichVulns(vulns, { epssMap, kevSet, cvssMap, pocMap }) {
   return vulns.map(v => {
-    const cve = [...(v._aliases || []), v.id].find(x => x?.startsWith('CVE-')) || null;
+    // Pull an embedded CVE too - distro records use ids like "DEBIAN-CVE-2024-1"
+    // with no plain-CVE alias, so a startsWith check would miss them.
+    // Resolve every CVE this record covers. Distro advisories (RLSA/ALSA/RHSA)
+    // carry no CVE alias but list them in `upstream`; one advisory can map to
+    // many CVEs. Also mine aliases and the id itself (DEBIAN-CVE-… etc).
+    const cves = [...new Set(
+      [...(v._aliases || []), v.id, ...(v.upstream || [])]
+        .flatMap(x => (typeof x === 'string' && x.match(/CVE-\d{4}-\d+/g)) || [])
+    )];
+    const cve = cves[0] || null;
+    // Enrichment spans all covered CVEs, so KEV/EPSS fire even when the primary
+    // isn't the exploited/worst one.
+    const inKev = cves.some(c => kevSet.has(c));
+    let epss = null;
+    for (const c of cves) {
+      const e = epssMap[c];
+      if (e && (!epss || e.epss > epss.epss)) epss = e;
+    }
+    const cvss = cves.map(c => cvssMap[c]).find(Boolean) || null;
+    const pocs = cves.flatMap(c => pocMap[c] || []);
     return {
       id       : v.id,
       summary  : v.summary   || null,
@@ -165,10 +243,11 @@ function enrichVulns(vulns, { epssMap, kevSet, cvssMap, pocMap }) {
       aliases  : v._aliases,
       refs     : v._refs,
       cve,
-      epss  : cve ? (epssMap[cve] || null) : null,
-      cvss  : cve ? (cvssMap[cve] || null) : null,
-      inKev : cve ? kevSet.has(cve)         : false,
-      pocs  : cve ? (pocMap[cve]  || [])    : [],
+      cves,
+      epss,
+      cvss,
+      inKev,
+      pocs,
     };
   });
 }
@@ -236,8 +315,9 @@ function getFixed(v) {
 function extractCVEs(vulns) {
   const s = new Set();
   for (const v of vulns) {
-    for (const a of v.aliases || []) if (a.startsWith('CVE-')) s.add(a);
-    if (v.id?.startsWith('CVE-')) s.add(v.id);
+    for (const a of v.aliases || []) { const m = a && a.match(/CVE-\d{4}-\d+/); if (m) s.add(m[0]); }
+    for (const u of v.upstream || []) { const m = u && u.match(/CVE-\d{4}-\d+/); if (m) s.add(m[0]); } // RLSA/ALSA/RHSA
+    const im = v.id && v.id.match(/CVE-\d{4}-\d+/); if (im) s.add(im[0]);
   }
   return [...s];
 }

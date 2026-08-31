@@ -8,10 +8,12 @@ const pgSession = require('connect-pg-simple')(session);
 
 const { getPool, runMigrations, seedAdmin } = require('./lib/auth/db');
 const { purgeExpired }        = require('./lib/auth/scanCache');
+const { purgeProxyData }      = require('./lib/gate/retention');
 const { requireAuth }         = require('./lib/auth/middleware');
 const authRoutes              = require('./lib/auth/routes');
 const apiKeyRoutes            = require('./lib/auth/api-key-routes');
 const scanHistoryRoutes       = require('./lib/routes/scan-history.route');
+const { router: gateProxyRoutes } = require('./lib/routes/gate-proxy.route');
 
 const sessionSecret = process.env.SESSION_SECRET || (() => {
   const generated = crypto.randomBytes(32).toString('hex');
@@ -19,6 +21,10 @@ const sessionSecret = process.env.SESSION_SECRET || (() => {
   console.warn('[boot] All sessions will be lost on restart. Set SESSION_SECRET in .env to avoid this.');
   return generated;
 })();
+
+const cookieSecure = process.env.SESSION_COOKIE_SECURE === 'true'
+  || (process.env.NODE_ENV === 'production' && process.env.HTTPS === 'true');
+const cookieName = cookieSecure ? '__Host-osa.sid' : 'osa.sid';
 
 const app = express();
 
@@ -31,7 +37,19 @@ app.use((req, res, next) => {
   res.setHeader('Referrer-Policy', 'no-referrer');
   res.setHeader(
     'Content-Security-Policy',
-    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'"
+    [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline'",
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+      "font-src 'self' https://fonts.gstatic.com",
+      "img-src 'self' data:",
+      "connect-src 'self'",
+      "object-src 'none'",
+      "base-uri 'self'",
+      "frame-ancestors 'none'",
+      "form-action 'self'",
+      ...(cookieSecure ? ['upgrade-insecure-requests'] : []),
+    ].join('; ')
   );
   next();
 });
@@ -55,7 +73,7 @@ runMigrations()
     await seedAdmin();
 
     app.use(session({
-      name: 'osa.sid',
+      name: cookieName,
       store: new pgSession({
         pool: getPool(),
         tableName: 'session',
@@ -65,14 +83,37 @@ runMigrations()
       resave: false,
       saveUninitialized: false,
       cookie: {
-        secure: process.env.SESSION_COOKIE_SECURE === 'true'
-          || (process.env.NODE_ENV === 'production' && process.env.HTTPS === 'true'),
+        secure: cookieSecure,
         httpOnly: true,
         sameSite: 'lax',
         path: '/',
         maxAge: 7 * 24 * 60 * 60 * 1000,
       },
     }));
+
+    app.use((req, res, next) => {
+      if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) return next();
+
+      const supplied = req.get('origin') || req.get('referer');
+      // Non-browser API clients do not send Origin/Referer. SameSite cookies
+      // protect browser requests, while this rejects cross-origin browser calls.
+      if (!supplied) return next();
+
+      let origin;
+      try { origin = new URL(supplied).origin; } catch {
+        return res.status(403).json({ error: 'Invalid request origin' });
+      }
+
+      const expected = `${req.protocol}://${req.get('host')}`;
+      const configured = (process.env.CORS_ORIGIN || '')
+        .split(',').map(value => value.trim()).filter(Boolean);
+      if (origin !== expected && !configured.includes(origin)) {
+        return res.status(403).json({ error: 'Cross-origin request blocked' });
+      }
+      next();
+    });
+
+    app.use('/api/gate', gateProxyRoutes);
 
     app.use('/api', authRoutes);
 
@@ -90,6 +131,7 @@ runMigrations()
       ['health',    './lib/routes/health.route'],
       ['trivy',     './lib/routes/trivy.route'],
       ['libscan',   './lib/routes/library-scan.route'],
+      ['proxy',     './lib/routes/proxy.route'],
       ['depscan',   './lib/routes/dependency-scan.route'],
       ['composer',  './lib/routes/composer-scan.route'],
       ['activity',  './lib/routes/activity.route'],
@@ -116,6 +158,8 @@ runMigrations()
 
     setInterval(purgeExpired, 6 * 60 * 60 * 1000);
     purgeExpired();
+    setInterval(purgeProxyData, 6 * 60 * 60 * 1000);
+    purgeProxyData();
 
     app.listen(PORT, () => console.log(`OSA Hunter → http://localhost:${PORT}`));
   })

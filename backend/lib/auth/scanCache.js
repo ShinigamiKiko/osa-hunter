@@ -1,7 +1,13 @@
 'use strict';
 
 const { getPool } = require('./db');
-const TTL_HOURS = 24;
+// Verdict cache lifetime in hours. Default 6h: short enough that newly-disclosed
+// CVEs for an already-scanned version are picked up on the next scan, long enough
+// that repeated installs in a session are instant. The slow part (per-CVE
+// CVSS/PoC) is cached separately and permanently, so re-scans stay fast.
+// Set to 0 to keep verdicts forever (clear manually via DELETE /api/cache).
+const _ttlRaw = process.env.SCAN_CACHE_TTL_HOURS;
+const TTL_HOURS = (_ttlRaw === undefined || _ttlRaw === '') ? 6 : (parseInt(_ttlRaw, 10) || 0);
 
 class ScanError extends Error {
   constructor(status, message) {
@@ -14,14 +20,14 @@ async function withCache(key, type, res, scanFn) {
   const pool = getPool();
 
   try {
-    const { rows } = await pool.query(
-      `SELECT payload, scanned_at
-       FROM scan_cache
-       WHERE cache_key = $1
-         AND scanned_at > NOW() - ($2 || ' hours')::interval
-       LIMIT 1`,
-      [key, TTL_HOURS]
-    );
+    const { rows } = TTL_HOURS > 0
+      ? await pool.query(
+          `SELECT payload, scanned_at FROM scan_cache
+           WHERE cache_key = $1 AND scanned_at > NOW() - ($2 || ' hours')::interval LIMIT 1`,
+          [key, TTL_HOURS])
+      : await pool.query(
+          `SELECT payload, scanned_at FROM scan_cache WHERE cache_key = $1 LIMIT 1`,
+          [key]);
     if (rows.length) {
       const age = Math.round((Date.now() - new Date(rows[0].scanned_at)) / 60000);
       console.log(`[cache] HIT  ${key}  (${age}m old)`);
@@ -72,6 +78,7 @@ async function withCache(key, type, res, scanFn) {
 }
 
 async function purgeExpired() {
+  if (TTL_HOURS <= 0) return; // forever-cache mode: nothing auto-expires
   try {
     const { rowCount } = await getPool().query(
       `DELETE FROM scan_cache WHERE scanned_at < NOW() - ($1 || ' hours')::interval`,
