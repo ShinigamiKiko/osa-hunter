@@ -43,7 +43,7 @@ const BUILTIN_POLICY = {
     },
     {
       id: 'critical',
-      action: 'warn',
+      action: 'deny',
       when: f => f.counts.CRITICAL > 0,
       detail: f => `${f.counts.CRITICAL} critical vuln(s)`,
     },

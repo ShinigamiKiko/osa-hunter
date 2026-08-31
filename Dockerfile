@@ -1,12 +1,12 @@
 # ── Stage 1: deps ─────────────────────────────────────────────
-FROM node:20-slim AS deps
+FROM node:22-slim AS deps
 WORKDIR /app
-COPY backend/package.json .
+COPY backend/package.json backend/package-lock.json ./
 ENV PUPPETEER_SKIP_DOWNLOAD=1
-RUN npm install --omit=dev
+RUN npm ci --omit=dev --ignore-scripts
 
 # ── Stage 2: runtime ──────────────────────────────────────────
-FROM node:20-slim
+FROM node:22-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl tar ca-certificates chromium php-cli php-mbstring php-zip unzip git fonts-liberation fonts-noto \
