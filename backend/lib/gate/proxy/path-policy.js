@@ -35,7 +35,9 @@ function metadataAllowed(ecosystem, value) {
 
   if (ecosystem === 'RubyGems') {
     return /^(?:versions|latest_specs\.4\.8\.gz|specs\.4\.8\.gz|prerelease_specs\.4\.8\.gz)$/i.test(p)
-      || /^(?:info|quick)\/[^/]+$/i.test(p);
+      || /^info\/[^/]+$/i.test(p)
+      || /^quick\/Marshal\.4\.8\/[^/]+\.gemspec\.rz$/i.test(p)
+      || /^api\/v1\/dependencies$/i.test(p);
   }
 
   if (/^(Rocky Linux|AlmaLinux|Red Hat|CentOS|openSUSE|SUSE)\b/.test(ecosystem)) {
