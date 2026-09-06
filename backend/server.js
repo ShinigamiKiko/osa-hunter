@@ -6,10 +6,13 @@ const crypto    = require('crypto');
 const session   = require('express-session');
 const pgSession = require('connect-pg-simple')(session);
 
-const { getPool, runMigrations, seedAdmin } = require('./lib/auth/db');
+const { closePool, getPool, runMigrations, seedAdmin } = require('./lib/auth/db');
 const { purgeExpired }        = require('./lib/auth/scanCache');
 const { purgeProxyData }      = require('./lib/gate/retention');
 const { requireAuth }         = require('./lib/auth/middleware');
+const { installConsoleLogger, logError, logRequest, write } = require('./lib/observability/logger');
+const { metricsHandler, requestMetrics } = require('./lib/observability/metrics');
+installConsoleLogger();
 const authRoutes              = require('./lib/auth/routes');
 const apiKeyRoutes            = require('./lib/auth/api-key-routes');
 const scanHistoryRoutes       = require('./lib/routes/scan-history.route');
@@ -27,6 +30,33 @@ const cookieSecure = process.env.SESSION_COOKIE_SECURE === 'true'
 const cookieName = cookieSecure ? '__Host-osa.sid' : 'osa.sid';
 
 const app = express();
+let httpServer;
+let metricsServer;
+let shuttingDown = false;
+let cleanupIntervals = [];
+
+process.on('uncaughtException', (err) => {
+  logError('uncaught_exception', err);
+  process.exit(1);
+});
+process.on('unhandledRejection', (reason) => {
+  logError('unhandled_rejection', reason instanceof Error ? reason : new Error(String(reason)));
+});
+
+app.use((req, res, next) => {
+  req.requestId = crypto.randomUUID();
+  res.setHeader('X-Request-Id', req.requestId);
+  next();
+});
+app.use(requestMetrics);
+app.use((req, res, next) => {
+  const startedAt = Date.now();
+  res.once('finish', () => logRequest(req, res.statusCode, Date.now() - startedAt));
+  res.once('close', () => {
+    if (!res.writableEnded) logRequest(req, res.statusCode, Date.now() - startedAt);
+  });
+  next();
+});
 
 app.set('trust proxy', 1);
 
@@ -67,6 +97,7 @@ app.use(express.json({ limit: '64kb' }));
 app.use(express.static(path.join(__dirname, '../frontend/public')));
 
 const PORT = process.env.PORT || 3001;
+const METRICS_PORT = parseInt(process.env.METRICS_PORT || '9100', 10);
 
 runMigrations()
   .then(async () => {
@@ -144,26 +175,50 @@ runMigrations()
     for (const [name, modPath] of routes) {
       try {
         app.use('/api', require(modPath));
-        console.log(`[boot] ✅ ${name} loaded`);
+         write('info', 'route_loaded', { route: name });
       } catch (e) {
-        console.error(`[boot] ❌ ${name} FAILED: ${e.message}`);
+        logError('route_load_failed', e, { route: name });
         process.exit(1);
       }
     }
 
     app.use((err, req, res, _next) => {
-      console.error('[Unhandled]', err.message);
+      logError('unhandled_error', err, { requestId: req.requestId, method: req.method, path: req.originalUrl });
       if (!res.headersSent) res.status(500).json({ error: 'Internal server error' });
     });
 
-    setInterval(purgeExpired, 6 * 60 * 60 * 1000);
+    cleanupIntervals.push(setInterval(purgeExpired, 6 * 60 * 60 * 1000));
     purgeExpired();
-    setInterval(purgeProxyData, 6 * 60 * 60 * 1000);
+    cleanupIntervals.push(setInterval(purgeProxyData, 6 * 60 * 60 * 1000));
     purgeProxyData();
 
-    app.listen(PORT, () => console.log(`OSA Hunter → http://localhost:${PORT}`));
+     httpServer = app.listen(PORT, () => {
+       write('info', 'server_started', { port: PORT, environment: process.env.NODE_ENV || 'development' });
+       const metricsApp = express();
+       metricsApp.get('/metrics', metricsHandler);
+       metricsServer = metricsApp.listen(METRICS_PORT, '0.0.0.0', () => {
+         write('info', 'metrics_server_started', { port: METRICS_PORT, host: '0.0.0.0' });
+       });
+     });
   })
   .catch(err => {
-    console.error('[boot] Migration failed:', err.message);
+    logError('migration_failed', err);
     process.exit(1);
-  });
+});
+
+async function shutdown(signal) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  write('info', 'shutdown_started', { signal });
+  cleanupIntervals.forEach(clearInterval);
+  await Promise.all([
+    httpServer ? new Promise(resolve => httpServer.close(resolve)) : Promise.resolve(),
+    metricsServer ? new Promise(resolve => metricsServer.close(resolve)) : Promise.resolve(),
+  ]);
+  await closePool();
+  write('info', 'shutdown_complete');
+  process.exit(0);
+}
+
+process.once('SIGTERM', () => shutdown('SIGTERM'));
+process.once('SIGINT', () => shutdown('SIGINT'));

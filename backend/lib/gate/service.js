@@ -3,6 +3,8 @@
 const { getPool } = require('../auth/db');
 const { gateDecide } = require('./decide');
 const { DEFAULT_POLICY } = require('./policy');
+const { singleFlight } = require('../shared/primitives');
+const { observeCache, observeExternalError } = require('../observability/metrics');
 
 // Verdict cache TTL (hours). Default 6h so new CVEs on an already-scanned
 // version surface on the next scan; 0 = forever. Same knob as scanCache.
@@ -28,13 +30,19 @@ async function cachedGate(input) {
       : await pool.query(
           `SELECT payload FROM scan_cache WHERE cache_key = $1 LIMIT 1`,
           [key]);
-    if (cached.rows.length) return { ...cached.rows[0].payload, _cached: true };
+    if (cached.rows.length) {
+      observeCache('gate', 'hit');
+      return { ...cached.rows[0].payload, _cached: true };
+    }
+    observeCache('gate', 'miss');
   } catch (error) {
+    observeExternalError('postgres');
     console.error('[gate] cache read failed:', error.message);
   }
 
-  let result;
-  try {
+  return singleFlight(`gate:${key}`, async () => {
+   let result;
+   try {
     result = await gateDecide({ ...input, name, ecosystem, version: input.version }, policy);
   } catch (error) {
     // A registry must not turn an upstream outage into an implicit allow.
@@ -45,8 +53,8 @@ async function cachedGate(input) {
       policy: version,
       scannedAt: new Date().toISOString(),
     };
-  }
-  try {
+    }
+   try {
     await pool.query(
       `INSERT INTO scan_cache (cache_key, type, payload, scanned_at)
        VALUES ($1, 'gate', $2::jsonb, NOW())
@@ -54,9 +62,11 @@ async function cachedGate(input) {
       [key, JSON.stringify(result)]
     );
   } catch (error) {
+    observeExternalError('postgres');
     console.error('[gate] cache write failed:', error.message);
   }
-  return result;
+   return result;
+  });
 }
 
 module.exports = { cachedGate };

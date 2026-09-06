@@ -49,6 +49,6 @@ ENV TRIVY_CACHE_DIR=/app/.trivy-cache
 
 RUN chown -R appuser:appuser /app && mkdir -p /app/.trivy-cache && chown -R appuser:appuser /app/.trivy-cache
 USER appuser
-EXPOSE 3001
+EXPOSE 3001 9100
 STOPSIGNAL SIGTERM
 CMD ["node", "server.js"]

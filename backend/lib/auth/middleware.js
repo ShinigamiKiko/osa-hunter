@@ -14,6 +14,7 @@ async function requireAuth(req, res, next) {
     '/auth/login',
     '/auth/status',
     '/health',
+    '/ready',
   ];
   if (open.some(p => req.path === p || req.path.startsWith(p + '/'))) return next();
 

@@ -1,5 +1,7 @@
 'use strict';
 const { withCache } = require('../auth/scanCache');
+const { Semaphore } = require('../shared/primitives');
+const { GRYPE_CONCURRENCY, GRYPE_QUEUE_SIZE } = require('../config');
 
 const express      = require('express');
 const router       = express.Router();
@@ -33,6 +35,11 @@ function topSev(matches) {
 function validPkg(s) { return /^[a-zA-Z0-9._+\-:@/]+$/.test(s) && s.length < 200; }
 function validDistroVer(s) { return /^[a-zA-Z0-9._\-]+$/.test(s) && s.length < 50; }
 
+const grypeSemaphore = new Semaphore(
+  GRYPE_CONCURRENCY,
+  GRYPE_QUEUE_SIZE
+);
+
 router.post('/osscan', async (req, res) => {
   const ip = req.ip || req.socket?.remoteAddress || 'unknown';
   if (!scanLimiter.check(ip))
@@ -52,7 +59,11 @@ router.post('/osscan', async (req, res) => {
 
   const distroKey = distro.toLowerCase();
   const _cacheKey = `os:${distroKey}:${distroVersion||'latest'}:${name}:${version||'any'}`;
-  return withCache(_cacheKey, 'os', res, async () => {
+  const release = await grypeSemaphore.acquire();
+  if (!release) return res.status(503).json({ error: 'Grype scan queue is full' });
+
+  try {
+   return await withCache(_cacheKey, 'os', res, async () => {
 
   const purl = `pkg:${dm.type}/${dm.ns}/${encodeURIComponent(name)}${version ? '@' + version : ''}`;
 
@@ -172,7 +183,10 @@ router.post('/osscan', async (req, res) => {
     console.error('[Grype] Error:', e.message);
     throw e;
   }
-  });
+   });
+  } finally {
+    release();
+  }
 });
 
 module.exports = router;

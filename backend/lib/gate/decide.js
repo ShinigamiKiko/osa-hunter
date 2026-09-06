@@ -237,4 +237,4 @@ async function gateDecide({ name, ecosystem, version, includeDeps = false }, pol
   };
 }
 
-module.exports = { gateDecide, buildFacts, resolveDecision };
+module.exports = { gateDecide, buildFacts, resolveDecision, osvEcosystem };

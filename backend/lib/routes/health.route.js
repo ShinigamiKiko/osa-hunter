@@ -3,6 +3,7 @@ const express   = require('express');
 const router    = express.Router();
 const { execFile } = require('child_process');
 const { EPSS_URL } = require('../shared');
+const { getPool } = require('../auth/db');
 
 router.get('/health', (req, res) => {
   execFile('trivy', ['--version'], { timeout: 5000 }, (err, stdout) => {
@@ -12,6 +13,15 @@ router.get('/health', (req, res) => {
       version: err ? null : (stdout.split('\n')[0] || '').trim(),
     });
   });
+});
+
+router.get('/ready', async (req, res) => {
+  try {
+    await getPool().query('SELECT 1');
+    return res.json({ status: 'ready', database: true });
+  } catch (error) {
+    return res.status(503).json({ status: 'not_ready', database: false, error: error.message });
+  }
 });
 
 router.get('/epss/status', async (req, res) => {
