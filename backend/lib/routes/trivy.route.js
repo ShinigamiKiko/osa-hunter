@@ -3,7 +3,14 @@ const express   = require('express');
 const router    = express.Router();
 const { execFile } = require('child_process');
 const { trivyLimiter, validateImage } = require('../shared');
+const { Semaphore } = require('../shared/primitives');
 const { withCache } = require('../auth/scanCache');
+const { TRIVY_CONCURRENCY, TRIVY_QUEUE_SIZE } = require('../config');
+
+const trivySemaphore = new Semaphore(
+  TRIVY_CONCURRENCY,
+  TRIVY_QUEUE_SIZE
+);
 
 router.post('/trivy/scan', async (req, res) => {
   const ip = req.ip || req.socket?.remoteAddress || 'unknown';
@@ -18,7 +25,11 @@ router.post('/trivy/scan', async (req, res) => {
   const fullImage = tag ? `${image}:${tag}` : `${image}:latest`;
   const _cacheKey = `img:${fullImage}`;
 
-  return withCache(_cacheKey, 'img', res, () => new Promise((resolve, reject) => {
+  const release = await trivySemaphore.acquire();
+  if (!release) return res.status(503).json({ error: 'Trivy scan queue is full' });
+
+  try {
+   return await withCache(_cacheKey, 'img', res, () => new Promise((resolve, reject) => {
     console.log(`[Trivy] Scanning: ${fullImage} (ip: ${ip})`);
     execFile('trivy', ['image', '--format', 'json', '--quiet', '--timeout', '10m', '--', fullImage],
       { timeout: 600_000, maxBuffer: 50 * 1024 * 1024 },
@@ -29,10 +40,13 @@ router.post('/trivy/scan', async (req, res) => {
         try { resolve(JSON.parse(trimmedOut || stdout)); }
         catch (e) { reject(new Error(trivyErr || 'Failed to parse Trivy output')); }
       });
-  })).catch(e => {
+   })).catch(e => {
     console.error('[Trivy] Error:', e.message);
     if (!res.headersSent) res.status(500).json({ error: e.message });
-  });
+   });
+  } finally {
+    release();
+  }
 });
 
 module.exports = router;
