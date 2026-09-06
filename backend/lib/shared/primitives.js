@@ -54,4 +54,36 @@ class RateLimiter {
   }
 }
 
-module.exports = { TtlCache, pLimit, RateLimiter };
+class Semaphore {
+  constructor(limit, maxQueue = limit * 4) {
+    this.limit = Math.max(1, limit);
+    this.maxQueue = Math.max(0, maxQueue);
+    this.active = 0;
+    this.queue = [];
+  }
+
+  acquire() {
+    if (this.active < this.limit) {
+      this.active++;
+      return Promise.resolve(() => this.release());
+    }
+    if (this.queue.length >= this.maxQueue) return Promise.resolve(null);
+    return new Promise(resolve => this.queue.push(resolve));
+  }
+
+  release() {
+    const next = this.queue.shift();
+    if (next) return next(() => this.release());
+    this.active--;
+  }
+}
+
+const singleflight = new Map();
+function singleFlight(key, fn) {
+  if (singleflight.has(key)) return singleflight.get(key);
+  const promise = Promise.resolve().then(fn).finally(() => singleflight.delete(key));
+  singleflight.set(key, promise);
+  return promise;
+}
+
+module.exports = { TtlCache, pLimit, RateLimiter, Semaphore, singleFlight };

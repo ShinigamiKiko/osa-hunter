@@ -87,6 +87,42 @@ curl -X POST /api/ghscan -d '{"url":"https://github.com/owner/repo"}'
 
 Full endpoint list: `libscan` · `depscan` · `composer` · `osscan` · `trivy/scan` · `ghscan` · `scans/history` · `export/pdf`
 
+### Prometheus and logs
+
+Metrics are published on a separate port bound to localhost only, not on the
+public API port:
+
+```bash
+curl http://localhost:9100/metrics
+```
+
+The backend writes one JSON object per line to stdout. Each HTTP request includes
+`timestamp`, `requestId`, `method`, `path`, `statusCode` and `durationMs` fields.
+Sensitive authorization headers and cookies are never included in request logs.
+
+`GET /api/ready` checks PostgreSQL connectivity and is used by the backend
+container healthcheck. Long-running Trivy and Grype operations are limited by
+`TRIVY_CONCURRENCY`/`GRYPE_CONCURRENCY` and their queue-size settings. External
+HTTP calls use `HTTP_TIMEOUT_MS` and `HTTP_CONCURRENCY` as shared defaults.
+
+`TRIVY_QUEUE_SIZE` and `GRYPE_QUEUE_SIZE` limit waiting scan requests. A full
+queue returns HTTP `503`; the per-client rate limits return HTTP `429`. The
+default limits are 5 Trivy requests/minute, 20 scan requests/minute, 120 API
+requests/minute and 120 gateway requests/minute.
+
+Scan and gate results are stored in PostgreSQL. A cache hit returns immediately
+with `_cached: true`; a cache miss runs the scan and stores its result. The
+`osa_cache_operations_total` metric tracks hits and misses by cache type.
+
+For a Compose backup, dump PostgreSQL and archive the named volumes before
+upgrades. For example:
+
+```bash
+docker compose exec -T postgres pg_dump -U "$PGUSER" "$PGDATABASE" > osa.sql
+docker run --rm -v osa-hunter_nexus-data:/data -v "$PWD":/backup alpine \
+  tar czf /backup/nexus-data.tgz -C /data .
+```
+
 ## Package Proxy
 
 OSA accepts package-manager metadata and archive requests, checks the package
