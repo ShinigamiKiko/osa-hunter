@@ -14,6 +14,8 @@
 //   _animations   — all @keyframes
 //   _misc         — scrollbar, export btn, pkg-group, dep badges
 //   _login        — login page card, form, radar wrapper
+//   _proxy        — proxy activity tabs, table, pager
+//   _rules        — gate policy editor: rule cards, exceptions, revisions
 
 @use 'partials/base';
 @use 'partials/sidebar';
@@ -27,3 +29,4 @@
 @use 'partials/misc';
 @use 'partials/login';
 @use 'partials/proxy';
+@use 'partials/rules';

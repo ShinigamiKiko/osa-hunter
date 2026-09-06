@@ -3,6 +3,7 @@
 const { getPool } = require('../auth/db');
 const { gateDecide } = require('./decide');
 const { DEFAULT_POLICY } = require('./policy');
+const { getActivePolicy } = require('./policyStore');
 const { singleFlight } = require('../shared/primitives');
 const { observeCache, observeExternalError } = require('../observability/metrics');
 
@@ -12,7 +13,15 @@ const _ttlRaw = process.env.SCAN_CACHE_TTL_HOURS;
 const DEFAULT_TTL_HOURS = (_ttlRaw === undefined || _ttlRaw === '') ? 6 : (parseInt(_ttlRaw, 10) || 0);
 
 async function cachedGate(input) {
-  const policy = input.policy || DEFAULT_POLICY;
+  // The active revision lives in the database (seeded from policy.yaml on first
+  // boot). DEFAULT_POLICY is only the last resort if that read fails outright.
+  const policy = input.policy
+    || await getActivePolicy().catch(err => {
+      observeExternalError('postgres');
+      console.error('[gate] policy load failed, falling back to file policy:', err.message);
+      return DEFAULT_POLICY;
+    });
+  // Part of the cache key: activating a revision invalidates every verdict.
   const version = policy.version || '1';
   const name = input.name.trim();
   const ecosystem = input.ecosystem.trim();

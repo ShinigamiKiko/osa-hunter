@@ -17,6 +17,7 @@ const authRoutes              = require('./lib/auth/routes');
 const apiKeyRoutes            = require('./lib/auth/api-key-routes');
 const scanHistoryRoutes       = require('./lib/routes/scan-history.route');
 const { router: gateProxyRoutes } = require('./lib/routes/gate-proxy.route');
+const { bootstrapPolicy }     = require('./lib/gate/policyStore');
 
 const sessionSecret = process.env.SESSION_SECRET || (() => {
   const generated = crypto.randomBytes(32).toString('hex');
@@ -103,6 +104,12 @@ runMigrations()
   .then(async () => {
     await seedAdmin();
 
+    // Seed gate_policies from policy.yaml on a fresh database, then serve the
+    // active revision from there. Fail loudly: a gate with no policy is worse
+    // than a gate that refuses to start.
+    const seededPolicy = await bootstrapPolicy();
+    write('info', 'policy_ready', { revision: seededPolicy.revision, source: seededPolicy.source });
+
     app.use(session({
       name: cookieName,
       store: new pgSession({
@@ -170,6 +177,7 @@ runMigrations()
       ['grype',     './lib/routes/grype.route'],
       ['ghscan',    './lib/routes/ghscan.route'],
       ['cache',     './lib/routes/cache.route'],
+      ['policy',    './lib/routes/policy.route'],
     ];
 
     for (const [name, modPath] of routes) {
