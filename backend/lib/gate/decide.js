@@ -20,8 +20,12 @@ function osvEcosystem(ecosystem) {
   if (ecosystem.startsWith('Alpine')) return 'Alpine';
   if (ecosystem.startsWith('Rocky Linux')) return 'Rocky Linux';
   if (ecosystem.startsWith('AlmaLinux')) return 'AlmaLinux';
-  if (ecosystem.startsWith('CentOS')) return 'CentOS';
-  if (ecosystem.startsWith('Red Hat')) return 'Red Hat Enterprise Linux';
+  // OSV has no CentOS ecosystem (HTTP 400). CentOS Stream is the RHEL upstream
+  // and ships the same el<N> versions, so Red Hat advisories are the closest
+  // match - and the richest (openssl@3.0.7-18.el9: 118 vulns vs 27 in Rocky).
+  if (ecosystem.startsWith('CentOS')) return 'Red Hat';
+  // OSV's name is exactly "Red Hat"; "Red Hat Enterprise Linux" returns 400.
+  if (ecosystem.startsWith('Red Hat')) return 'Red Hat';
   if (ecosystem.startsWith('openSUSE')) return 'openSUSE';
   if (ecosystem.startsWith('SUSE')) return 'SUSE Linux Enterprise';
   return ecosystem;
@@ -60,9 +64,34 @@ function buildFacts({ ecosystem, name, version }, enriched, toxic) {
 }
 
 // Turn matched rules into a final verdict. deny beats warn; nothing => default.
-function resolveDecision(policy, hits, key) {
-  if (policy.deny.includes(key)) return { decision: 'deny', reasons: [{ rule: 'denylist', detail: 'on manual denylist' }] };
-  if (policy.allow.includes(key)) return { decision: 'allow', reasons: [{ rule: 'allowlist', detail: 'on manual allowlist' }] };
+// A deny/allow list entry matches by name, name@version, or with the ecosystem
+// prefix - and supports "*" globs. So all of these work:
+//   left-pad                 (any ecosystem, all versions)
+//   npm/left-pad             (npm, all versions)
+//   npm/left-pad@1.3.0       (exact version)
+//   npm/@evil/*              (a scope)
+//   */event-stream           (that name in any ecosystem)
+function _globToRe(s) {
+  const esc = s.split('*').map(p => p.replace(/[.*+?^${}()|[\]\\]/g, m => '\\' + m)).join('.*');
+  return new RegExp('^' + esc + '$');
+}
+function matchList(list, ecosystem, name, version) {
+  const cands = [`${ecosystem}/${name}`, name];
+  if (version) cands.push(`${ecosystem}/${name}@${version}`, `${name}@${version}`);
+  for (const raw of list || []) {
+    const entry = String(raw).trim();
+    if (!entry) continue;
+    if (entry.includes('*')) { const re = _globToRe(entry); if (cands.some(c => re.test(c))) return entry; }
+    else if (cands.includes(entry)) return entry;
+  }
+  return null;
+}
+
+function resolveDecision(policy, hits, { ecosystem, name, version }) {
+  const denied = matchList(policy.deny, ecosystem, name, version);
+  if (denied) return { decision: 'deny', reasons: [{ rule: 'denylist', detail: `blocked by name: ${denied}` }] };
+  const allowed = matchList(policy.allow, ecosystem, name, version);
+  if (allowed) return { decision: 'allow', reasons: [{ rule: 'allowlist', detail: `allowed by name: ${allowed}` }] };
 
   const denies = hits.filter(h => h.action === 'deny');
   const warns  = hits.filter(h => h.action === 'warn');
@@ -136,6 +165,30 @@ async function gateDecide({ name, ecosystem, version, includeDeps = false }, pol
   const ver = (version || '').trim() || null;
   const key = `${eco}/${pkg}${ver ? '@' + ver : ''}`;
 
+  // Hard name-based block/allow FIRST - before any network scan. This makes a
+  // by-name block work for every ecosystem, even ones OSV doesn't cover (so a
+  // denied package is a clean 403, never an OSV error), and costs no lookup.
+  const denied = matchList(policy.deny, eco, pkg, ver);
+  if (denied) {
+    return {
+      decision: 'deny',
+      reasons: [{ rule: 'denylist', detail: `blocked by name: ${denied}` }],
+      package: { ecosystem: eco, name: pkg, version: ver },
+      findings: { total: 0, counts: emptyCounts(), topSeverity: 'NONE', kev: 0, epssMax: 0, pocCount: 0, cveCount: 0, toxic: { found: false } },
+      transitive: null, policy: policy.version || 'default', scannedAt: new Date().toISOString(),
+    };
+  }
+  const allowedByName = matchList(policy.allow, eco, pkg, ver);
+  if (allowedByName) {
+    return {
+      decision: 'allow',
+      reasons: [{ rule: 'allowlist', detail: `allowed by name: ${allowedByName}` }],
+      package: { ecosystem: eco, name: pkg, version: ver },
+      findings: { total: 0, counts: emptyCounts(), topSeverity: 'NONE', kev: 0, epssMax: 0, pocCount: 0, cveCount: 0, toxic: { found: false } },
+      transitive: null, policy: policy.version || 'default', scannedAt: new Date().toISOString(),
+    };
+  }
+
   let vulns;
   try {
      vulns = await osvQuery(pkg, osvEcosystem(eco), ver);
@@ -153,7 +206,7 @@ async function gateDecide({ name, ecosystem, version, includeDeps = false }, pol
   const facts = buildFacts({ ecosystem: eco, name: pkg, version: ver }, enriched, toxic);
 
   const hits = evalRules(policy, facts);
-  const { decision, reasons } = resolveDecision(policy, hits, key);
+  const { decision, reasons } = resolveDecision(policy, hits, { ecosystem: eco, name: pkg, version: ver });
 
   let transitive = null;
   if (includeDeps) {
@@ -175,6 +228,7 @@ async function gateDecide({ name, ecosystem, version, includeDeps = false }, pol
       kev: facts.kev,
       epssMax: facts.epssMax,
       pocCount: facts.pocCount,
+      cveCount: facts.cveCount,   // policy can rule on it, so report it too
       toxic: facts.toxic,
     },
     transitive,                     // null unless includeDeps=true; advisory only
