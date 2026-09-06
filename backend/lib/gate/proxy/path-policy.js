@@ -11,8 +11,24 @@ function metadataAllowed(ecosystem, value) {
 
   if (ecosystem.startsWith('Debian') || ecosystem.startsWith('Ubuntu')) {
     // Do not allow the whole dists/ tree: it can contain arbitrary files.
-    return /^dists\/[^/]+\/(?:InRelease|Release(?:\.gpg)?|Contents-[^/]+(?:\.(?:gz|xz|bz2))?|[^/]+\/binary-[^/]+\/(?:Packages(?:\.(?:gz|xz|bz2))?|by-hash\/(?:SHA256|SHA512)\/[a-f0-9]+)|[^/]+\/Contents-[^/]+(?:\.(?:gz|xz|bz2))?)$/i.test(p)
-      || /^dists\/[^/]+\/by-hash\/(?:SHA256|SHA512)\/[a-f0-9]+$/i.test(p);
+    // Allowed families (all signed / hash-listed in (In)Release):
+    //   InRelease, Release(.gpg), Contents-*, <comp>/binary-<arch>/Packages*,
+    //   command-not-found (cnf/Commands-*), appstream (dep11/*), i18n
+    //   (Translation-*), and their by-hash variants.
+    const hash = '(?:by-hash\\/(?:SHA256|SHA512)\\/[a-f0-9]+)';
+    const gz = '(?:\\.(?:gz|xz|bz2))?';
+    return new RegExp(`^dists\\/[^/]+\\/(?:`
+      + `InRelease|Release(?:\\.gpg)?`
+      + `|Contents-[^/]+${gz}`
+      + `|${hash}`
+      + `|[^/]+\\/(?:`
+        + `binary-[^/]+\\/(?:Packages${gz}|Release|${hash})`
+        + `|Contents-[^/]+${gz}`
+        + `|cnf\\/(?:Commands-[^/]+${gz}|${hash})`               // command-not-found
+        + `|dep11\\/(?:(?:Components|icons)-[^/]+\\.[^/]+|${hash})` // appstream DEP-11
+        + `|i18n\\/(?:Translation-[^/]+${gz}|${hash})`            // translations
+      + `)`
+      + `)$`, 'i').test(p);
   }
 
   if (ecosystem === 'Go') {
@@ -41,7 +57,11 @@ function metadataAllowed(ecosystem, value) {
   }
 
   if (/^(Rocky Linux|AlmaLinux|Red Hat|CentOS|openSUSE|SUSE)\b/.test(ecosystem)) {
-    return /^repodata\/(?:repomd\.xml(?:\.asc)?|[^/]+\.(?:xml|xml\.gz|xml\.xz|xml\.bz2))$/i.test(p);
+    // repomd.xml (+ its detached signature/key) and the index files it lists:
+    // primary/filelists/other/comps/updateinfo/modules, as xml|yaml|sqlite with
+    // any of the compressions dnf uses (gz, xz, bz2, zst, zck). Flat names only
+    // ([^/]+) - no nesting, no traversal, nothing outside repodata/.
+    return /^repodata\/(?:repomd\.xml(?:\.(?:asc|key|sig))?|[^/]+\.(?:xml|yaml|sqlite)(?:\.(?:gz|xz|bz2|zst|zck))?)$/i.test(p);
   }
 
   return false;

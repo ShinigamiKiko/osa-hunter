@@ -1,4 +1,4 @@
-version: 9
+version: 12
 
 defaults:
   decision: allow
@@ -43,6 +43,19 @@ rules:
       pocCount: ">= 1"
     detail: package has a public proof of concept
 
+# Manual name-based blocks/allows. Checked BEFORE any vulnerability scan, so
+# these are hard firewall rules regardless of CVEs. Matching is supplier-
+# agnostic: a bare name blocks that package in EVERY ecosystem (npm/pip/deb/
+# ubuntu/rpm/apk/…). Forms accepted per entry:
+#   left-pad                bare name  -> block everywhere, all versions
+#   npm/left-pad            name in one ecosystem
+#   npm/left-pad@1.3.0      exact version
+#   "left-*"  /  "*/colors" glob masks (name and/or ecosystem)
 exceptions:
   allow: []
-  deny: []
+  deny:
+    - curl                # блок по имени во всех экосистемах (deb/ubuntu/rpm/apk/…)
+    - cowsay              # демо: не установлен → чистый `apt install cowsay` даст 403
+    # - left-pad
+    # - event-stream
+    # - "crossenv*"
