@@ -4,10 +4,12 @@ const { EPSS_URL, POC_BASE, OSV_URL, SEV_ORD } = require('./constants');
 const { pLimit } = require('./primitives');
 const { nvdCache, getCisaSet } = require('./cisaKev');
 const { getPool } = require('../auth/db');
+const { HTTP_CONCURRENCY, HTTP_TIMEOUT_MS } = require('../config');
+const { observeExternalError } = require('../observability/metrics');
 
 const NVD_API_KEY     = process.env.NVD_API_KEY || '';
-const NVD_CONCURRENCY = NVD_API_KEY ? 10 : 3;
-const NVD_TIMEOUT_MS  = NVD_API_KEY ? 8000 : 10000;
+const NVD_CONCURRENCY = NVD_API_KEY ? Math.min(HTTP_CONCURRENCY, 10) : Math.min(HTTP_CONCURRENCY, 3);
+const NVD_TIMEOUT_MS  = HTTP_TIMEOUT_MS;
 const CVE_CACHE_TTL_HOURS = parseInt(process.env.CVE_CACHE_TTL_HOURS || '24', 10) || 0;
 
 if (NVD_API_KEY) {
@@ -29,7 +31,7 @@ async function fetchEpss(cveIds) {
       const d = await r.json();
       for (const item of d.data || [])
         results[item.cve] = { epss: parseFloat(item.epss), percentile: parseFloat(item.percentile) };
-    } catch {}
+    } catch { observeExternalError('epss'); }
   }
   return results;
 }
@@ -46,7 +48,7 @@ async function fetchCvss(cveIds) {
         `https://services.nvd.nist.gov/rest/json/cves/2.0?cveId=${encodeURIComponent(cveId)}`,
         { signal: AbortSignal.timeout(NVD_TIMEOUT_MS), headers }
       );
-      if (r.status === 429) { result[cveId] = null; return; }
+      if (r.status === 429) { observeExternalError('nvd'); result[cveId] = null; return; }
       if (!r.ok) { nvdCache.set(cveId, null); return; }
       const d = await r.json();
       const vuln = (d.vulnerabilities || [])[0]?.cve;
@@ -61,7 +63,7 @@ async function fetchCvss(cveIds) {
       };
       nvdCache.set(cveId, entry);
       result[cveId] = entry;
-    } catch { nvdCache.set(cveId, null); }
+    } catch { observeExternalError('nvd'); nvdCache.set(cveId, null); }
   });
   for (const c of cveIds) if (!(c in result)) result[c] = nvdCache.get(c) ?? null;
   return result;
@@ -86,7 +88,7 @@ async function fetchPocs(cveIds) {
         .map(p => ({ name: p.full_name || p.name, url: p.html_url, stars: p.stargazers_count || 0 }))
         .sort((a, b) => b.stars - a.stars)
         .slice(0, 5);
-    } catch { result[cveId] = []; }
+    } catch { observeExternalError('poc'); result[cveId] = []; }
   });
   for (const c of cveIds) if (!result[c]) result[c] = [];
   return result;
@@ -110,7 +112,7 @@ async function fetchOsvDesc(cveId) {
     const desc = d.details || d.summary || null;
     _osvDescSet(cveId, desc);
     return desc;
-  } catch { _osvDescSet(cveId, null); return null; }
+  } catch { observeExternalError('osv'); _osvDescSet(cveId, null); return null; }
 }
 
 async function osvQuery(pkgName, ecosystem, version) {
@@ -119,7 +121,7 @@ async function osvQuery(pkgName, ecosystem, version) {
     if (version) body.version = version;
     const r = await fetch(`${OSV_URL}/query`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body), signal: AbortSignal.timeout(12000),
+      body: JSON.stringify(body), signal: AbortSignal.timeout(HTTP_TIMEOUT_MS),
     });
     if (!r.ok) {
       const e = new Error(`OSV returned HTTP ${r.status}`);

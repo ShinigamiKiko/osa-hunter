@@ -1,6 +1,8 @@
 'use strict';
 
 const { getPool } = require('./db');
+const { singleFlight } = require('../shared/primitives');
+const { observeCache, observeExternalError } = require('../observability/metrics');
 // Verdict cache lifetime in hours. Default 6h: short enough that newly-disclosed
 // CVEs for an already-scanned version are picked up on the next scan, long enough
 // that repeated installs in a session are instant. The slow part (per-CVE
@@ -30,27 +32,31 @@ async function withCache(key, type, res, scanFn) {
           [key]);
     if (rows.length) {
       const age = Math.round((Date.now() - new Date(rows[0].scanned_at)) / 60000);
+      observeCache(type, 'hit');
       console.log(`[cache] HIT  ${key}  (${age}m old)`);
       return res.json({ ...rows[0].payload, _cached: true, _cachedAt: rows[0].scanned_at });
     }
+    observeCache(type, 'miss');
     console.log(`[cache] MISS ${key}`);
   } catch (e) {
+    observeExternalError('postgres');
     console.error(`[cache] READ ERROR for key "${key}":`, e.message);
   }
 
-  let result;
-  try {
+  return singleFlight(`scan:${key}`, async () => {
+   let result;
+   try {
     result = await scanFn();
   } catch (e) {
     const status = e.status ?? e.statusCode ?? 500;
     const payload = { error: e.message || 'Scan failed' };
     if (e.details) payload.details = e.details;
-    return res.status(status).json(payload);
+    throw Object.assign(new Error(payload.error), { status, details: payload.details });
   }
 
   if (result != null && typeof result === 'object' && typeof result.socket !== 'undefined') {
     console.error(`[cache] scanFn returned res/ServerResponse for key "${key}" — fix error paths to throw ScanError`);
-    return;
+    throw new Error('Invalid scan result');
   }
 
   let serialized;
@@ -58,7 +64,7 @@ async function withCache(key, type, res, scanFn) {
     serialized = JSON.stringify(result);
   } catch (e) {
     console.error(`[cache] SERIALIZE ERROR for key "${key}":`, e.message);
-    return res.json(result);
+    return result;
   }
 
   try {
@@ -74,7 +80,11 @@ async function withCache(key, type, res, scanFn) {
     console.error(`[cache] WRITE ERROR for key "${key}":`, e.message);
   }
 
-  return res.json(result);
+   return result;
+  }).then(result => res.json(result)).catch(e => {
+    const status = e.status ?? e.statusCode ?? 500;
+    if (!res.headersSent) return res.status(status).json({ error: e.message || 'Scan failed', ...(e.details ? { details: e.details } : {}) });
+  });
 }
 
 async function purgeExpired() {

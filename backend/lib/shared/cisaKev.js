@@ -2,6 +2,8 @@
 
 const { CISA_URL } = require('./constants');
 const { TtlCache } = require('./primitives');
+const { HTTP_TIMEOUT_MS } = require('../config');
+const { observeExternalError } = require('../observability/metrics');
 
 const KEV_ENABLED = process.env.OSA_KEV_ENABLED !== 'false';
 
@@ -10,13 +12,14 @@ async function getCisaSet() {
   if (!KEV_ENABLED) return new Set();
   if (cisaCache.set && Date.now() - cisaCache.ts < 3_600_000) return cisaCache.set;
   try {
-    const r = await fetch(CISA_URL, { signal: AbortSignal.timeout(15000) });
+    const r = await fetch(CISA_URL, { signal: AbortSignal.timeout(HTTP_TIMEOUT_MS) });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const d = await r.json();
     cisaCache.set = new Set((d.vulnerabilities || []).map(v => v.cveID));
     cisaCache.ts = Date.now();
     console.log('[CISA] KEV loaded:', cisaCache.set.size, 'entries');
   } catch (e) {
+    observeExternalError('cisa');
     console.error('[CISA] Fetch failed:', e.message);
     if (!cisaCache.set) cisaCache.set = new Set();
     // Don't cache an empty/stale KEV set for a full hour on failure (that

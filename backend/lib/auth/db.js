@@ -23,6 +23,13 @@ function getPool() {
   return _pool;
 }
 
+async function closePool() {
+  if (_pool) {
+    await _pool.end();
+    _pool = null;
+  }
+}
+
 async function runMigrations() {
   const pool = getPool();
   const migDir = path.join(__dirname, '../../migrations');
@@ -73,4 +80,4 @@ async function seedAdmin() {
   console.warn('[auth] ⚠️  CHANGE THIS PASSWORD IMMEDIATELY via the admin panel before exposing this instance.');
 }
 
-module.exports = { getPool, runMigrations, seedAdmin };
+module.exports = { closePool, getPool, runMigrations, seedAdmin };
