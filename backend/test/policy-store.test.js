@@ -42,6 +42,26 @@ test('a disabled rule is kept in the body but never compiled', () => {
   assert.equal(compileBody(body, 1).rules.length, 0, 'but it must not fire');
 });
 
+test('a disabled name rule is kept in the body but stops blocking', () => {
+  // Switching curl off in the UI must actually let curl through, while the
+  // entry stays visible so it can be switched back on.
+  const body = normalizeBody({
+    ...base,
+    exceptions: { allow: [], deny: [{ pattern: 'curl', enabled: false }, 'cowsay'] },
+  });
+  assert.deepEqual(body.exceptions.deny, [{ pattern: 'curl', enabled: false }, 'cowsay']);
+
+  const compiled = compileBody(body, 1);
+  const pkg = n => ({ ecosystem: 'Ubuntu:26.04', name: n, version: '1' });
+  assert.equal(resolveDecision(compiled, [], pkg('curl')).decision, 'allow');
+  assert.equal(resolveDecision(compiled, [], pkg('cowsay')).decision, 'deny');
+});
+
+test('an enabled name rule stays a plain string, so exported YAML is unchanged', () => {
+  const body = normalizeBody({ ...base, exceptions: { allow: [], deny: [{ pattern: 'curl', enabled: true }] } });
+  assert.deepEqual(body.exceptions.deny, ['curl']);
+});
+
 test('invalid policies are rejected before they can be stored', () => {
   const bad = [
     [{ ...base, rules: [{ action: 'deny', when: {} }] }, /id/i],

@@ -33,6 +33,27 @@ const STARTER_BODY = {
 // Validate and strip a policy body down to the fields we persist. Throws on
 // anything compilePolicy rejects, so an invalid policy can never be stored -
 // and therefore never becomes the enforced one.
+// A name entry is a plain string while it is active, and { pattern, enabled }
+// once someone switches it off. Keeping the common case a string means an
+// exported policy.yaml stays the same file people already write by hand.
+function normalizeExceptions(list) {
+  return (list || []).map(item => {
+    if (item && typeof item === 'object') {
+      const pattern = String(item.pattern ?? item.name ?? '').trim();
+      return item.enabled === false ? { pattern, enabled: false } : pattern;
+    }
+    return String(item).trim();
+  }).filter(item => (typeof item === 'string' ? item : item.pattern));
+}
+
+// The patterns the gate actually enforces: disabled entries are kept in the
+// body so the UI can show them, but never reach the compiled policy.
+function activeExceptions(list) {
+  return (list || [])
+    .filter(item => typeof item === 'string' || item.enabled !== false)
+    .map(item => (typeof item === 'string' ? item : item.pattern));
+}
+
 function normalizeBody(input) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) {
     throw new Error('Policy must be an object');
@@ -50,8 +71,8 @@ function normalizeBody(input) {
       ...(r.enabled === false ? { enabled: false } : {}),
     })),
     exceptions: {
-      allow: (input.exceptions?.allow || []).map(String).map(s => s.trim()).filter(Boolean),
-      deny: (input.exceptions?.deny || []).map(String).map(s => s.trim()).filter(Boolean),
+      allow: normalizeExceptions(input.exceptions?.allow),
+      deny: normalizeExceptions(input.exceptions?.deny),
     },
   };
   if (!['allow', 'warn', 'deny'].includes(body.defaults.decision)) {
@@ -70,15 +91,20 @@ function normalizeBody(input) {
     }
   }
   // The real check: if it does not compile, it does not get stored.
-  compilePolicy({ ...body, rules: body.rules.filter(r => r.enabled !== false), version: 0 });
+  compileBody(body, 0);
   return body;
 }
 
-// Disabled rules stay in the body (so the UI can show them) but never compile.
+// Disabled rules and disabled name entries stay in the body (so the UI can show
+// them) but never compile, and therefore never affect a verdict.
 function compileBody(body, version) {
   return compilePolicy({
     ...body,
     rules: (body.rules || []).filter(r => r.enabled !== false),
+    exceptions: {
+      allow: activeExceptions(body.exceptions?.allow),
+      deny: activeExceptions(body.exceptions?.deny),
+    },
     version: `db:${version}`,
   });
 }
