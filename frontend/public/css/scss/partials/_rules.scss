@@ -399,26 +399,57 @@
 }
 
 // ── New rule dialog ──────────────────────────────────────────
-.draft-grid {
-  display: grid;
-  grid-template-columns: 1fr 180px;
-  gap: 14px;
-  margin-bottom: 6px;
+// Four numbered steps: name it, match on something, decide, explain.
+.draft-step {
+  display: flex;
+  gap: 12px;
+  padding: 14px 2px;
+
+  & + .draft-step { border-top: 1px solid rgba(255, 255, 255, .06); }
 }
 
-.draft-grid label,
-.draft-detail {
+.draft-num {
+  flex: 0 0 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: #9dc0ff;
+  background: rgba(120, 170, 255, .12);
+  border: 1px solid rgba(120, 170, 255, .28);
+}
+
+.draft-field {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 5px;
-  font-size: 11px;
-  color: var(--muted);
+  gap: 6px;
+
+  > label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #e6e9ef;
+  }
 }
 
-.draft-grid input,
-.draft-grid select,
-.draft-detail input,
-.draft-lead select {
+.draft-optional {
+  font-size: 10px;
+  font-weight: 400;
+  color: rgba(255, 255, 255, .35);
+  border: 1px solid rgba(255, 255, 255, .14);
+  border-radius: 999px;
+  padding: 1px 7px;
+}
+
+.draft-field > input,
+.draft-field > select,
+.draft-field > label select {
   background: rgba(0, 0, 0, .3);
   border: 1px solid rgba(255, 255, 255, .12);
   color: #e6e9ef;
@@ -430,29 +461,17 @@
   &:focus { outline: none; border-color: rgba(120, 170, 255, .5); }
 }
 
+.draft-field > select { align-self: flex-start; min-width: 130px; }
+.draft-field > label select { font-weight: 400; }
+
 .draft-hint {
   font-size: 10px;
   color: rgba(255, 255, 255, .35);
 }
 
-.draft-section {
-  margin: 16px 0 14px;
-  padding: 12px 12px 10px;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, .02);
-  border: 1px solid rgba(255, 255, 255, .08);
-}
-
-.draft-lead {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 11px;
-  color: var(--muted);
-  margin-bottom: 10px;
-}
-
-.draft-detail { margin-top: 4px; }
+.draft-field #draftConds { margin-top: 2px; }
+.draft-field .cond-row { margin-left: 0; }
+.draft-field .cond-add { margin-left: 0; }
 
 .draft-err {
   margin-top: 12px;
@@ -463,3 +482,70 @@
   border-radius: 8px;
   padding: 8px 11px;
 }
+
+// ── shared button states ─────────────────────────────────────
+// Clicking used to leave the hover background stuck on the button plus the
+// browser's default focus ring. Keep the pressed state brief and explicit,
+// and show a ring only for keyboard focus.
+.rules-actions button,
+.rules-modal-actions button,
+.rev-btn,
+.exc-add button,
+.cond-add {
+  -webkit-tap-highlight-color: transparent;
+
+  &:focus { outline: none; }
+
+  &:focus-visible {
+    outline: none;
+    border-color: rgba(120, 170, 255, .55);
+    box-shadow: 0 0 0 2px rgba(120, 170, 255, .18);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(1px);
+    background: rgba(255, 255, 255, .13);
+    border-color: rgba(255, 255, 255, .22);
+  }
+}
+
+.rules-actions button.primary,
+.rules-modal-actions button.primary {
+  &:hover:not(:disabled) { background: rgba(80, 200, 130, .2); }
+
+  &:active:not(:disabled) {
+    background: rgba(80, 200, 130, .28);
+    border-color: rgba(80, 200, 130, .55);
+  }
+
+  &:focus-visible {
+    border-color: rgba(80, 200, 130, .6);
+    box-shadow: 0 0 0 2px rgba(80, 200, 130, .18);
+  }
+}
+
+.rule-del,
+.cond-del,
+.exc-chip button {
+  &:focus { outline: none; }
+  &:focus-visible { outline: 1px solid rgba(255, 90, 80, .5); border-radius: 4px; }
+  &:active { transform: translateY(1px); }
+}
+
+// ── reason line on a rule card ───────────────────────────────
+// Labelled, so it does not read as a second name for the rule.
+.rule-detail-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rule-detail-lead {
+  flex: 0 0 auto;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: rgba(255, 255, 255, .3);
+}
+
+.rule-detail { flex: 1; width: auto; }
