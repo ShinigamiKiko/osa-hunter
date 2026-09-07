@@ -33,14 +33,18 @@ const STARTER_BODY = {
 // Validate and strip a policy body down to the fields we persist. Throws on
 // anything compilePolicy rejects, so an invalid policy can never be stored -
 // and therefore never becomes the enforced one.
-// A name entry is a plain string while it is active, and { pattern, enabled }
-// once someone switches it off. Keeping the common case a string means an
-// exported policy.yaml stays the same file people already write by hand.
+// A name entry is a plain string while it is active and has nothing to add, and
+// { pattern, enabled?, reason? } once it is switched off or given its own
+// message. Keeping the plain case a string means an exported policy.yaml stays
+// the same file people already write by hand.
 function normalizeExceptions(list) {
   return (list || []).map(item => {
     if (item && typeof item === 'object') {
       const pattern = String(item.pattern ?? item.name ?? '').trim();
-      return item.enabled === false ? { pattern, enabled: false } : pattern;
+      const reason = String(item.reason || '').trim();
+      const off = item.enabled === false;
+      if (!off && !reason) return pattern;
+      return { pattern, ...(off ? { enabled: false } : {}), ...(reason ? { reason } : {}) };
     }
     return String(item).trim();
   }).filter(item => (typeof item === 'string' ? item : item.pattern));
@@ -52,6 +56,18 @@ function activeExceptions(list) {
   return (list || [])
     .filter(item => typeof item === 'string' || item.enabled !== false)
     .map(item => (typeof item === 'string' ? item : item.pattern));
+}
+
+// pattern -> message, for the entries that carry one. compilePolicy flattens
+// entries to strings, so the messages ride alongside on the compiled policy.
+function exceptionReasons(list) {
+  const out = {};
+  for (const item of list || []) {
+    if (item && typeof item === 'object' && item.reason && item.enabled !== false) {
+      out[item.pattern] = item.reason;
+    }
+  }
+  return out;
 }
 
 function normalizeBody(input) {
@@ -98,7 +114,7 @@ function normalizeBody(input) {
 // Disabled rules and disabled name entries stay in the body (so the UI can show
 // them) but never compile, and therefore never affect a verdict.
 function compileBody(body, version) {
-  return compilePolicy({
+  const compiled = compilePolicy({
     ...body,
     rules: (body.rules || []).filter(r => r.enabled !== false),
     exceptions: {
@@ -107,6 +123,11 @@ function compileBody(body, version) {
     },
     version: `db:${version}`,
   });
+  compiled.nameReasons = {
+    deny: exceptionReasons(body.exceptions?.deny),
+    allow: exceptionReasons(body.exceptions?.allow),
+  };
+  return compiled;
 }
 
 async function getPolicyRow() {

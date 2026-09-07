@@ -62,6 +62,28 @@ test('an enabled name rule stays a plain string, so exported YAML is unchanged',
   assert.deepEqual(body.exceptions.deny, ['curl']);
 });
 
+test('a name rule can carry its own message, like a scan rule does', () => {
+  // This text is what the blocked developer actually reads, so it has to reach
+  // the verdict - not just sit in the policy.
+  const body = normalizeBody({
+    ...base,
+    exceptions: { allow: [], deny: [{ pattern: 'curl', reason: 'use the platform HTTP client' }, 'cowsay'] },
+  });
+  const compiled = compileBody(body, 1);
+  const detail = n => resolveDecision(compiled, [], { ecosystem: 'Ubuntu:26.04', name: n, version: '1' }).reasons[0].detail;
+  assert.equal(detail('curl'), 'use the platform HTTP client');
+  assert.equal(detail('cowsay'), 'blocked by name: cowsay', 'no message means the default one');
+});
+
+test('a disabled name rule cannot leak its message into a verdict', () => {
+  const compiled = compileBody(normalizeBody({
+    ...base,
+    exceptions: { allow: [], deny: [{ pattern: 'curl', reason: 'banned internally', enabled: false }] },
+  }), 1);
+  const r = resolveDecision(compiled, [], { ecosystem: 'npm', name: 'curl', version: '1' });
+  assert.equal(r.decision, 'allow');
+});
+
 test('invalid policies are rejected before they can be stored', () => {
   const bad = [
     [{ ...base, rules: [{ action: 'deny', when: {} }] }, /id/i],

@@ -38,6 +38,7 @@ async function renderProxy() {
         <option value=""${_proxyDecision === '' ? ' selected' : ''}>all verdicts</option>
         <option value="allow"${_proxyDecision === 'allow' ? ' selected' : ''}>allow</option>
         <option value="deny"${_proxyDecision === 'deny' ? ' selected' : ''}>deny</option>
+        <option value="error"${_proxyDecision === 'error' ? ' selected' : ''}>error</option>
       </select>
        <button id="proxySearch">Search</button>
        <button class="proxy-clear" id="proxyClear" title="Delete all proxy history">Clear</button>
@@ -117,7 +118,7 @@ async function proxyLoadTable() {
     <td><span class="eco-pill">${esc(e.ecosystem || '—')}</span></td>
     <td>${esc(e.name || '—')}</td>
     <td>${esc(e.version || '')}</td>
-    <td><span class="verdict ${e.decision === 'deny' ? 'deny' : 'allow'}">${esc(e.decision)}</span></td>
+    <td><span class="verdict ${e.decision === 'deny' ? 'deny' : e.decision === 'error' ? 'err' : 'allow'}">${esc(e.decision)}</span></td>
     <td class="reasons">${esc(e.reasons || '')}</td>
     <td class="ip">${esc(e.client_ip || '')}</td>
   </tr>`).join('');
