@@ -319,17 +319,19 @@ function rulesSyncConditions(ruleIndex) {
 // A new rule is filled in a dialog and only joins the policy once it is
 // complete, so the list never holds a half-written placeholder rule.
 function rulesNewRule() {
+  // Open first: _rulesModal() closes whatever is open, and closing discards the
+  // draft. Seeding it before that would wipe the draft we just made.
+  _rulesModal('New rule', '<div id="draftBody"></div>');
   _draft = {
     id: '', action: 'deny', match: 'all', detail: '',
     rows: [{ fact: 'counts.CRITICAL', op: '>=', value: '1' }],
   };
-  _rulesModal('New rule', '<div id="draftBody"></div>');
   draftPaint();
 }
 
 function draftPaint() {
   const host = document.getElementById('draftBody');
-  if (!host) return;
+  if (!host || !_draft) return;
   host.innerHTML = `
     <div class="draft-step">
       <span class="draft-num">1</span>
