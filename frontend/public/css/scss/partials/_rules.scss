@@ -499,3 +499,10 @@
 .draft-field input {
   color-scheme: dark;
 }
+
+// While a draft is unsaved the Save button is the only thing that applies it,
+// so it stops looking like the other buttons.
+.rules-actions button.primary.pending {
+  border-color: rgba(80, 200, 130, .75);
+  box-shadow: 0 0 0 3px rgba(80, 200, 130, .12);
+}

@@ -111,13 +111,13 @@ function rulesPaint() {
       <div class="rules-meta">
         <span class="rules-count">${total} rule${total === 1 ? '' : 's'}</span>
         ${_rulesState.source === 'yaml' ? '<span class="rev-pill" title="Loaded from the policy file on the server">import</span>' : ''}
-        ${_rulesState.dirty ? '<span class="rules-dirty">unsaved changes</span>' : ''}
+        ${_rulesState.dirty ? '<span class="rules-dirty">unsaved — press Save to apply</span>' : ''}
       </div>
       <div class="rules-actions">
         <button id="rulesAdd">+ Rule</button>
         <button id="rulesExport">Export YAML</button>
         <button id="rulesImport">Import YAML</button>
-        <button id="rulesSave" class="primary" ${_rulesState.dirty ? '' : 'disabled'}>Save</button>
+        <button id="rulesSave" class="primary${_rulesState.dirty ? ' pending' : ''}" ${_rulesState.dirty ? '' : 'disabled'}>Save</button>
       </div>
     </div>
 
@@ -245,7 +245,19 @@ function _conditionRow(row, ruleIndex, condIndex) {
 }
 
 // ── editing ───────────────────────────────────────────────────
+// Everything on this screen is a draft until Save: the policy the gate enforces
+// only changes on PUT /api/policy. Leaving with an unsaved draft used to lose it
+// silently, so both the tab switch and the browser ask first.
 function _touch() { _rulesState.dirty = true; }
+
+function rulesHasUnsavedChanges() { return !!_rulesState?.dirty; }
+function rulesDiscardChanges() { if (_rulesState) _rulesState.dirty = false; }
+
+window.addEventListener('beforeunload', (e) => {
+  if (!rulesHasUnsavedChanges()) return;
+  e.preventDefault();
+  e.returnValue = '';
+});
 
 function rulesBind() {
   const host = document.getElementById('rulesContent');
