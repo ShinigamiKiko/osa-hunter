@@ -10,6 +10,7 @@ const { closePool, getPool, runMigrations, seedAdmin } = require('./lib/auth/db'
 const { purgeExpired }        = require('./lib/auth/scanCache');
 const { purgeProxyData }      = require('./lib/gate/retention');
 const { requireAuth }         = require('./lib/auth/middleware');
+const { jsonBodyErrors }      = require('./lib/utils/bodyErrors');
 const { installConsoleLogger, logError, logRequest, write } = require('./lib/observability/logger');
 const { metricsHandler, requestMetrics } = require('./lib/observability/metrics');
 installConsoleLogger();
@@ -17,6 +18,7 @@ const authRoutes              = require('./lib/auth/routes');
 const apiKeyRoutes            = require('./lib/auth/api-key-routes');
 const scanHistoryRoutes       = require('./lib/routes/scan-history.route');
 const { router: gateProxyRoutes } = require('./lib/routes/gate-proxy.route');
+const { bootstrapPolicy }     = require('./lib/gate/policyStore');
 
 const sessionSecret = process.env.SESSION_SECRET || (() => {
   const generated = crypto.randomBytes(32).toString('hex');
@@ -93,6 +95,7 @@ app.use(cors(
 
 app.use('/api/export/pdf', express.json({ limit: '10mb' }));
 app.use(express.json({ limit: '64kb' }));
+app.use(jsonBodyErrors);
 
 app.use(express.static(path.join(__dirname, '../frontend/public')));
 
@@ -102,6 +105,12 @@ const METRICS_PORT = parseInt(process.env.METRICS_PORT || '9100', 10);
 runMigrations()
   .then(async () => {
     await seedAdmin();
+
+    // Seed the policy from policy.yaml on a fresh database, then serve it from
+    // there. Fail loudly: a gate with no policy is worse than a gate that
+    // refuses to start.
+    const seededPolicy = await bootstrapPolicy();
+    write('info', 'policy_ready', { version: seededPolicy.version, source: seededPolicy.source });
 
     app.use(session({
       name: cookieName,
@@ -170,6 +179,7 @@ runMigrations()
       ['grype',     './lib/routes/grype.route'],
       ['ghscan',    './lib/routes/ghscan.route'],
       ['cache',     './lib/routes/cache.route'],
+      ['policy',    './lib/routes/policy.route'],
     ];
 
     for (const [name, modPath] of routes) {

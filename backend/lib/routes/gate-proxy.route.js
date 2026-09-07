@@ -79,12 +79,29 @@ function parseArtifact(repository, artifactPath) {
   return r ? { ecosystem: repoCfg.ecosystem, ...r } : null;
 }
 
+// Rule messages are written by people, so they contain dashes, quotes and
+// non-Latin text. HTTP header values and status lines are byte-limited: a stray
+// em dash makes Node throw ERR_INVALID_CHAR and the whole response becomes a
+// 502. Strip to printable ASCII and cap the length before either is set.
+function headerSafe(value, max = 200) {
+  return String(value || '').replace(/[^\x20-\x7E]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max);
+}
+
 function reasonPhrase(reasons) {
   const parts = (reasons || []).map(r => {
     const cve = (r.detail || '').match(/CVE-\d{4}-\d+/);
     return cve ? `${r.rule}: ${cve[0]}` : r.rule;
   });
   return `Blocked by OSA gate (${parts.join(', ') || 'policy'})`.replace(/[^\x20-\x7E]/g, '').slice(0, 150);
+}
+
+// on_gate_error: deny means an unreachable OSV blocks the package. That is the
+// right call, but it is not a verdict about the package, and a developer who
+// sees "Blocked by OSA gate" on some transitive dependency has no way to tell
+// the two apart.
+const GATE_ERROR_PHRASE = 'OSA gate: vulnerability data unavailable, retry';
+function isGateError(reasons) {
+  return (reasons || []).length > 0 && reasons.every(r => r.rule === 'gate-error');
 }
 
 function recordEvent(req, { decision, ecosystem, name, version, repository, reasons }) {
@@ -146,11 +163,31 @@ router.all('/*', async (req, res) => {
       if (verdict.decision === 'deny') {
         const why = (verdict.reasons || []).map(r => `${r.rule}: ${r.detail}`).join('; ') || 'policy';
         const rules = (verdict.reasons || []).map(r => r.rule).join(',') || 'policy';
+        // Fail-closed, but say why: the package is not being judged, the data
+        // to judge it is missing. 503 also makes clients retry rather than
+        // report the package as forbidden. It still is not served - and it is
+        // logged as an error, not a block, so the Proxy view's blocked list
+        // stays a list of what the policy actually rejected.
+        if (isGateError(verdict.reasons)) {
+          console.warn(`[gate] UNAVAILABLE ${artifact.ecosystem} ${artifact.name}@${artifact.version} -> ${why}`);
+          recordEvent(req, { decision: 'error', ecosystem: artifact.ecosystem, name: artifact.name, version: artifact.version, repository, reasons: 'scan data unavailable' });
+          res.setHeader('Retry-After', '30');
+          res.setHeader('X-OSA-Deny-Reason', headerSafe(why));
+          res.statusMessage = GATE_ERROR_PHRASE;
+          return res.status(503).json({
+            error: 'OSA gate could not evaluate this package: vulnerability data is unavailable. '
+                 + 'This is not a policy block — retry shortly.',
+            reasons: verdict.reasons,
+          });
+        }
+
         console.warn(`[gate] DENY ${artifact.ecosystem} ${artifact.name}@${artifact.version} -> ${why}`);
-        res.setHeader('X-OSA-Deny-Reason', why);
-        res.statusMessage = reasonPhrase(verdict.reasons);
         recordEvent(req, { decision: 'deny', ecosystem: artifact.ecosystem, name: artifact.name, version: artifact.version, repository, reasons: rules });
-        return res.status(403).json({ error: 'Artifact blocked by OSA gate', reasons: verdict.reasons });
+        res.setHeader('X-OSA-Deny-Reason', headerSafe(why));
+        res.statusMessage = reasonPhrase(verdict.reasons);
+        // Clients surface this field, not the header - so the message the rule
+        // author wrote is what the blocked developer actually reads.
+        return res.status(403).json({ error: `Blocked by OSA gate — ${why}`, reasons: verdict.reasons });
       }
       recordEvent(req, { decision: 'allow', ecosystem: artifact.ecosystem, name: artifact.name, version: artifact.version, repository });
       if (adapter.download) return await adapter.download(req, res, repoCfg, repository, artifactPath);
@@ -166,4 +203,4 @@ router.all('/*', async (req, res) => {
   }
 });
 
-module.exports = { router, parseArtifact, metadataAllowed };
+module.exports = { router, parseArtifact, metadataAllowed, isGateError, headerSafe };

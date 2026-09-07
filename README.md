@@ -130,8 +130,47 @@ name and version against OSV and `policy.yaml`, and streams allowed bytes from
 the configured upstream. It does not install or execute packages. The open
 gateway is read-only and only accepts known package paths and metadata paths.
 
-The active policy is defined by `policy.yaml`; all gate decisions use that file.
 The policy is evaluated after the package name and version are resolved.
+
+## Gate Policy
+
+The enforced policy lives in the database. On first boot `policy.yaml` is
+imported, so an existing file-based setup keeps working and its rules appear in
+the UI unchanged.
+
+Manage it under **Rules** in the sidebar. Two kinds of rule share one list:
+
+- **by name** — the package name is matched before anything is scanned, so it
+  works in every ecosystem and never depends on a feed being reachable
+  (`curl`, `npm/left-pad@1.3.0`, `crossenv*`);
+- **by scan result** — conditions over the findings: severity counts, CISA KEV,
+  EPSS, PoC, CVE ids.
+
+Saving replaces the policy and takes effect immediately. There is no revision
+history: keep the audited copy in git by pasting **Export YAML** into
+`policy.yaml`. Every save bumps an internal counter that is part of the
+verdict-cache key, so decisions cached under the previous policy are never
+reused.
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /api/policy` | the policy the gate enforces |
+| `GET /api/policy/yaml` | export it as `policy.yaml` |
+| `PUT /api/policy` | replace it (`body` or `yaml`) |
+| `POST /api/policy/normalize` | validate without storing |
+| `GET /api/policy/facts` | the facts rules can match on |
+
+All of these sit behind authentication; `/api/gate` stays the only open
+endpoint. A policy is data, never code — rules are `{fact: expression}` pairs
+interpreted by `lib/gate/policy.js`, and nothing in a policy is evaluated as JS.
+
+**Blocked vs. undecidable.** A package the policy rejects returns `403 Blocked by
+OSA gate (<rule>)`. When `defaults.on_gate_error` is `deny` and the vulnerability
+data itself is unreachable, the package is still not served, but it was never
+judged — that answer is `503 OSA gate: vulnerability data unavailable, retry`
+with a `Retry-After` header, so clients retry instead of reporting the package as
+forbidden by policy. Fail-closed verdicts are never cached.
+
 
 ## Nexus Gateway
 
