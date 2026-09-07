@@ -10,6 +10,7 @@ const { closePool, getPool, runMigrations, seedAdmin } = require('./lib/auth/db'
 const { purgeExpired }        = require('./lib/auth/scanCache');
 const { purgeProxyData }      = require('./lib/gate/retention');
 const { requireAuth }         = require('./lib/auth/middleware');
+const { jsonBodyErrors }      = require('./lib/utils/bodyErrors');
 const { installConsoleLogger, logError, logRequest, write } = require('./lib/observability/logger');
 const { metricsHandler, requestMetrics } = require('./lib/observability/metrics');
 installConsoleLogger();
@@ -94,6 +95,7 @@ app.use(cors(
 
 app.use('/api/export/pdf', express.json({ limit: '10mb' }));
 app.use(express.json({ limit: '64kb' }));
+app.use(jsonBodyErrors);
 
 app.use(express.static(path.join(__dirname, '../frontend/public')));
 
