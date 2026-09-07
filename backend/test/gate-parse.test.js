@@ -72,3 +72,29 @@ test('ecosystems map to names OSV actually accepts', () => {
   assert.equal(osvEcosystem('AlmaLinux:9'), 'AlmaLinux');
   assert.equal(osvEcosystem('npm'), 'npm'); // language ecosystems pass through
 });
+
+test('a fail-closed block is told apart from a policy block', () => {
+  // on_gate_error: deny blocks the package when OSV is unreachable. That must
+  // not be reported as "forbidden by policy": the package was never judged.
+  const { isGateError } = require('../lib/routes/gate-proxy.route');
+  assert.equal(isGateError([{ rule: 'gate-error', detail: 'OSV query failed' }]), true);
+  assert.equal(isGateError([{ rule: 'critical', detail: '1 critical vuln' }]), false);
+  assert.equal(isGateError([{ rule: 'denylist', detail: 'blocked by name: curl' }]), false);
+  // A real policy hit alongside an error is still a policy decision.
+  assert.equal(isGateError([{ rule: 'gate-error' }, { rule: 'critical' }]), false);
+  assert.equal(isGateError([]), false);
+});
+
+test('rule text written by a person cannot break the HTTP response', () => {
+  // Regression: a reason with an em dash made res.setHeader throw
+  // ERR_INVALID_CHAR, and the whole request came back as 502 Bad Gateway.
+  const { headerSafe } = require('../lib/routes/gate-proxy.route');
+  assert.equal(headerSafe('not approved — ask #appsec'), 'not approved ask #appsec');
+  assert.equal(headerSafe('запрещено политикой'), '');
+  assert.equal(headerSafe('line\nbreak\tand  spaces'), 'line break and spaces');
+  assert.equal(headerSafe('x'.repeat(500)).length, 200);
+  assert.equal(headerSafe(null), '');
+  for (const c of headerSafe('plain ascii stays')) {
+    assert.ok(c.charCodeAt(0) >= 0x20 && c.charCodeAt(0) <= 0x7e);
+  }
+});

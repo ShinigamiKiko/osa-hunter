@@ -32,6 +32,12 @@ function _emptyRadar(){
 }
 
 async function navTo(page, opts={}){
+  // Rule edits live in the browser until Save; leaving the tab would drop them
+  // without a word.
+  if(page!=='rules' && typeof rulesHasUnsavedChanges==='function' && rulesHasUnsavedChanges()){
+    if(!confirm('The gate rules have unsaved changes.\n\nLeave this tab and discard them?')) return;
+    rulesDiscardChanges();
+  }
   if(page==='admin' && !document.getElementById('page-admin')){
     const d=document.createElement('div');
     d.id='page-admin'; d.className='page';
@@ -50,18 +56,27 @@ async function navTo(page, opts={}){
   const isOs =page.startsWith('os');
   const isGh =page.startsWith('gh');
   const isProxy = page==='proxy';
+  const isRules = page==='rules';
   document.getElementById('nav-lib').classList.toggle('active',isLib);
   document.getElementById('nav-dep').classList.toggle('active',isDep);
   document.getElementById('nav-img').classList.toggle('active',isImg);
   document.getElementById('nav-os')?.classList.toggle('active',isOs);
   document.getElementById('nav-gh')?.classList.toggle('active',isGh);
   document.getElementById('nav-proxy')?.classList.toggle('active',isProxy);
+  document.getElementById('nav-rules')?.classList.toggle('active',isRules);
   document.getElementById('nav-admin')?.classList.toggle('active', page==='admin');
 
   if(isProxy){
     document.getElementById('topbarLeft').innerHTML=`<span style="font-family:'Syne',sans-serif;font-size:17px;font-weight:700;color:#fff">Proxy activity</span>`;
     document.getElementById('topbarActions').innerHTML='';
     if(typeof renderProxy==='function') renderProxy();
+    return;
+  }
+
+  if(isRules){
+    document.getElementById('topbarLeft').innerHTML=`<span style="font-family:'Syne',sans-serif;font-size:17px;font-weight:700;color:#fff">Gate rules</span>`;
+    document.getElementById('topbarActions').innerHTML='';
+    if(typeof renderRules==='function') renderRules();
     return;
   }
 

@@ -1,0 +1,508 @@
+// ── Gate policy editor (Rules tab) ───────────────────────────
+#rulesContent {
+  padding: 20px 24px 40px;
+
+  h3 {
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    color: #fff;
+    margin: 26px 0 8px;
+  }
+}
+
+.rules-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.rules-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.rev-pill {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: rgba(120, 170, 255, .12);
+  border: 1px solid rgba(120, 170, 255, .28);
+  color: #9dc0ff;
+}
+
+.rules-dirty {
+  font-size: 11px;
+  color: #f5a623;
+  border: 1px solid rgba(245, 166, 35, .35);
+  background: rgba(245, 166, 35, .1);
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.rules-actions {
+  display: flex;
+  gap: 8px;
+
+  button {
+    padding: 7px 13px;
+    font-size: 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    color: #d8dee9;
+    background: rgba(255, 255, 255, .04);
+    border: 1px solid rgba(255, 255, 255, .12);
+    transition: background .15s, border-color .15s;
+
+    &:hover:not(:disabled) { background: rgba(255, 255, 255, .09); }
+    &:disabled { opacity: .4; cursor: default; }
+
+    &.primary {
+      background: rgba(80, 200, 130, .14);
+      border-color: rgba(80, 200, 130, .4);
+      color: #7fe0a8;
+    }
+  }
+}
+
+.rules-defaults {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  padding: 12px 14px;
+  margin-bottom: 18px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, .02);
+  border: 1px solid rgba(255, 255, 255, .07);
+
+  label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+}
+
+.rules-defaults select,
+.cond-row select,
+.cond-row input,
+.rule-card select,
+.rule-card input {
+  background: rgba(0, 0, 0, .3);
+  border: 1px solid rgba(255, 255, 255, .12);
+  color: #e6e9ef;
+  border-radius: 7px;
+  padding: 6px 9px;
+  font-size: 12px;
+  font-family: var(--font-mono);
+
+  &:focus { outline: none; border-color: rgba(120, 170, 255, .5); }
+}
+
+// ── one rule ─────────────────────────────────────────────────
+.rule-card {
+  border: 1px solid rgba(255, 255, 255, .09);
+  background: rgba(255, 255, 255, .02);
+  border-radius: 11px;
+  padding: 13px 14px;
+  margin-bottom: 10px;
+
+  &.off { opacity: .45; }
+}
+
+.rule-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.rule-id { flex: 0 0 220px; font-weight: 600; }
+
+.rule-action {
+  text-transform: uppercase;
+  font-size: 11px !important;
+  letter-spacing: .04em;
+
+  &.deny  { color: #ff8a80; border-color: rgba(255, 90, 80, .4); }
+  &.warn  { color: #f5c877; border-color: rgba(245, 200, 119, .4); }
+  &.allow { color: #7fe0a8; border-color: rgba(80, 200, 130, .4); }
+}
+
+.rule-toggle {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--muted);
+  margin-left: auto;
+}
+
+.rule-del,
+.cond-del {
+  background: none;
+  border: none;
+  color: rgba(255, 90, 80, .65);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 2px 5px;
+
+  &:hover { color: #ff5f56; }
+}
+
+.rule-when {
+  padding-left: 4px;
+  border-left: 2px solid rgba(120, 170, 255, .25);
+  margin-bottom: 10px;
+}
+
+.when-lead {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--muted);
+  margin: 0 0 6px 8px;
+}
+
+.cond-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 6px 8px;
+  flex-wrap: wrap;
+}
+
+.cond-fact  { min-width: 210px; }
+.cond-value { min-width: 110px; }
+
+.cond-op-fixed {
+  font-size: 11px;
+  color: var(--muted);
+  padding: 0 2px;
+}
+
+.cond-add {
+  margin: 2px 0 0 8px;
+  background: none;
+  border: 1px dashed rgba(255, 255, 255, .18);
+  color: var(--muted);
+  border-radius: 7px;
+  padding: 4px 10px;
+  font-size: 11px;
+  cursor: pointer;
+
+  &:hover { color: #d8dee9; border-color: rgba(255, 255, 255, .35); }
+}
+
+.rule-advanced {
+  margin: 0 0 6px 8px;
+  font-size: 11px;
+  color: #f5c877;
+
+  code {
+    display: block;
+    margin-top: 4px;
+    color: var(--muted);
+    font-size: 10px;
+    word-break: break-all;
+  }
+}
+
+.rule-detail { width: 100%; }
+
+// ── modal ────────────────────────────────────────────────────
+.rules-empty {
+  padding: 18px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.rules-modal {
+  width: min(900px, 92vw);
+  max-height: 84vh;
+}
+
+.rules-modal-body {
+  overflow: auto;
+  max-height: 68vh;
+  padding: 4px 2px;
+}
+
+.rules-yaml {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.55;
+  color: #cdd6e4;
+  background: rgba(0, 0, 0, .35);
+  border: 1px solid rgba(255, 255, 255, .08);
+  border-radius: 9px;
+  padding: 14px;
+  white-space: pre;
+  overflow-x: auto;
+}
+
+.rules-yaml-in {
+  width: 100%;
+  min-height: 320px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: #cdd6e4;
+  background: rgba(0, 0, 0, .35);
+  border: 1px solid rgba(255, 255, 255, .12);
+  border-radius: 9px;
+  padding: 12px;
+  resize: vertical;
+
+  &:focus { outline: none; border-color: rgba(120, 170, 255, .5); }
+}
+
+.rules-modal-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+
+  button {
+    padding: 7px 14px;
+    font-size: 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    color: #d8dee9;
+    background: rgba(255, 255, 255, .05);
+    border: 1px solid rgba(255, 255, 255, .13);
+
+    &.primary {
+      background: rgba(80, 200, 130, .14);
+      border-color: rgba(80, 200, 130, .4);
+      color: #7fe0a8;
+    }
+  }
+}
+
+.rules-hint {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 10px;
+
+  code { background: rgba(255, 255, 255, .06); padding: 1px 5px; border-radius: 4px; }
+}
+
+// ── New rule dialog ──────────────────────────────────────────
+// Four numbered steps: name it, match on something, decide, explain.
+.draft-step {
+  display: flex;
+  gap: 12px;
+  padding: 14px 2px;
+
+  & + .draft-step { border-top: 1px solid rgba(255, 255, 255, .06); }
+}
+
+.draft-num {
+  flex: 0 0 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: #9dc0ff;
+  background: rgba(120, 170, 255, .12);
+  border: 1px solid rgba(120, 170, 255, .28);
+}
+
+.draft-field {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  > label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #e6e9ef;
+  }
+}
+
+.draft-optional {
+  font-size: 10px;
+  font-weight: 400;
+  color: rgba(255, 255, 255, .35);
+  border: 1px solid rgba(255, 255, 255, .14);
+  border-radius: 999px;
+  padding: 1px 7px;
+}
+
+.draft-field > input,
+.draft-field > select,
+.draft-field > label select {
+  background: rgba(0, 0, 0, .3);
+  border: 1px solid rgba(255, 255, 255, .12);
+  color: #e6e9ef;
+  border-radius: 7px;
+  padding: 7px 9px;
+  font-size: 12px;
+  font-family: var(--font-mono);
+
+  &:focus { outline: none; border-color: rgba(120, 170, 255, .5); }
+}
+
+.draft-field > select { align-self: flex-start; min-width: 130px; }
+.draft-field > label select { font-weight: 400; }
+
+.draft-hint {
+  font-size: 10px;
+  color: rgba(255, 255, 255, .35);
+}
+
+.draft-field #draftConds { margin-top: 2px; }
+.draft-field .cond-row { margin-left: 0; }
+.draft-field .cond-add { margin-left: 0; }
+
+.draft-err {
+  margin-top: 12px;
+  font-size: 11px;
+  color: #ff8a80;
+  border: 1px solid rgba(255, 90, 80, .35);
+  background: rgba(255, 90, 80, .08);
+  border-radius: 8px;
+  padding: 8px 11px;
+}
+
+// ── shared button states ─────────────────────────────────────
+// Clicking used to leave the hover background stuck on the button plus the
+// browser's default focus ring. Keep the pressed state brief and explicit,
+// and show a ring only for keyboard focus.
+.rules-actions button,
+.rules-modal-actions button,
+.cond-add {
+  -webkit-tap-highlight-color: transparent;
+
+  &:focus { outline: none; }
+
+  &:focus-visible {
+    outline: none;
+    border-color: rgba(120, 170, 255, .55);
+    box-shadow: 0 0 0 2px rgba(120, 170, 255, .18);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(1px);
+    background: rgba(255, 255, 255, .13);
+    border-color: rgba(255, 255, 255, .22);
+  }
+}
+
+.rules-actions button.primary,
+.rules-modal-actions button.primary {
+  &:hover:not(:disabled) { background: rgba(80, 200, 130, .2); }
+
+  &:active:not(:disabled) {
+    background: rgba(80, 200, 130, .28);
+    border-color: rgba(80, 200, 130, .55);
+  }
+
+  &:focus-visible {
+    border-color: rgba(80, 200, 130, .6);
+    box-shadow: 0 0 0 2px rgba(80, 200, 130, .18);
+  }
+}
+
+.rule-del,
+.cond-del {
+  &:focus { outline: none; }
+  &:focus-visible { outline: 1px solid rgba(255, 90, 80, .5); border-radius: 4px; }
+  &:active { transform: translateY(1px); }
+}
+
+// ── reason line on a rule card ───────────────────────────────
+// Labelled, so it does not read as a second name for the rule.
+.rule-detail-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+
+.rule-detail { flex: 1; width: auto; }
+
+// ── name rules ───────────────────────────────────────────────
+// Same card as a scan rule, so the two read as one list.
+.rule-lead,
+.rule-detail-lead {
+  flex: 0 0 auto;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: rgba(255, 255, 255, .3);
+}
+
+
+
+.name-row { align-items: baseline; }
+
+.name-pattern {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: #ff9a91;
+  background: rgba(255, 90, 80, .1);
+  border: 1px solid rgba(255, 90, 80, .28);
+  border-radius: 6px;
+  padding: 2px 8px;
+}
+
+.rule-card.name-card:has(.rule-action.allow) .name-pattern {
+  color: #7fe0a8;
+  background: rgba(80, 200, 130, .1);
+  border-color: rgba(80, 200, 130, .28);
+}
+
+.name-scope {
+  font-size: 10px;
+  color: rgba(255, 255, 255, .3);
+}
+
+.draft-hint code {
+  background: rgba(255, 255, 255, .06);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 10px;
+}
+
+// ── dialog condition rows ────────────────────────────────────
+// The dialog is wider than a card is deep, so give the fact select room and
+// keep operator and value on the same line instead of wrapping the value away.
+.draft-field .cond-row {
+  flex-wrap: nowrap;
+  gap: 8px;
+
+  .cond-fact { flex: 1 1 auto; min-width: 0; }
+  .cond-op { flex: 0 0 auto; }
+  .cond-value { flex: 0 0 120px; min-width: 0; }
+}
+
+// Dropdown lists are painted by the OS, so ask for the dark palette rather
+// than leaving a white popup on a dark page.
+.cond-row select,
+.cond-row input,
+.draft-field select,
+.draft-field input {
+  color-scheme: dark;
+}
+
+// While a draft is unsaved the Save button is the only thing that applies it,
+// so it stops looking like the other buttons.
+.rules-actions button.primary.pending {
+  border-color: rgba(80, 200, 130, .75);
+  box-shadow: 0 0 0 3px rgba(80, 200, 130, .12);
+}

@@ -87,11 +87,18 @@ function matchList(list, ecosystem, name, version) {
   return null;
 }
 
+// A name rule may carry its own message, the way a scan rule carries `detail`.
+// Without one, say what actually happened: matched by name.
+function nameDetail(policy, kind, entry) {
+  const custom = policy.nameReasons?.[kind]?.[entry];
+  return custom || `${kind === 'deny' ? 'blocked' : 'allowed'} by name: ${entry}`;
+}
+
 function resolveDecision(policy, hits, { ecosystem, name, version }) {
   const denied = matchList(policy.deny, ecosystem, name, version);
-  if (denied) return { decision: 'deny', reasons: [{ rule: 'denylist', detail: `blocked by name: ${denied}` }] };
+  if (denied) return { decision: 'deny', reasons: [{ rule: 'denylist', detail: nameDetail(policy, 'deny', denied) }] };
   const allowed = matchList(policy.allow, ecosystem, name, version);
-  if (allowed) return { decision: 'allow', reasons: [{ rule: 'allowlist', detail: `allowed by name: ${allowed}` }] };
+  if (allowed) return { decision: 'allow', reasons: [{ rule: 'allowlist', detail: nameDetail(policy, 'allow', allowed) }] };
 
   const denies = hits.filter(h => h.action === 'deny');
   const warns  = hits.filter(h => h.action === 'warn');
@@ -172,7 +179,7 @@ async function gateDecide({ name, ecosystem, version, includeDeps = false }, pol
   if (denied) {
     return {
       decision: 'deny',
-      reasons: [{ rule: 'denylist', detail: `blocked by name: ${denied}` }],
+      reasons: [{ rule: 'denylist', detail: nameDetail(policy, 'deny', denied) }],
       package: { ecosystem: eco, name: pkg, version: ver },
       findings: { total: 0, counts: emptyCounts(), topSeverity: 'NONE', kev: 0, epssMax: 0, pocCount: 0, cveCount: 0, toxic: { found: false } },
       transitive: null, policy: policy.version || 'default', scannedAt: new Date().toISOString(),
@@ -182,7 +189,7 @@ async function gateDecide({ name, ecosystem, version, includeDeps = false }, pol
   if (allowedByName) {
     return {
       decision: 'allow',
-      reasons: [{ rule: 'allowlist', detail: `allowed by name: ${allowedByName}` }],
+      reasons: [{ rule: 'allowlist', detail: nameDetail(policy, 'allow', allowedByName) }],
       package: { ecosystem: eco, name: pkg, version: ver },
       findings: { total: 0, counts: emptyCounts(), topSeverity: 'NONE', kev: 0, epssMax: 0, pocCount: 0, cveCount: 0, toxic: { found: false } },
       transitive: null, policy: policy.version || 'default', scannedAt: new Date().toISOString(),
