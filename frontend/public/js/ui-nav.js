@@ -32,6 +32,12 @@ function _emptyRadar(){
 }
 
 async function navTo(page, opts={}){
+  // Rule edits live in the browser until Save; leaving the tab would drop them
+  // without a word.
+  if(page!=='rules' && typeof rulesHasUnsavedChanges==='function' && rulesHasUnsavedChanges()){
+    if(!confirm('The gate rules have unsaved changes.\n\nLeave this tab and discard them?')) return;
+    rulesDiscardChanges();
+  }
   if(page==='admin' && !document.getElementById('page-admin')){
     const d=document.createElement('div');
     d.id='page-admin'; d.className='page';
