@@ -165,8 +165,11 @@ function _ruleCard(rule, index) {
       </select>`}</span>
       ${conditions}
     </div>
-    <input class="rule-detail" data-field="detail" data-rule="${index}"
-           value="${esc(rule.detail || '')}" placeholder="message shown to the blocked client"/>
+    <div class="rule-detail-row">
+      <span class="rule-detail-lead">reason</span>
+      <input class="rule-detail" data-field="detail" data-rule="${index}"
+             value="${esc(rule.detail || '')}" placeholder="${esc(rule.id || 'shown to the blocked developer')}"/>
+    </div>
   </div>`;
 }
 
@@ -328,33 +331,50 @@ function draftPaint() {
   const host = document.getElementById('draftBody');
   if (!host) return;
   host.innerHTML = `
-    <div class="draft-grid">
-      <label>Rule name
+    <div class="draft-step">
+      <span class="draft-num">1</span>
+      <div class="draft-field">
+        <label for="draftId">Name this rule</label>
         <input id="draftId" value="${esc(_draft.id)}" placeholder="no-critical-vulns"/>
-        <span class="draft-hint">Appears in the block reason and in the logs.</span>
-      </label>
-      <label>Verdict
-        <select id="draftAction">
+        <span class="draft-hint">A short identifier — lowercase with dashes, no spaces.</span>
+      </div>
+    </div>
+
+    <div class="draft-step">
+      <span class="draft-num">2</span>
+      <div class="draft-field">
+        <label>Match a package when
+          <select id="draftMatch">
+            <option value="all"${_draft.match === 'all' ? ' selected' : ''}>all of these are true</option>
+            <option value="any"${_draft.match === 'any' ? ' selected' : ''}>any of these is true</option>
+          </select>
+        </label>
+        <div id="draftConds">${_draft.rows.map((r, i) => _conditionRow(r, 'draft', i)).join('')}</div>
+        <button class="cond-add" id="draftAddCond">+ condition</button>
+      </div>
+    </div>
+
+    <div class="draft-step">
+      <span class="draft-num">3</span>
+      <div class="draft-field">
+        <label for="draftAction">Then</label>
+        <select id="draftAction" class="rule-action ${_draft.action}">
           ${['deny', 'warn', 'allow'].map(a => `<option value="${a}"${_draft.action === a ? ' selected' : ''}>${a}</option>`).join('')}
         </select>
-        <span class="draft-hint">deny blocks the download; warn only records it.</span>
-      </label>
-    </div>
-
-    <div class="draft-section">
-      <div class="draft-lead">Apply when
-        <select id="draftMatch">
-          <option value="all"${_draft.match === 'all' ? ' selected' : ''}>all of these are true</option>
-          <option value="any"${_draft.match === 'any' ? ' selected' : ''}>any of these is true</option>
-        </select>
+        <span class="draft-hint">${_draft.action === 'deny' ? 'The download is blocked.'
+          : _draft.action === 'warn' ? 'The download goes through and the match is recorded.'
+          : 'The package is allowed even when another rule would block it.'}</span>
       </div>
-      <div id="draftConds">${_draft.rows.map((r, i) => _conditionRow(r, 'draft', i)).join('')}</div>
-      <button class="cond-add" id="draftAddCond">+ condition</button>
     </div>
 
-    <label class="draft-detail">Message shown to the blocked client
-      <input id="draftDetail" value="${esc(_draft.detail)}" placeholder="package contains a critical vulnerability"/>
-    </label>
+    <div class="draft-step">
+      <span class="draft-num">4</span>
+      <div class="draft-field">
+        <label for="draftDetail">Reason text <span class="draft-optional">optional</span></label>
+        <input id="draftDetail" value="${esc(_draft.detail)}" placeholder="${esc(_draft.id.trim() || 'defaults to the rule name')}"/>
+        <span class="draft-hint">What the developer sees instead of the package. Leave it empty to reuse the rule name.</span>
+      </div>
+    </div>
 
     <div id="draftErr" class="draft-err" style="display:none"></div>
 
@@ -365,7 +385,8 @@ function draftPaint() {
 
   host.querySelector('#draftId').addEventListener('input', e => { _draft.id = e.target.value; });
   host.querySelector('#draftDetail').addEventListener('input', e => { _draft.detail = e.target.value; });
-  host.querySelector('#draftAction').addEventListener('change', e => { _draft.action = e.target.value; });
+  // Repaint so the colour and the explanation follow the chosen verdict.
+  host.querySelector('#draftAction').addEventListener('change', () => draftSync());
   host.querySelector('#draftMatch').addEventListener('change', () => draftSync());
   host.querySelectorAll('#draftConds .cond-fact, #draftConds .cond-op, #draftConds .cond-value')
     .forEach(el => el.addEventListener('change', () => draftSync()));
