@@ -72,3 +72,15 @@ test('ecosystems map to names OSV actually accepts', () => {
   assert.equal(osvEcosystem('AlmaLinux:9'), 'AlmaLinux');
   assert.equal(osvEcosystem('npm'), 'npm'); // language ecosystems pass through
 });
+
+test('a fail-closed block is told apart from a policy block', () => {
+  // on_gate_error: deny blocks the package when OSV is unreachable. That must
+  // not be reported as "forbidden by policy": the package was never judged.
+  const { isGateError } = require('../lib/routes/gate-proxy.route');
+  assert.equal(isGateError([{ rule: 'gate-error', detail: 'OSV query failed' }]), true);
+  assert.equal(isGateError([{ rule: 'critical', detail: '1 critical vuln' }]), false);
+  assert.equal(isGateError([{ rule: 'denylist', detail: 'blocked by name: curl' }]), false);
+  // A real policy hit alongside an error is still a policy decision.
+  assert.equal(isGateError([{ rule: 'gate-error' }, { rule: 'critical' }]), false);
+  assert.equal(isGateError([]), false);
+});
