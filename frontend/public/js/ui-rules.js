@@ -81,14 +81,17 @@ async function renderRules() {
   rulesPaint();
 }
 
-// Name entries live in policy.exceptions, rules in policy.rules. The screen
-// shows them as one list in evaluation order - names are decided before any
-// scan runs, so they come first.
+// An entry is a bare string while enabled, or { pattern, enabled: false } once
+// switched off - same idea as a disabled rule: kept in the policy, not enforced.
 function _nameEntries(body) {
   const out = [];
   for (const action of ['deny', 'allow']) {
-    (body.exceptions?.[action] || []).forEach((pattern, i) => {
-      out.push({ kind: 'name', action, pattern, index: i });
+    (body.exceptions?.[action] || []).forEach((item, i) => {
+      out.push({
+        kind: 'name', action, index: i,
+        pattern: typeof item === 'string' ? item : item.pattern,
+        enabled: typeof item === 'string' || item.enabled !== false,
+      });
     });
   }
   return out;
@@ -175,17 +178,19 @@ function _ruleCard(rule, index) {
 // depend on any feed being reachable. Shown as the same card, minus the parts
 // that only make sense after a scan.
 function _nameCard(entry) {
-  const { action, pattern, index } = entry;
-  return `<div class="rule-card name-card" data-name="${action}:${index}">
+  const { action, pattern, index, enabled } = entry;
+  const ref = `${action}:${index}`;
+  return `<div class="rule-card name-card ${enabled ? '' : 'off'}" data-name="${ref}">
     <div class="rule-head">
       <span class="rule-lead">name</span>
-      <input class="rule-id" data-name-field="pattern" data-name="${action}:${index}"
+      <input class="rule-id" data-name-field="pattern" data-name="${ref}"
              value="${esc(pattern)}" placeholder="curl"/>
-      <select class="rule-action ${action}" data-name-field="action" data-name="${action}:${index}">
+      <select class="rule-action ${action}" data-name-field="action" data-name="${ref}">
         ${['deny', 'allow'].map(a => `<option value="${a}"${action === a ? ' selected' : ''}>${a}</option>`).join('')}
       </select>
       <span class="name-badge" title="Decided before the package is scanned">by name</span>
-      <button class="rule-del" data-name-del="${action}:${index}" title="Delete rule">✕</button>
+      <label class="rule-toggle"><input type="checkbox" data-name-field="enabled" data-name="${ref}" ${enabled ? 'checked' : ''}/> enabled</label>
+      <button class="rule-del" data-name-del="${ref}" title="Delete rule">✕</button>
     </div>
     <div class="rule-when">
       <span class="when-lead">match</span>
@@ -283,24 +288,34 @@ function rulesBind() {
   // Name cards edit policy.exceptions. Changing the verdict moves the entry
   // between the deny and allow lists.
   host.querySelectorAll('[data-name-field]').forEach(el => el.addEventListener('change', () => {
-    const [action, i] = el.dataset.name.split(':');
+    const [action, raw] = el.dataset.name.split(':');
+    const i = Number(raw);
     const list = body.exceptions[action];
+    const item = list[i];
+    const pattern = typeof item === 'string' ? item : item.pattern;
+    const enabled = typeof item === 'string' || item.enabled !== false;
+    // A bare string means enabled; anything switched off is stored as an object.
+    const write = (p, on) => (on ? p : { pattern: p, enabled: false });
+
     if (el.dataset.nameField === 'pattern') {
       const v = el.value.trim();
       if (!v) return;
-      list[Number(i)] = v;
+      list[i] = write(v, enabled);
+    } else if (el.dataset.nameField === 'enabled') {
+      list[i] = write(pattern, el.checked);
     } else {
-      const [moved] = list.splice(Number(i), 1);
+      list.splice(i, 1);
       body.exceptions[el.value] = body.exceptions[el.value] || [];
-      body.exceptions[el.value].push(moved);
+      body.exceptions[el.value].push(write(pattern, enabled));
     }
     _touch(); rulesPaint();
   }));
 
   host.querySelectorAll('[data-name-del]').forEach(b => b.addEventListener('click', () => {
-    const [action, i] = b.dataset.nameDel.split(':');
-    if (!confirm(`Delete rule "${body.exceptions[action][Number(i)]}"?`)) return;
-    body.exceptions[action].splice(Number(i), 1); _touch(); rulesPaint();
+    const [action, raw] = b.dataset.nameDel.split(':');
+    const item = body.exceptions[action][Number(raw)];
+    if (!confirm(`Delete rule "${typeof item === 'string' ? item : item.pattern}"?`)) return;
+    body.exceptions[action].splice(Number(raw), 1); _touch(); rulesPaint();
   }));
 
   host.querySelector('#rulesSave').addEventListener('click', rulesSave);
@@ -415,7 +430,7 @@ function draftPaint() {
 
     ${byName ? '' : `
     <div class="draft-step">
-      <span class="draft-num">4</span>
+      <span class="draft-num">5</span>
       <div class="draft-field">
         <label for="draftDetail">Reason text <span class="draft-optional">optional</span></label>
         <input id="draftDetail" value="${esc(_draft.detail)}" placeholder="${esc(_draft.id.trim() || 'defaults to the rule name')}"/>
