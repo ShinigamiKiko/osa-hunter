@@ -164,6 +164,13 @@ All of these sit behind authentication; `/api/gate` stays the only open
 endpoint. A policy is data, never code — rules are `{fact: expression}` pairs
 interpreted by `lib/gate/policy.js`, and nothing in a policy is evaluated as JS.
 
+**Blocked vs. undecidable.** A package the policy rejects returns `403 Blocked by
+OSA gate (<rule>)`. When `defaults.on_gate_error` is `deny` and the vulnerability
+data itself is unreachable, the package is still not served, but it was never
+judged — that answer is `503 OSA gate: vulnerability data unavailable, retry`
+with a `Retry-After` header, so clients retry instead of reporting the package as
+forbidden by policy. Fail-closed verdicts are never cached.
+
 
 ## Nexus Gateway
 

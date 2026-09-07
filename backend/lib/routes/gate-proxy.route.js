@@ -87,6 +87,15 @@ function reasonPhrase(reasons) {
   return `Blocked by OSA gate (${parts.join(', ') || 'policy'})`.replace(/[^\x20-\x7E]/g, '').slice(0, 150);
 }
 
+// on_gate_error: deny means an unreachable OSV blocks the package. That is the
+// right call, but it is not a verdict about the package, and a developer who
+// sees "Blocked by OSA gate" on some transitive dependency has no way to tell
+// the two apart.
+const GATE_ERROR_PHRASE = 'OSA gate: vulnerability data unavailable, retry';
+function isGateError(reasons) {
+  return (reasons || []).length > 0 && reasons.every(r => r.rule === 'gate-error');
+}
+
 function recordEvent(req, { decision, ecosystem, name, version, repository, reasons }) {
   const ip = req.ip || null;
   getPool().query(
@@ -147,9 +156,24 @@ router.all('/*', async (req, res) => {
         const why = (verdict.reasons || []).map(r => `${r.rule}: ${r.detail}`).join('; ') || 'policy';
         const rules = (verdict.reasons || []).map(r => r.rule).join(',') || 'policy';
         console.warn(`[gate] DENY ${artifact.ecosystem} ${artifact.name}@${artifact.version} -> ${why}`);
+        recordEvent(req, { decision: 'deny', ecosystem: artifact.ecosystem, name: artifact.name, version: artifact.version, repository, reasons: rules });
+
+        // Fail-closed, but say why: the package is not being judged, the data
+        // to judge it is missing. 503 also makes clients retry rather than
+        // report the package as forbidden. It still is not served.
+        if (isGateError(verdict.reasons)) {
+          res.setHeader('Retry-After', '30');
+          res.setHeader('X-OSA-Deny-Reason', why);
+          res.statusMessage = GATE_ERROR_PHRASE;
+          return res.status(503).json({
+            error: 'OSA gate could not evaluate this package: vulnerability data is unavailable. '
+                 + 'This is not a policy block — retry shortly.',
+            reasons: verdict.reasons,
+          });
+        }
+
         res.setHeader('X-OSA-Deny-Reason', why);
         res.statusMessage = reasonPhrase(verdict.reasons);
-        recordEvent(req, { decision: 'deny', ecosystem: artifact.ecosystem, name: artifact.name, version: artifact.version, repository, reasons: rules });
         return res.status(403).json({ error: 'Artifact blocked by OSA gate', reasons: verdict.reasons });
       }
       recordEvent(req, { decision: 'allow', ecosystem: artifact.ecosystem, name: artifact.name, version: artifact.version, repository });
@@ -166,4 +190,4 @@ router.all('/*', async (req, res) => {
   }
 });
 
-module.exports = { router, parseArtifact, metadataAllowed };
+module.exports = { router, parseArtifact, metadataAllowed, isGateError };
