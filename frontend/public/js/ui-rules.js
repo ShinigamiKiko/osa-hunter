@@ -6,6 +6,7 @@
 let _rulesState = null;   // { revision, body, dirty }
 let _rulesRevisions = [];
 let _rulesFacts = [];
+let _draft = null;        // rule being filled in the New rule dialog
 
 const RULES_OPS = [
   { v: '>=', l: '≥' }, { v: '>', l: '>' }, { v: '<=', l: '≤' },
@@ -95,7 +96,6 @@ function rulesPaint() {
       </div>
       <div class="rules-actions">
         <button id="rulesAdd">+ Rule</button>
-        <button id="rulesSimulate" title="Re-decide every package already seen, without blocking anything">Simulate</button>
         <button id="rulesExport">Export YAML</button>
         <button id="rulesImport">Import YAML</button>
         <button id="rulesSave" class="primary" ${_rulesState.dirty ? '' : 'disabled'}>Save revision</button>
@@ -242,8 +242,6 @@ function rulesBind() {
 
   host.querySelectorAll('.cond-match, .cond-fact, .cond-op, .cond-value').forEach(el =>
     el.addEventListener('change', () => rulesSyncConditions(Number(el.dataset.rule))));
-  host.querySelectorAll('.cond-value[type="number"], input.cond-value').forEach(el =>
-    el.addEventListener('input', () => { _rulesState.dirty = true; }));
 
   host.querySelectorAll('[data-add-cond]').forEach(b => b.addEventListener('click', () => {
     const i = Number(b.dataset.addCond);
@@ -266,12 +264,7 @@ function rulesBind() {
     body.rules.splice(Number(b.dataset.del), 1); _touch(); rulesPaint();
   }));
 
-  host.querySelector('#rulesAdd').addEventListener('click', () => {
-    body.rules = body.rules || [];
-    body.rules.push({ id: `rule-${body.rules.length + 1}`, action: 'deny',
-      when: { 'counts.CRITICAL': '>= 1' }, detail: '' });
-    _touch(); rulesPaint();
-  });
+  host.querySelector('#rulesAdd').addEventListener('click', rulesNewRule);
 
   host.querySelectorAll('[data-exc-add]').forEach(b => b.addEventListener('click', () => {
     const kind = b.dataset.excAdd;
@@ -288,7 +281,6 @@ function rulesBind() {
   }));
 
   host.querySelector('#rulesSave').addEventListener('click', rulesSave);
-  host.querySelector('#rulesSimulate').addEventListener('click', rulesSimulate);
   host.querySelector('#rulesExport').addEventListener('click', rulesExport);
   host.querySelector('#rulesImport').addEventListener('click', rulesImport);
 
@@ -296,12 +288,10 @@ function rulesBind() {
   host.querySelectorAll('[data-view]').forEach(b => b.addEventListener('click', () => rulesView(b.dataset.view)));
 }
 
-// Rebuild one rule's `when` from every control currently on screen.
-function rulesSyncConditions(ruleIndex) {
-  const card = document.querySelector(`.rule-card[data-rule="${ruleIndex}"]`);
-  if (!card) return;
-  const match = card.querySelector('.cond-match')?.value || 'all';
-  const rows = [...card.querySelectorAll('.cond-row')].map(row => {
+// Read every condition control inside a container back into row objects.
+// Shared by the inline cards and the New rule dialog.
+function _readRows(scope) {
+  return [...scope.querySelectorAll('.cond-row')].map(row => {
     const fact = row.querySelector('.cond-fact').value;
     const meta = _factMeta(fact);
     const valueEl = row.querySelector('.cond-value');
@@ -310,8 +300,120 @@ function rulesSyncConditions(ruleIndex) {
       : (row.querySelector('.cond-op')?.value || '>=');
     return { fact, op, value: valueEl ? valueEl.value : '' };
   });
-  _rulesState.body.rules[ruleIndex].when = _rowsToWhen(match, rows);
+}
+
+// Rebuild one rule's `when` from every control currently on screen.
+function rulesSyncConditions(ruleIndex) {
+  const card = document.querySelector(`.rule-card[data-rule="${ruleIndex}"]`);
+  if (!card) return;
+  const match = card.querySelector('.cond-match')?.value || 'all';
+  _rulesState.body.rules[ruleIndex].when = _rowsToWhen(match, _readRows(card));
   _touch();
+  rulesPaint();
+}
+
+// ── new rule dialog ───────────────────────────────────────────
+// A new rule is filled in a dialog and only joins the policy once it is
+// complete, so the list never holds a half-written placeholder rule.
+function rulesNewRule() {
+  _draft = {
+    id: '', action: 'deny', match: 'all', detail: '',
+    rows: [{ fact: 'counts.CRITICAL', op: '>=', value: '1' }],
+  };
+  _rulesModal('New rule', '<div id="draftBody"></div>');
+  draftPaint();
+}
+
+function draftPaint() {
+  const host = document.getElementById('draftBody');
+  if (!host) return;
+  host.innerHTML = `
+    <div class="draft-grid">
+      <label>Rule name
+        <input id="draftId" value="${esc(_draft.id)}" placeholder="no-critical-vulns"/>
+        <span class="draft-hint">Appears in the block reason and in the logs.</span>
+      </label>
+      <label>Verdict
+        <select id="draftAction">
+          ${['deny', 'warn', 'allow'].map(a => `<option value="${a}"${_draft.action === a ? ' selected' : ''}>${a}</option>`).join('')}
+        </select>
+        <span class="draft-hint">deny blocks the download; warn only records it.</span>
+      </label>
+    </div>
+
+    <div class="draft-section">
+      <div class="draft-lead">Apply when
+        <select id="draftMatch">
+          <option value="all"${_draft.match === 'all' ? ' selected' : ''}>all of these are true</option>
+          <option value="any"${_draft.match === 'any' ? ' selected' : ''}>any of these is true</option>
+        </select>
+      </div>
+      <div id="draftConds">${_draft.rows.map((r, i) => _conditionRow(r, 'draft', i)).join('')}</div>
+      <button class="cond-add" id="draftAddCond">+ condition</button>
+    </div>
+
+    <label class="draft-detail">Message shown to the blocked client
+      <input id="draftDetail" value="${esc(_draft.detail)}" placeholder="package contains a critical vulnerability"/>
+    </label>
+
+    <div id="draftErr" class="draft-err" style="display:none"></div>
+
+    <div class="rules-modal-actions">
+      <button id="draftCancel">Cancel</button>
+      <button id="draftAdd" class="primary">Add rule</button>
+    </div>`;
+
+  host.querySelector('#draftId').addEventListener('input', e => { _draft.id = e.target.value; });
+  host.querySelector('#draftDetail').addEventListener('input', e => { _draft.detail = e.target.value; });
+  host.querySelector('#draftAction').addEventListener('change', e => { _draft.action = e.target.value; });
+  host.querySelector('#draftMatch').addEventListener('change', () => draftSync());
+  host.querySelectorAll('#draftConds .cond-fact, #draftConds .cond-op, #draftConds .cond-value')
+    .forEach(el => el.addEventListener('change', () => draftSync()));
+  host.querySelector('#draftAddCond').addEventListener('click', () => {
+    draftSync(false);
+    _draft.rows.push({ fact: _rulesFacts[0].key, op: '>=', value: '1' });
+    draftPaint();
+  });
+  host.querySelectorAll('#draftConds [data-del-cond]').forEach(b => b.addEventListener('click', () => {
+    draftSync(false);
+    _draft.rows.splice(Number(b.dataset.delCond), 1);
+    draftPaint();
+  }));
+  host.querySelector('#draftCancel').addEventListener('click', _rulesCloseModal);
+  host.querySelector('#draftAdd').addEventListener('click', draftCommit);
+}
+
+// Pull the dialog's values into the draft. Repaint only when the controls
+// themselves changed, so typing in a text field never fights the cursor.
+function draftSync(repaint = true) {
+  const host = document.getElementById('draftBody');
+  if (!host) return;
+  _draft.id = host.querySelector('#draftId').value;
+  _draft.detail = host.querySelector('#draftDetail').value;
+  _draft.action = host.querySelector('#draftAction').value;
+  _draft.match = host.querySelector('#draftMatch').value;
+  _draft.rows = _readRows(host.querySelector('#draftConds'));
+  if (repaint) draftPaint();
+}
+
+function draftCommit() {
+  draftSync(false);
+  const err = document.getElementById('draftErr');
+  const fail = (msg) => { err.textContent = msg; err.style.display = 'block'; };
+
+  const id = _draft.id.trim();
+  if (!id) return fail('Give the rule a name.');
+  if ((_rulesState.body.rules || []).some(r => r.id === id)) return fail(`A rule named "${id}" already exists.`);
+  const when = _rowsToWhen(_draft.match, _draft.rows);
+  if (!Object.keys(when).length) return fail('Add at least one condition.');
+
+  _rulesState.body.rules = _rulesState.body.rules || [];
+  _rulesState.body.rules.push({
+    id, action: _draft.action, when,
+    ...(_draft.detail.trim() ? { detail: _draft.detail.trim() } : {}),
+  });
+  _touch();
+  _rulesCloseModal();
   rulesPaint();
 }
 
@@ -394,35 +496,6 @@ function rulesImport() {
   });
 }
 
-async function rulesSimulate() {
-  _rulesModal('Simulation', '<div style="padding:20px;color:var(--muted)">Replaying cached verdicts…</div>');
-  try {
-    const r = await fetch('/api/policy/simulate', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ body: _rulesState.body }),
-    });
-    if (!r.ok) throw new Error((await r.json()).error || r.statusText);
-    const d = await readJson(r);
-    const rows = (d.changes || []).map(c => `<tr>
-      <td><span class="eco-pill">${esc(c.ecosystem || '—')}</span></td>
-      <td>${esc(c.name)}</td><td>${esc(c.version || '')}</td>
-      <td><span class="verdict ${c.from === 'deny' ? 'deny' : 'allow'}">${esc(c.from)}</span> →
-          <span class="verdict ${c.to === 'deny' ? 'deny' : 'allow'}">${esc(c.to)}</span></td>
-      <td class="reasons">${esc(c.reason)}</td></tr>`).join('');
-    _rulesModalBody(`
-      <div class="sim-summary">
-        <span>${d.evaluated} packages replayed</span>
-        <span class="sim-bad">+${d.newlyBlocked} newly blocked</span>
-        <span class="sim-good">−${d.newlyAllowed} unblocked</span>
-      </div>
-      ${(d.notSimulated || []).length ? `<div class="sim-warn">Not simulated (needs a live scan):
-        ${d.notSimulated.map(s => esc(s.rule)).join(', ')}</div>` : ''}
-      ${rows ? `<table class="proxy-table"><thead><tr><th>Ecosystem</th><th>Package</th><th>Version</th><th>Change</th><th>Why</th></tr></thead><tbody>${rows}</tbody></table>`
-             : '<div class="rules-empty">Nothing changes for the packages seen so far.</div>'}
-      ${d.truncated ? '<div class="rules-hint">Showing the first 500 changes.</div>' : ''}`);
-  } catch (e) { _rulesModalBody(`<div class="proxy-error">${esc(e.message)}</div>`); }
-}
-
 // ── modal ─────────────────────────────────────────────────────
 function _rulesModal(title, html) {
   _rulesCloseModal();
@@ -437,8 +510,4 @@ function _rulesModal(title, html) {
   ov.addEventListener('click', e => { if (e.target === ov) _rulesCloseModal(); });
   document.getElementById('rulesModalClose').addEventListener('click', _rulesCloseModal);
 }
-function _rulesModalBody(html) {
-  const b = document.querySelector('#rulesOv .rules-modal-body');
-  if (b) b.innerHTML = html;
-}
-function _rulesCloseModal() { document.getElementById('rulesOv')?.remove(); }
+function _rulesCloseModal() { document.getElementById('rulesOv')?.remove(); _draft = null; }
