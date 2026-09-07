@@ -447,6 +447,8 @@
   color: rgba(255, 255, 255, .3);
 }
 
+// Sits next to the verdict; "enabled" and the delete button stay pushed to
+// the right, exactly as on a scan rule.
 .name-badge {
   font-size: 9px;
   text-transform: uppercase;
@@ -458,8 +460,6 @@
   padding: 2px 8px;
 }
 
-.name-card .rule-toggle { margin-left: 0; }
-.name-card .rule-del { margin-left: auto; }
 
 .name-row { align-items: baseline; }
 
