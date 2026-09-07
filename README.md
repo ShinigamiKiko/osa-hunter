@@ -138,7 +138,7 @@ The enforced policy lives in the database as numbered revisions, one of which is
 active. On first boot `policy.yaml` is imported as revision 1, so an existing
 file-based setup keeps working and its rules appear in the UI unchanged.
 
-Manage it under **Rules** in the sidebar: build rules from dropdowns, keep
+Manage it under **Rules** in the sidebar: add rules through a dialog, keep
 name-based blocks as chips, save a revision, and activate it when ready. Every
 save is a new revision, so rolling back is activating an older one. Activating a
 revision changes the verdict-cache key, so cached decisions are never reused
@@ -152,17 +152,11 @@ across policies.
 | `POST /api/policy/revisions` | save a revision (`body` or `yaml`, `activate`) |
 | `POST /api/policy/revisions/:n/activate` | switch the enforced policy |
 | `POST /api/policy/normalize` | validate without storing |
-| `POST /api/policy/simulate` | dry run: re-decide cached packages, report the diff |
 
 All of these sit behind authentication; `/api/gate` stays the only open
 endpoint. A policy is data, never code — rules are `{fact: expression}` pairs
 interpreted by `lib/gate/policy.js`, and nothing in a policy is evaluated as JS.
 
-**Dry run before enforcing.** `POST /api/policy/simulate` (the *Simulate* button)
-replays a candidate policy over verdicts already in `scan_cache` and reports what
-would change — no network, no scans, nothing blocked. Rules that match on `cves`
-or `ids` need a live scan and are listed as not simulated rather than silently
-counted as clean.
 
 ## Nexus Gateway
 
