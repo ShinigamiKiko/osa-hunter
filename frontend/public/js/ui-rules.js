@@ -81,16 +81,19 @@ async function renderRules() {
   rulesPaint();
 }
 
-// An entry is a bare string while enabled, or { pattern, enabled: false } once
-// switched off - same idea as a disabled rule: kept in the policy, not enforced.
+// An entry is a bare string while it is plain, or { pattern, enabled?, reason? }
+// once switched off or given its own message - the same two things a scan rule
+// carries, so both kinds of rule edit the same way.
 function _nameEntries(body) {
   const out = [];
   for (const action of ['deny', 'allow']) {
     (body.exceptions?.[action] || []).forEach((item, i) => {
+      const obj = typeof item === 'string' ? { pattern: item } : item;
       out.push({
         kind: 'name', action, index: i,
-        pattern: typeof item === 'string' ? item : item.pattern,
-        enabled: typeof item === 'string' || item.enabled !== false,
+        pattern: obj.pattern,
+        reason: obj.reason || '',
+        enabled: obj.enabled !== false,
       });
     });
   }
@@ -178,7 +181,7 @@ function _ruleCard(rule, index) {
 // depend on any feed being reachable. Shown as the same card, minus the parts
 // that only make sense after a scan.
 function _nameCard(entry) {
-  const { action, pattern, index, enabled } = entry;
+  const { action, pattern, index, enabled, reason } = entry;
   const ref = `${action}:${index}`;
   return `<div class="rule-card name-card ${enabled ? '' : 'off'}" data-name="${ref}">
     <div class="rule-head">
@@ -188,7 +191,6 @@ function _nameCard(entry) {
       <select class="rule-action ${action}" data-name-field="action" data-name="${ref}">
         ${['deny', 'allow'].map(a => `<option value="${a}"${action === a ? ' selected' : ''}>${a}</option>`).join('')}
       </select>
-      <span class="name-badge" title="Decided before the package is scanned">by name</span>
       <label class="rule-toggle"><input type="checkbox" data-name-field="enabled" data-name="${ref}" ${enabled ? 'checked' : ''}/> enabled</label>
       <button class="rule-del" data-name-del="${ref}" title="Delete rule">✕</button>
     </div>
@@ -197,8 +199,13 @@ function _nameCard(entry) {
       <div class="cond-row name-row">
         <span class="cond-op-fixed">package name is</span>
         <code class="name-pattern">${esc(pattern)}</code>
-        <span class="name-scope">in every ecosystem${pattern.includes('/') ? ' — scoped' : ''}${pattern.includes('*') ? ' — wildcard' : ''}</span>
+        <span class="name-scope">before scanning${pattern.includes('/') ? ' — scoped' : ''}${pattern.includes('*') ? ' — wildcard' : ''}</span>
       </div>
+    </div>
+    <div class="rule-detail-row">
+      <span class="rule-detail-lead">reason</span>
+      <input class="rule-detail" data-name-field="reason" data-name="${ref}"
+             value="${esc(reason)}" placeholder="${esc(action === 'deny' ? `blocked by name: ${pattern}` : `allowed by name: ${pattern}`)}"/>
     </div>
   </div>`;
 }
@@ -291,22 +298,26 @@ function rulesBind() {
     const [action, raw] = el.dataset.name.split(':');
     const i = Number(raw);
     const list = body.exceptions[action];
-    const item = list[i];
-    const pattern = typeof item === 'string' ? item : item.pattern;
-    const enabled = typeof item === 'string' || item.enabled !== false;
-    // A bare string means enabled; anything switched off is stored as an object.
-    const write = (p, on) => (on ? p : { pattern: p, enabled: false });
+    const cur = typeof list[i] === 'string' ? { pattern: list[i] } : { ...list[i] };
+    // A plain entry stays a plain string; only an off switch or a reason needs
+    // the object form, so an exported policy.yaml keeps its usual shape.
+    const write = ({ pattern, enabled = true, reason = '' }) =>
+      (enabled && !reason ? pattern
+        : { pattern, ...(enabled ? {} : { enabled: false }), ...(reason ? { reason } : {}) });
 
-    if (el.dataset.nameField === 'pattern') {
+    const field = el.dataset.nameField;
+    if (field === 'pattern') {
       const v = el.value.trim();
       if (!v) return;
-      list[i] = write(v, enabled);
-    } else if (el.dataset.nameField === 'enabled') {
-      list[i] = write(pattern, el.checked);
+      list[i] = write({ ...cur, pattern: v, enabled: cur.enabled !== false });
+    } else if (field === 'enabled') {
+      list[i] = write({ ...cur, enabled: el.checked });
+    } else if (field === 'reason') {
+      list[i] = write({ ...cur, reason: el.value.trim(), enabled: cur.enabled !== false });
     } else {
       list.splice(i, 1);
       body.exceptions[el.value] = body.exceptions[el.value] || [];
-      body.exceptions[el.value].push(write(pattern, enabled));
+      body.exceptions[el.value].push(write({ ...cur, enabled: cur.enabled !== false }));
     }
     _touch(); rulesPaint();
   }));
@@ -428,15 +439,17 @@ function draftPaint() {
       </div>
     </div>
 
-    ${byName ? '' : `
     <div class="draft-step">
-      <span class="draft-num">5</span>
+      <span class="draft-num">${byName ? '4' : '5'}</span>
       <div class="draft-field">
         <label for="draftDetail">Reason text <span class="draft-optional">optional</span></label>
-        <input id="draftDetail" value="${esc(_draft.detail)}" placeholder="${esc(_draft.id.trim() || 'defaults to the rule name')}"/>
-        <span class="draft-hint">What the developer sees instead of the package. Leave it empty to reuse the rule name.</span>
+        <input id="draftDetail" value="${esc(_draft.detail)}" placeholder="${esc(byName
+          ? `${_draft.action === 'deny' ? 'blocked' : 'allowed'} by name: ${_draft.pattern.trim() || '…'}`
+          : (_draft.id.trim() || 'defaults to the rule name'))}"/>
+        <span class="draft-hint">What the developer sees instead of the package.
+          Leave it empty for the default message.</span>
       </div>
-    </div>`}
+    </div>
 
     <div id="draftErr" class="draft-err" style="display:none"></div>
 
@@ -455,6 +468,7 @@ function draftPaint() {
   host.querySelector('#draftAction').addEventListener('change', () => draftSync());
   host.querySelector('#draftCancel').addEventListener('click', _rulesCloseModal);
   host.querySelector('#draftAdd').addEventListener('click', draftCommit);
+  host.querySelector('#draftDetail').addEventListener('input', e => { _draft.detail = e.target.value; });
 
   if (byName) {
     host.querySelector('#draftPattern').addEventListener('input', e => { _draft.pattern = e.target.value; });
@@ -462,7 +476,6 @@ function draftPaint() {
   }
 
   host.querySelector('#draftId').addEventListener('input', e => { _draft.id = e.target.value; });
-  host.querySelector('#draftDetail').addEventListener('input', e => { _draft.detail = e.target.value; });
   host.querySelector('#draftMatch').addEventListener('change', () => draftSync());
   host.querySelectorAll('#draftConds .cond-fact, #draftConds .cond-op, #draftConds .cond-value')
     .forEach(el => el.addEventListener('change', () => draftSync()));
@@ -484,12 +497,12 @@ function draftSync(repaint = true) {
   const host = document.getElementById('draftBody');
   if (!host || !_draft) return;
   _draft.action = host.querySelector('#draftAction').value;
+  _draft.detail = host.querySelector('#draftDetail').value;
   const pattern = host.querySelector('#draftPattern');
   if (pattern) _draft.pattern = pattern.value;
   const id = host.querySelector('#draftId');
   if (id) {
     _draft.id = id.value;
-    _draft.detail = host.querySelector('#draftDetail').value;
     _draft.match = host.querySelector('#draftMatch').value;
     _draft.rows = _readRows(host.querySelector('#draftConds'));
   }
@@ -507,8 +520,10 @@ function draftCommit() {
     if (!pattern) return fail('Enter a package name.');
     body.exceptions = body.exceptions || { allow: [], deny: [] };
     const list = body.exceptions[_draft.action] = body.exceptions[_draft.action] || [];
-    if (list.includes(pattern)) return fail(`"${pattern}" is already in the list.`);
-    list.push(pattern);
+    const has = list.some(e => (typeof e === 'string' ? e : e.pattern) === pattern);
+    if (has) return fail(`"${pattern}" is already in the list.`);
+    const reason = _draft.detail.trim();
+    list.push(reason ? { pattern, reason } : pattern);
   } else {
     const id = _draft.id.trim();
     if (!id) return fail('Give the rule a name.');

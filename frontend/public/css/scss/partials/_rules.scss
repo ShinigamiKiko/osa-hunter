@@ -447,18 +447,6 @@
   color: rgba(255, 255, 255, .3);
 }
 
-// Sits next to the verdict; "enabled" and the delete button stay pushed to
-// the right, exactly as on a scan rule.
-.name-badge {
-  font-size: 9px;
-  text-transform: uppercase;
-  letter-spacing: .06em;
-  color: #9dc0ff;
-  background: rgba(120, 170, 255, .1);
-  border: 1px solid rgba(120, 170, 255, .28);
-  border-radius: 999px;
-  padding: 2px 8px;
-}
 
 
 .name-row { align-items: baseline; }
@@ -473,7 +461,6 @@
   padding: 2px 8px;
 }
 
-.name-card .rule-action.allow + .name-badge ~ * .name-pattern,
 .rule-card.name-card:has(.rule-action.allow) .name-pattern {
   color: #7fe0a8;
   background: rgba(80, 200, 130, .1);
