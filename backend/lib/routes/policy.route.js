@@ -3,10 +3,7 @@
 const express = require('express');
 const router = express.Router();
 const { apiLimiter, rateLimit } = require('../shared');
-const {
-  listRevisions, getRevision, getActiveRow, createRevision, activateRevision,
-  toYaml, fromYaml, normalizeBody,
-} = require('../gate/policyStore');
+const { getPolicyRow, savePolicy, toYaml, fromYaml, normalizeBody } = require('../gate/policyStore');
 
 // Policy administration. Mounted behind requireAuth in server.js - only
 // /api/gate is public, and it accepts package paths, never policy input.
@@ -30,17 +27,36 @@ const FACTS = [
   { key: 'name', label: 'Package name', type: 'pattern', example: 'left-*' },
 ];
 
-
 function actor(req) {
   return req.session?.user?.username || req.session?.user?.email || 'unknown';
 }
 
-
 router.get('/policy/facts', (req, res) => res.json({ facts: FACTS }));
 
+router.get('/policy', async (req, res) => {
+  try {
+    const row = await getPolicyRow();
+    if (!row) return res.status(404).json({ error: 'No policy stored' });
+    res.json(row);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Export the policy in the same file format policy.yaml uses.
+router.get('/policy/yaml', async (req, res) => {
+  try {
+    const row = await getPolicyRow();
+    if (!row) return res.status(404).json({ error: 'No policy stored' });
+    res.type('text/yaml').send(toYaml(row.body));
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // Validate a candidate policy (YAML or object) and hand back the normalised
-// body, without storing anything. Lets the editor load YAML without shipping a
-// parser to the browser, and without creating junk revisions.
+// body without storing it. Lets the editor load YAML without shipping a parser
+// to the browser.
 router.post('/policy/normalize', rateLimit(apiLimiter), (req, res) => {
   try {
     const { body, yaml: yamlText } = req.body || {};
@@ -50,66 +66,17 @@ router.post('/policy/normalize', rateLimit(apiLimiter), (req, res) => {
   }
 });
 
-router.get('/policy/revisions', async (req, res) => {
+// Replace the policy. It takes effect immediately, and the bumped version
+// invalidates every verdict cached under the previous policy.
+router.put('/policy', rateLimit(apiLimiter), async (req, res) => {
   try {
-    res.json({ revisions: await listRevisions() });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-router.get('/policy/active', async (req, res) => {
-  try {
-    const row = await getActiveRow();
-    if (!row) return res.status(404).json({ error: 'No active policy revision' });
-    res.json(row);
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-router.get('/policy/revisions/:revision', async (req, res) => {
-  try {
-    const row = await getRevision(parseInt(req.params.revision, 10));
-    if (!row) return res.status(404).json({ error: 'Revision not found' });
-    res.json(row);
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-// Export any revision back to YAML - the same file format policy.yaml uses.
-router.get('/policy/revisions/:revision/yaml', async (req, res) => {
-  try {
-    const row = await getRevision(parseInt(req.params.revision, 10));
-    if (!row) return res.status(404).json({ error: 'Revision not found' });
-    res.type('text/yaml').send(toYaml(row.body));
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-// Save a new revision. `activate: true` makes it the enforced policy at once;
-// leaving it false stores it without switching the enforced policy.
-router.post('/policy/revisions', rateLimit(apiLimiter), async (req, res) => {
-  try {
-    const { body, yaml: yamlText, note, activate } = req.body || {};
+    const { body, yaml: yamlText } = req.body || {};
     const source = yamlText ? 'yaml' : 'ui';
     const parsed = yamlText ? fromYaml(String(yamlText)) : body;
-    const row = await createRevision(parsed, { user: actor(req), note, source, activate: !!activate });
-    res.status(201).json(row);
+    res.json(await savePolicy(parsed, { user: actor(req), source }));
   } catch (e) {
     res.status(400).json({ error: e.message });
   }
 });
-
-router.post('/policy/revisions/:revision/activate', rateLimit(apiLimiter), async (req, res) => {
-  try {
-    res.json(await activateRevision(parseInt(req.params.revision, 10)));
-  } catch (e) {
-    res.status(400).json({ error: e.message });
-  }
-});
-
 
 module.exports = router;

@@ -5,18 +5,18 @@ const yaml = require('js-yaml');
 const { getPool } = require('../auth/db');
 const { compilePolicy, POLICY_FILE } = require('./policy');
 
-// The gate reads its policy from the database: one row per revision, exactly
-// one active. `body` keeps the declarative YAML shape, so a revision compiles
-// with the same compilePolicy() the file loader uses - the UI, the file and the
-// enforcement path can never drift into different dialects.
+// The gate reads its policy from a single database row. `body` keeps the
+// declarative YAML shape, so it compiles with the same compilePolicy() the file
+// loader uses - the UI, the file and the enforcement path can never drift into
+// different dialects.
 //
 // A policy is data, never code: rules are {id, action, when: {fact: expr}} and
 // are interpreted by policy.js. Nothing here evaluates user input.
 
-const CACHE_MS = 10000; // re-read the active revision at most this often
-let _cache = null;      // { at, revision, compiled }
+const CACHE_MS = 10000; // re-read the stored policy at most this often
+let _cache = null;      // { at, version, compiled }
 
-// Used only when there is no policy.yaml to import on a fresh database.
+// Used only when there is no policy.yaml to import into a fresh database.
 const STARTER_BODY = {
   defaults: { decision: 'allow', on_gate_error: 'deny' },
   rules: [
@@ -32,7 +32,7 @@ const STARTER_BODY = {
 
 // Validate and strip a policy body down to the fields we persist. Throws on
 // anything compilePolicy rejects, so an invalid policy can never be stored -
-// and therefore never becomes the active one.
+// and therefore never becomes the enforced one.
 function normalizeBody(input) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) {
     throw new Error('Policy must be an object');
@@ -75,98 +75,54 @@ function normalizeBody(input) {
 }
 
 // Disabled rules stay in the body (so the UI can show them) but never compile.
-function compileBody(body, revision) {
+function compileBody(body, version) {
   return compilePolicy({
     ...body,
     rules: (body.rules || []).filter(r => r.enabled !== false),
-    version: `db:${revision}`,
+    version: `db:${version}`,
   });
 }
 
-async function listRevisions(limit = 50) {
-  const { rows } = await getPool().query(
-    `SELECT id, revision, name, source, note, created_by, created_at, active,
-            jsonb_array_length(COALESCE(body->'rules', '[]'::jsonb)) AS rule_count
-       FROM gate_policies ORDER BY revision DESC LIMIT $1`, [limit]);
-  return rows;
-}
-
-async function getRevision(revision) {
-  const { rows } = await getPool().query(
-    'SELECT * FROM gate_policies WHERE revision = $1', [revision]);
+async function getPolicyRow() {
+  const { rows } = await getPool().query('SELECT * FROM gate_policy WHERE id = 1');
   return rows[0] || null;
 }
 
-async function getActiveRow() {
-  const { rows } = await getPool().query(
-    'SELECT * FROM gate_policies WHERE active LIMIT 1');
-  return rows[0] || null;
-}
-
-// Store a new revision. Activating it is the caller's choice, so a policy can
-// be prepared and simulated before it starts blocking anyone.
-async function createRevision(body, { user, note, source = 'ui', activate = false } = {}) {
+// Replace the policy. The version counter bumps so every cached verdict made
+// under the previous policy is invalidated.
+async function savePolicy(body, { user, source = 'ui' } = {}) {
   const clean = normalizeBody(body);
-  const pool = getPool();
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-    const { rows: [{ next }] } = await client.query(
-      'SELECT COALESCE(MAX(revision), 0) + 1 AS next FROM gate_policies');
-    if (activate) await client.query('UPDATE gate_policies SET active = FALSE WHERE active');
-    const { rows } = await client.query(
-      `INSERT INTO gate_policies (revision, source, body, note, created_by, active)
-       VALUES ($1, $2, $3::jsonb, $4, $5, $6) RETURNING *`,
-      [next, source, JSON.stringify({ ...clean, version: next }), note || null, user || null, !!activate]);
-    await client.query('COMMIT');
-    if (activate) _cache = null;
-    return rows[0];
-  } catch (e) {
-    await client.query('ROLLBACK');
-    throw e;
-  } finally {
-    client.release();
-  }
-}
-
-async function activateRevision(revision) {
-  const pool = getPool();
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-    const { rowCount } = await client.query(
-      'SELECT 1 FROM gate_policies WHERE revision = $1', [revision]);
-    if (!rowCount) throw new Error(`Revision ${revision} not found`);
-    await client.query('UPDATE gate_policies SET active = FALSE WHERE active');
-    await client.query('UPDATE gate_policies SET active = TRUE WHERE revision = $1', [revision]);
-    await client.query('COMMIT');
-  } catch (e) {
-    await client.query('ROLLBACK');
-    throw e;
-  } finally {
-    client.release();
-  }
+  const { rows } = await getPool().query(
+    `INSERT INTO gate_policy (id, version, source, body, updated_by, updated_at)
+     VALUES (1, 1, $1, $2::jsonb, $3, NOW())
+     ON CONFLICT (id) DO UPDATE SET
+       version = gate_policy.version + 1,
+       source = EXCLUDED.source,
+       body = EXCLUDED.body,
+       updated_by = EXCLUDED.updated_by,
+       updated_at = NOW()
+     RETURNING *`,
+    [source, JSON.stringify(clean), user || null]);
   _cache = null;
-  return getRevision(revision);
+  return rows[0];
 }
 
 // Seed the database from policy.yaml on first boot, so an existing file-based
 // setup keeps working and its rules show up in the UI unchanged.
 async function bootstrapPolicy() {
-  const active = await getActiveRow().catch(() => null);
-  if (active) return active;
+  const existing = await getPolicyRow().catch(() => null);
+  if (existing) return existing;
 
-  let body = STARTER_BODY, source = 'builtin', note = 'built-in starter policy';
+  let body = STARTER_BODY, source = 'builtin';
   if (fs.existsSync(POLICY_FILE)) {
     try {
       body = yaml.load(fs.readFileSync(POLICY_FILE, 'utf8'));
       source = 'yaml';
-      note = `imported from ${POLICY_FILE}`;
     } catch (e) {
       throw new Error(`policy.yaml is present but unreadable: ${e.message}`);
     }
   }
-  return createRevision(body, { source, note, activate: true, user: 'system' });
+  return savePolicy(body, { source, user: 'system' });
 }
 
 // What the gate enforces. Falls back to the last good compile if the database
@@ -174,14 +130,14 @@ async function bootstrapPolicy() {
 async function getActivePolicy() {
   if (_cache && Date.now() - _cache.at < CACHE_MS) return _cache.compiled;
   try {
-    const row = await getActiveRow();
-    if (!row) throw new Error('no active policy revision');
-    const compiled = compileBody(row.body, row.revision);
-    _cache = { at: Date.now(), revision: row.revision, compiled };
+    const row = await getPolicyRow();
+    if (!row) throw new Error('no policy stored');
+    const compiled = compileBody(row.body, row.version);
+    _cache = { at: Date.now(), version: row.version, compiled };
     return compiled;
   } catch (e) {
     if (_cache) {
-      console.error('[policy] using cached revision, reload failed:', e.message);
+      console.error('[policy] using cached policy, reload failed:', e.message);
       _cache.at = Date.now();
       return _cache.compiled;
     }
@@ -194,12 +150,10 @@ function toYaml(body) {
 }
 
 function fromYaml(text) {
-  const parsed = yaml.load(text);
-  return normalizeBody(parsed);
+  return normalizeBody(yaml.load(text));
 }
 
 module.exports = {
-  bootstrapPolicy, getActivePolicy, listRevisions, getRevision, getActiveRow,
-  createRevision, activateRevision, normalizeBody, compileBody, toYaml, fromYaml,
-  STARTER_BODY,
+  bootstrapPolicy, getActivePolicy, getPolicyRow, savePolicy,
+  normalizeBody, compileBody, toYaml, fromYaml, STARTER_BODY,
 };

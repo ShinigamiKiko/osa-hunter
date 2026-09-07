@@ -134,24 +134,31 @@ The policy is evaluated after the package name and version are resolved.
 
 ## Gate Policy
 
-The enforced policy lives in the database as numbered revisions, one of which is
-active. On first boot `policy.yaml` is imported as revision 1, so an existing
-file-based setup keeps working and its rules appear in the UI unchanged.
+The enforced policy lives in the database. On first boot `policy.yaml` is
+imported, so an existing file-based setup keeps working and its rules appear in
+the UI unchanged.
 
-Manage it under **Rules** in the sidebar: add rules through a dialog, keep
-name-based blocks as chips, save a revision, and activate it when ready. Every
-save is a new revision, so rolling back is activating an older one. Activating a
-revision changes the verdict-cache key, so cached decisions are never reused
-across policies.
+Manage it under **Rules** in the sidebar. Two kinds of rule share one list:
+
+- **by name** — the package name is matched before anything is scanned, so it
+  works in every ecosystem and never depends on a feed being reachable
+  (`curl`, `npm/left-pad@1.3.0`, `crossenv*`);
+- **by scan result** — conditions over the findings: severity counts, CISA KEV,
+  EPSS, PoC, CVE ids.
+
+Saving replaces the policy and takes effect immediately. There is no revision
+history: keep the audited copy in git by pasting **Export YAML** into
+`policy.yaml`. Every save bumps an internal counter that is part of the
+verdict-cache key, so decisions cached under the previous policy are never
+reused.
 
 | Endpoint | Purpose |
 |---|---|
-| `GET /api/policy/active` | the revision the gate enforces |
-| `GET /api/policy/revisions` | revision history |
-| `GET /api/policy/revisions/:n/yaml` | export a revision as `policy.yaml` |
-| `POST /api/policy/revisions` | save a revision (`body` or `yaml`, `activate`) |
-| `POST /api/policy/revisions/:n/activate` | switch the enforced policy |
+| `GET /api/policy` | the policy the gate enforces |
+| `GET /api/policy/yaml` | export it as `policy.yaml` |
+| `PUT /api/policy` | replace it (`body` or `yaml`) |
 | `POST /api/policy/normalize` | validate without storing |
+| `GET /api/policy/facts` | the facts rules can match on |
 
 All of these sit behind authentication; `/api/gate` stays the only open
 endpoint. A policy is data, never code — rules are `{fact: expression}` pairs

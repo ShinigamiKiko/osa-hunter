@@ -3,8 +3,7 @@
 // the syntax. Anything too nested for the form (all/any inside all/any) is
 // shown read-only and stays editable through Import YAML.
 
-let _rulesState = null;   // { revision, body, dirty }
-let _rulesRevisions = [];
+let _rulesState = null;   // { source, body, dirty }
 let _rulesFacts = [];
 let _draft = null;        // rule being filled in the New rule dialog
 
@@ -68,14 +67,13 @@ async function renderRules() {
   if (!host) return;
   host.innerHTML = '<div style="padding:24px;color:var(--muted)">Loading…</div>';
   try {
-    const [factsRes, activeRes, revsRes] = await Promise.all([
-      fetch('/api/policy/facts'), fetch('/api/policy/active'), fetch('/api/policy/revisions'),
+    const [factsRes, policyRes] = await Promise.all([
+      fetch('/api/policy/facts'), fetch('/api/policy'),
     ]);
-    if (!activeRes.ok) throw new Error(`No active policy (HTTP ${activeRes.status})`);
+    if (!policyRes.ok) throw new Error(`No policy stored (HTTP ${policyRes.status})`);
     _rulesFacts = (await readJson(factsRes)).facts || [];
-    const active = await readJson(activeRes);
-    _rulesRevisions = (await readJson(revsRes)).revisions || [];
-    _rulesState = { revision: active.revision, body: active.body, dirty: false };
+    const policy = await readJson(policyRes);
+    _rulesState = { source: policy.source, body: policy.body, dirty: false };
   } catch (e) {
     host.innerHTML = `<div class="proxy-error">${esc(e.message)}</div>`;
     return;
@@ -83,22 +81,37 @@ async function renderRules() {
   rulesPaint();
 }
 
+// Name entries live in policy.exceptions, rules in policy.rules. The screen
+// shows them as one list in evaluation order - names are decided before any
+// scan runs, so they come first.
+function _nameEntries(body) {
+  const out = [];
+  for (const action of ['deny', 'allow']) {
+    (body.exceptions?.[action] || []).forEach((pattern, i) => {
+      out.push({ kind: 'name', action, pattern, index: i });
+    });
+  }
+  return out;
+}
+
 function rulesPaint() {
   const host = document.getElementById('rulesContent');
   const b = _rulesState.body;
   const rules = b.rules || [];
+  const names = _nameEntries(b);
+  const total = rules.length + names.length;
   host.innerHTML = `
     <div class="rules-bar">
       <div class="rules-meta">
-        <span class="rev-pill">revision ${esc(String(_rulesState.revision))}</span>
-        <span class="rules-count">${rules.length} rule${rules.length === 1 ? '' : 's'}</span>
+        <span class="rules-count">${total} rule${total === 1 ? '' : 's'}</span>
+        ${_rulesState.source === 'yaml' ? '<span class="rev-pill" title="Loaded from the policy file on the server">import</span>' : ''}
         ${_rulesState.dirty ? '<span class="rules-dirty">unsaved changes</span>' : ''}
       </div>
       <div class="rules-actions">
         <button id="rulesAdd">+ Rule</button>
         <button id="rulesExport">Export YAML</button>
         <button id="rulesImport">Import YAML</button>
-        <button id="rulesSave" class="primary" ${_rulesState.dirty ? '' : 'disabled'}>Save revision</button>
+        <button id="rulesSave" class="primary" ${_rulesState.dirty ? '' : 'disabled'}>Save</button>
       </div>
     </div>
 
@@ -115,27 +128,10 @@ function rulesPaint() {
       </label>
     </div>
 
-    <div id="rulesList">${rules.map((r, i) => _ruleCard(r, i)).join('') || '<div class="rules-empty">No rules yet — everything falls through to the default.</div>'}</div>
-
-    ${_exceptionsBlock('deny', b.exceptions?.deny || [])}
-    ${_exceptionsBlock('allow', b.exceptions?.allow || [])}
-
-    <div class="rules-revs">
-      <h3>Revisions</h3>
-      <table class="proxy-table">
-        <thead><tr><th>#</th><th>Source</th><th>Rules</th><th>Author</th><th>When</th><th>Note</th><th></th></tr></thead>
-        <tbody>${_rulesRevisions.map(r => `<tr class="${r.active ? 'rev-active' : ''}">
-          <td>${r.revision}${r.active ? ' <span class="rev-live">active</span>' : ''}</td>
-          <td><span class="eco-pill">${esc(r.source)}</span></td>
-          <td>${r.rule_count}</td>
-          <td>${esc(r.created_by || '—')}</td>
-          <td>${esc(new Date(r.created_at).toLocaleString())}</td>
-          <td>${esc(r.note || '')}</td>
-          <td>${r.active ? '' : `<button class="rev-btn" data-activate="${r.revision}">Activate</button>`}
-              <button class="rev-btn" data-view="${r.revision}">View</button></td>
-        </tr>`).join('')}</tbody>
-      </table>
-    </div>`;
+    <div id="rulesList">${
+      names.map(_nameCard).join('')
+      + rules.map((r, i) => _ruleCard(r, i)).join('')
+      || '<div class="rules-empty">No rules yet — everything falls through to the default.</div>'}</div>`;
 
   rulesBind();
 }
@@ -151,6 +147,7 @@ function _ruleCard(rule, index) {
 
   return `<div class="rule-card ${disabled ? 'off' : ''}" data-rule="${index}">
     <div class="rule-head">
+      <span class="rule-lead">name</span>
       <input class="rule-id" data-field="id" data-rule="${index}" value="${esc(rule.id || '')}" placeholder="rule-id"/>
       <select class="rule-action ${rule.action}" data-field="action" data-rule="${index}">
         ${['deny', 'warn', 'allow'].map(a => `<option value="${a}"${rule.action === a ? ' selected' : ''}>${a}</option>`).join('')}
@@ -169,6 +166,34 @@ function _ruleCard(rule, index) {
       <span class="rule-detail-lead">reason</span>
       <input class="rule-detail" data-field="detail" data-rule="${index}"
              value="${esc(rule.detail || '')}" placeholder="${esc(rule.id || 'shown to the blocked developer')}"/>
+    </div>
+  </div>`;
+}
+
+// A name entry is a rule too, just one the gate can settle without scanning:
+// the package never reaches OSV, so it works for every ecosystem and does not
+// depend on any feed being reachable. Shown as the same card, minus the parts
+// that only make sense after a scan.
+function _nameCard(entry) {
+  const { action, pattern, index } = entry;
+  return `<div class="rule-card name-card" data-name="${action}:${index}">
+    <div class="rule-head">
+      <span class="rule-lead">name</span>
+      <input class="rule-id" data-name-field="pattern" data-name="${action}:${index}"
+             value="${esc(pattern)}" placeholder="curl"/>
+      <select class="rule-action ${action}" data-name-field="action" data-name="${action}:${index}">
+        ${['deny', 'allow'].map(a => `<option value="${a}"${action === a ? ' selected' : ''}>${a}</option>`).join('')}
+      </select>
+      <span class="name-badge" title="Decided before the package is scanned">by name</span>
+      <button class="rule-del" data-name-del="${action}:${index}" title="Delete rule">✕</button>
+    </div>
+    <div class="rule-when">
+      <span class="when-lead">match</span>
+      <div class="cond-row name-row">
+        <span class="cond-op-fixed">package name is</span>
+        <code class="name-pattern">${esc(pattern)}</code>
+        <span class="name-scope">in every ecosystem${pattern.includes('/') ? ' — scoped' : ''}${pattern.includes('*') ? ' — wildcard' : ''}</span>
+      </div>
     </div>
   </div>`;
 }
@@ -205,20 +230,6 @@ function _conditionRow(row, ruleIndex, condIndex) {
 
   return `<div class="cond-row">${factSelect}${control}
     <button class="cond-del" data-rule="${ruleIndex}" data-del-cond="${condIndex}">✕</button></div>`;
-}
-
-function _exceptionsBlock(kind, list) {
-  return `<div class="rules-exc" data-exc="${kind}">
-    <h3>${kind === 'deny' ? 'Always block by name' : 'Always allow by name'}</h3>
-    <p class="exc-hint">Checked before any scan. A bare name applies to every ecosystem
-       (<code>curl</code>), or scope it: <code>npm/left-pad</code>, <code>npm/left-pad@1.3.0</code>, <code>crossenv*</code>.</p>
-    <div class="exc-list">${list.map((v, i) =>
-      `<span class="exc-chip">${esc(v)}<button data-exc-del="${kind}" data-i="${i}">✕</button></span>`).join('') || '<span class="exc-none">none</span>'}</div>
-    <div class="exc-add">
-      <input id="excInput-${kind}" placeholder="package name…"/>
-      <button data-exc-add="${kind}">Add</button>
-    </div>
-  </div>`;
 }
 
 // ── editing ───────────────────────────────────────────────────
@@ -269,26 +280,32 @@ function rulesBind() {
 
   host.querySelector('#rulesAdd').addEventListener('click', rulesNewRule);
 
-  host.querySelectorAll('[data-exc-add]').forEach(b => b.addEventListener('click', () => {
-    const kind = b.dataset.excAdd;
-    const input = document.getElementById('excInput-' + kind);
-    const v = input.value.trim();
-    if (!v) return;
-    body.exceptions = body.exceptions || { allow: [], deny: [] };
-    body.exceptions[kind] = body.exceptions[kind] || [];
-    if (!body.exceptions[kind].includes(v)) body.exceptions[kind].push(v);
+  // Name cards edit policy.exceptions. Changing the verdict moves the entry
+  // between the deny and allow lists.
+  host.querySelectorAll('[data-name-field]').forEach(el => el.addEventListener('change', () => {
+    const [action, i] = el.dataset.name.split(':');
+    const list = body.exceptions[action];
+    if (el.dataset.nameField === 'pattern') {
+      const v = el.value.trim();
+      if (!v) return;
+      list[Number(i)] = v;
+    } else {
+      const [moved] = list.splice(Number(i), 1);
+      body.exceptions[el.value] = body.exceptions[el.value] || [];
+      body.exceptions[el.value].push(moved);
+    }
     _touch(); rulesPaint();
   }));
-  host.querySelectorAll('[data-exc-del]').forEach(b => b.addEventListener('click', () => {
-    body.exceptions[b.dataset.excDel].splice(Number(b.dataset.i), 1); _touch(); rulesPaint();
+
+  host.querySelectorAll('[data-name-del]').forEach(b => b.addEventListener('click', () => {
+    const [action, i] = b.dataset.nameDel.split(':');
+    if (!confirm(`Delete rule "${body.exceptions[action][Number(i)]}"?`)) return;
+    body.exceptions[action].splice(Number(i), 1); _touch(); rulesPaint();
   }));
 
   host.querySelector('#rulesSave').addEventListener('click', rulesSave);
   host.querySelector('#rulesExport').addEventListener('click', rulesExport);
   host.querySelector('#rulesImport').addEventListener('click', rulesImport);
-
-  host.querySelectorAll('[data-activate]').forEach(b => b.addEventListener('click', () => rulesActivate(b.dataset.activate)));
-  host.querySelectorAll('[data-view]').forEach(b => b.addEventListener('click', () => rulesView(b.dataset.view)));
 }
 
 // Read every condition control inside a container back into row objects.
@@ -323,7 +340,7 @@ function rulesNewRule() {
   // draft. Seeding it before that would wipe the draft we just made.
   _rulesModal('New rule', '<div id="draftBody"></div>');
   _draft = {
-    id: '', action: 'deny', match: 'all', detail: '',
+    kind: 'scan', id: '', action: 'deny', match: 'all', detail: '', pattern: '',
     rows: [{ fact: 'counts.CRITICAL', op: '>=', value: '1' }],
   };
   draftPaint();
@@ -332,9 +349,35 @@ function rulesNewRule() {
 function draftPaint() {
   const host = document.getElementById('draftBody');
   if (!host || !_draft) return;
+  const byName = _draft.kind === 'name';
   host.innerHTML = `
     <div class="draft-step">
       <span class="draft-num">1</span>
+      <div class="draft-field">
+        <label for="draftKind">What should this rule look at?</label>
+        <select id="draftKind">
+          <option value="scan"${byName ? '' : ' selected'}>The scan result — vulnerabilities, KEV, EPSS</option>
+          <option value="name"${byName ? ' selected' : ''}>The package name — decided before scanning</option>
+        </select>
+        <span class="draft-hint">${byName
+          ? 'The package never reaches OSV, so this works in every ecosystem and never depends on a feed being up.'
+          : 'The package is scanned first, then these conditions are checked against the findings.'}</span>
+      </div>
+    </div>
+
+    ${byName ? `
+    <div class="draft-step">
+      <span class="draft-num">2</span>
+      <div class="draft-field">
+        <label for="draftPattern">Package name</label>
+        <input id="draftPattern" value="${esc(_draft.pattern)}" placeholder="curl"/>
+        <span class="draft-hint">A bare name covers every ecosystem. Narrow it with
+          <code>npm/left-pad</code>, pin it with <code>npm/left-pad@1.3.0</code>,
+          or use a wildcard like <code>crossenv*</code>.</span>
+      </div>
+    </div>` : `
+    <div class="draft-step">
+      <span class="draft-num">2</span>
       <div class="draft-field">
         <label for="draftId">Name this rule</label>
         <input id="draftId" value="${esc(_draft.id)}" placeholder="no-critical-vulns"/>
@@ -343,7 +386,7 @@ function draftPaint() {
     </div>
 
     <div class="draft-step">
-      <span class="draft-num">2</span>
+      <span class="draft-num">3</span>
       <div class="draft-field">
         <label>Match a package when
           <select id="draftMatch">
@@ -354,14 +397,15 @@ function draftPaint() {
         <div id="draftConds">${_draft.rows.map((r, i) => _conditionRow(r, 'draft', i)).join('')}</div>
         <button class="cond-add" id="draftAddCond">+ condition</button>
       </div>
-    </div>
+    </div>`}
 
     <div class="draft-step">
-      <span class="draft-num">3</span>
+      <span class="draft-num">${byName ? '3' : '4'}</span>
       <div class="draft-field">
         <label for="draftAction">Then</label>
         <select id="draftAction" class="rule-action ${_draft.action}">
-          ${['deny', 'warn', 'allow'].map(a => `<option value="${a}"${_draft.action === a ? ' selected' : ''}>${a}</option>`).join('')}
+          ${(byName ? ['deny', 'allow'] : ['deny', 'warn', 'allow'])
+            .map(a => `<option value="${a}"${_draft.action === a ? ' selected' : ''}>${a}</option>`).join('')}
         </select>
         <span class="draft-hint">${_draft.action === 'deny' ? 'The download is blocked.'
           : _draft.action === 'warn' ? 'The download goes through and the match is recorded.'
@@ -369,6 +413,7 @@ function draftPaint() {
       </div>
     </div>
 
+    ${byName ? '' : `
     <div class="draft-step">
       <span class="draft-num">4</span>
       <div class="draft-field">
@@ -376,7 +421,7 @@ function draftPaint() {
         <input id="draftDetail" value="${esc(_draft.detail)}" placeholder="${esc(_draft.id.trim() || 'defaults to the rule name')}"/>
         <span class="draft-hint">What the developer sees instead of the package. Leave it empty to reuse the rule name.</span>
       </div>
-    </div>
+    </div>`}
 
     <div id="draftErr" class="draft-err" style="display:none"></div>
 
@@ -385,10 +430,24 @@ function draftPaint() {
       <button id="draftAdd" class="primary">Add rule</button>
     </div>`;
 
+  // The kind switch rebuilds the form, so read the current values across first.
+  host.querySelector('#draftKind').addEventListener('change', e => {
+    draftSync(false);
+    _draft.kind = e.target.value;
+    if (_draft.kind === 'name' && _draft.action === 'warn') _draft.action = 'deny';
+    draftPaint();
+  });
+  host.querySelector('#draftAction').addEventListener('change', () => draftSync());
+  host.querySelector('#draftCancel').addEventListener('click', _rulesCloseModal);
+  host.querySelector('#draftAdd').addEventListener('click', draftCommit);
+
+  if (byName) {
+    host.querySelector('#draftPattern').addEventListener('input', e => { _draft.pattern = e.target.value; });
+    return;
+  }
+
   host.querySelector('#draftId').addEventListener('input', e => { _draft.id = e.target.value; });
   host.querySelector('#draftDetail').addEventListener('input', e => { _draft.detail = e.target.value; });
-  // Repaint so the colour and the explanation follow the chosen verdict.
-  host.querySelector('#draftAction').addEventListener('change', () => draftSync());
   host.querySelector('#draftMatch').addEventListener('change', () => draftSync());
   host.querySelectorAll('#draftConds .cond-fact, #draftConds .cond-op, #draftConds .cond-value')
     .forEach(el => el.addEventListener('change', () => draftSync()));
@@ -402,39 +461,52 @@ function draftPaint() {
     _draft.rows.splice(Number(b.dataset.delCond), 1);
     draftPaint();
   }));
-  host.querySelector('#draftCancel').addEventListener('click', _rulesCloseModal);
-  host.querySelector('#draftAdd').addEventListener('click', draftCommit);
 }
 
 // Pull the dialog's values into the draft. Repaint only when the controls
 // themselves changed, so typing in a text field never fights the cursor.
 function draftSync(repaint = true) {
   const host = document.getElementById('draftBody');
-  if (!host) return;
-  _draft.id = host.querySelector('#draftId').value;
-  _draft.detail = host.querySelector('#draftDetail').value;
+  if (!host || !_draft) return;
   _draft.action = host.querySelector('#draftAction').value;
-  _draft.match = host.querySelector('#draftMatch').value;
-  _draft.rows = _readRows(host.querySelector('#draftConds'));
+  const pattern = host.querySelector('#draftPattern');
+  if (pattern) _draft.pattern = pattern.value;
+  const id = host.querySelector('#draftId');
+  if (id) {
+    _draft.id = id.value;
+    _draft.detail = host.querySelector('#draftDetail').value;
+    _draft.match = host.querySelector('#draftMatch').value;
+    _draft.rows = _readRows(host.querySelector('#draftConds'));
+  }
   if (repaint) draftPaint();
 }
 
 function draftCommit() {
   draftSync(false);
+  const body = _rulesState.body;
   const err = document.getElementById('draftErr');
   const fail = (msg) => { err.textContent = msg; err.style.display = 'block'; };
 
-  const id = _draft.id.trim();
-  if (!id) return fail('Give the rule a name.');
-  if ((_rulesState.body.rules || []).some(r => r.id === id)) return fail(`A rule named "${id}" already exists.`);
-  const when = _rowsToWhen(_draft.match, _draft.rows);
-  if (!Object.keys(when).length) return fail('Add at least one condition.');
+  if (_draft.kind === 'name') {
+    const pattern = _draft.pattern.trim();
+    if (!pattern) return fail('Enter a package name.');
+    body.exceptions = body.exceptions || { allow: [], deny: [] };
+    const list = body.exceptions[_draft.action] = body.exceptions[_draft.action] || [];
+    if (list.includes(pattern)) return fail(`"${pattern}" is already in the list.`);
+    list.push(pattern);
+  } else {
+    const id = _draft.id.trim();
+    if (!id) return fail('Give the rule a name.');
+    if ((body.rules || []).some(r => r.id === id)) return fail(`A rule named "${id}" already exists.`);
+    const when = _rowsToWhen(_draft.match, _draft.rows);
+    if (!Object.keys(when).length) return fail('Add at least one condition.');
+    body.rules = body.rules || [];
+    body.rules.push({
+      id, action: _draft.action, when,
+      ...(_draft.detail.trim() ? { detail: _draft.detail.trim() } : {}),
+    });
+  }
 
-  _rulesState.body.rules = _rulesState.body.rules || [];
-  _rulesState.body.rules.push({
-    id, action: _draft.action, when,
-    ...(_draft.detail.trim() ? { detail: _draft.detail.trim() } : {}),
-  });
   _touch();
   _rulesCloseModal();
   rulesPaint();
@@ -442,40 +514,20 @@ function draftCommit() {
 
 // ── server actions ────────────────────────────────────────────
 async function rulesSave() {
-  const note = prompt('Describe this change (shown in the revision list):', '');
-  if (note === null) return;
-  const activate = confirm('Activate this revision now?\n\nOK = enforce immediately.\nCancel = save only, so you can simulate first.');
+  if (!confirm('Save this policy? It starts being enforced immediately.')) return;
   try {
-    const r = await fetch('/api/policy/revisions', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ body: _rulesState.body, note, activate }),
+    const r = await fetch('/api/policy', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ body: _rulesState.body }),
     });
     if (!r.ok) throw new Error((await r.json()).error || r.statusText);
-    alert(activate ? 'Saved and activated.' : 'Saved as an inactive revision.');
     renderRules();
   } catch (e) { alert('Save failed: ' + e.message); }
 }
 
-async function rulesActivate(revision) {
-  if (!confirm(`Activate revision ${revision}? It starts blocking immediately.`)) return;
-  try {
-    const r = await fetch(`/api/policy/revisions/${revision}/activate`, { method: 'POST' });
-    if (!r.ok) throw new Error((await r.json()).error || r.statusText);
-    renderRules();
-  } catch (e) { alert('Activate failed: ' + e.message); }
-}
-
-async function rulesView(revision) {
-  try {
-    const r = await fetch(`/api/policy/revisions/${revision}/yaml`);
-    if (!r.ok) throw new Error(r.statusText);
-    _rulesModal(`Revision ${revision}`, `<pre class="rules-yaml">${esc(await r.text())}</pre>`);
-  } catch (e) { alert('Load failed: ' + e.message); }
-}
-
 async function rulesExport() {
   try {
-    const r = await fetch(`/api/policy/revisions/${_rulesState.revision}/yaml`);
+    const r = await fetch('/api/policy/yaml');
     const text = await r.text();
     _rulesModal('policy.yaml', `<pre class="rules-yaml">${esc(text)}</pre>
       <p class="rules-hint">Copy this into <code>policy.yaml</code> to keep the policy in git.</p>`);
@@ -487,7 +539,7 @@ function rulesImport() {
     <textarea id="rulesYamlIn" class="rules-yaml-in" placeholder="paste policy YAML…"></textarea>
     <div class="rules-modal-actions">
       <button id="rulesYamlLoad">Load into editor</button>
-      <button id="rulesYamlSave" class="primary">Save as revision</button>
+      <button id="rulesYamlSave" class="primary">Save and enforce</button>
     </div>`);
   document.getElementById('rulesYamlLoad').addEventListener('click', async () => {
     const text = document.getElementById('rulesYamlIn').value;
@@ -507,11 +559,11 @@ function rulesImport() {
   });
   document.getElementById('rulesYamlSave').addEventListener('click', async () => {
     const text = document.getElementById('rulesYamlIn').value;
-    const activate = confirm('Activate this policy immediately?');
+    if (!confirm('Replace the policy with this YAML? It is enforced immediately.')) return;
     try {
-      const r = await fetch('/api/policy/revisions', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ yaml: text, note: 'imported YAML', activate }),
+      const r = await fetch('/api/policy', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ yaml: text }),
       });
       if (!r.ok) throw new Error((await r.json()).error || r.statusText);
       _rulesCloseModal(); renderRules();
