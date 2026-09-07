@@ -92,8 +92,7 @@
 
 .rules-defaults select,
 .rule-card select,
-.rule-card input,
-.exc-add input {
+.rule-card input {
   background: rgba(0, 0, 0, .3);
   border: 1px solid rgba(255, 255, 255, .12);
   color: #e6e9ef;
@@ -217,116 +216,11 @@
 
 .rule-detail { width: 100%; }
 
-.rules-empty,
-.exc-none {
+// ── modal ────────────────────────────────────────────────────
+.rules-empty {
   padding: 18px;
   color: var(--muted);
   font-size: 12px;
-}
-
-// ── name-based exceptions ────────────────────────────────────
-.rules-exc {
-  margin-top: 8px;
-
-  .exc-hint {
-    font-size: 11px;
-    color: var(--muted);
-    margin: 0 0 8px;
-
-    code {
-      background: rgba(255, 255, 255, .06);
-      padding: 1px 5px;
-      border-radius: 4px;
-      font-size: 10px;
-    }
-  }
-}
-
-.exc-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 8px;
-}
-
-.exc-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  padding: 4px 8px;
-  border-radius: 999px;
-  background: rgba(255, 90, 80, .1);
-  border: 1px solid rgba(255, 90, 80, .3);
-  color: #ff9a91;
-
-  button {
-    background: none;
-    border: none;
-    color: inherit;
-    cursor: pointer;
-    opacity: .6;
-    font-size: 11px;
-
-    &:hover { opacity: 1; }
-  }
-}
-
-.rules-exc[data-exc="allow"] .exc-chip {
-  background: rgba(80, 200, 130, .1);
-  border-color: rgba(80, 200, 130, .3);
-  color: #7fe0a8;
-}
-
-.exc-add {
-  display: flex;
-  gap: 8px;
-
-  input { min-width: 260px; }
-
-  button {
-    padding: 6px 14px;
-    font-size: 12px;
-    border-radius: 7px;
-    cursor: pointer;
-    color: #d8dee9;
-    background: rgba(255, 255, 255, .05);
-    border: 1px solid rgba(255, 255, 255, .13);
-
-    &:hover { background: rgba(255, 255, 255, .1); }
-  }
-}
-
-// ── revisions + modal ────────────────────────────────────────
-.rules-revs {
-  margin-top: 28px;
-
-  tr.rev-active { background: rgba(120, 170, 255, .06); }
-}
-
-.rev-live {
-  font-size: 9px;
-  text-transform: uppercase;
-  letter-spacing: .06em;
-  color: #7fe0a8;
-  border: 1px solid rgba(80, 200, 130, .4);
-  border-radius: 999px;
-  padding: 1px 6px;
-  margin-left: 5px;
-}
-
-.rev-btn {
-  background: rgba(255, 255, 255, .05);
-  border: 1px solid rgba(255, 255, 255, .13);
-  color: #d8dee9;
-  border-radius: 6px;
-  padding: 4px 10px;
-  font-size: 11px;
-  cursor: pointer;
-  margin-right: 5px;
-
-  &:hover { background: rgba(255, 255, 255, .1); }
 }
 
 .rules-modal {
@@ -489,8 +383,6 @@
 // and show a ring only for keyboard focus.
 .rules-actions button,
 .rules-modal-actions button,
-.rev-btn,
-.exc-add button,
 .cond-add {
   -webkit-tap-highlight-color: transparent;
 
@@ -525,8 +417,7 @@
 }
 
 .rule-del,
-.cond-del,
-.exc-chip button {
+.cond-del {
   &:focus { outline: none; }
   &:focus-visible { outline: 1px solid rgba(255, 90, 80, .5); border-radius: 4px; }
   &:active { transform: translateY(1px); }
@@ -540,6 +431,12 @@
   gap: 8px;
 }
 
+
+.rule-detail { flex: 1; width: auto; }
+
+// ── name rules ───────────────────────────────────────────────
+// Same card as a scan rule, so the two read as one list.
+.rule-lead,
 .rule-detail-lead {
   flex: 0 0 auto;
   font-size: 10px;
@@ -548,4 +445,47 @@
   color: rgba(255, 255, 255, .3);
 }
 
-.rule-detail { flex: 1; width: auto; }
+.name-badge {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: #9dc0ff;
+  background: rgba(120, 170, 255, .1);
+  border: 1px solid rgba(120, 170, 255, .28);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+.name-card .rule-toggle { margin-left: 0; }
+.name-card .rule-del { margin-left: auto; }
+
+.name-row { align-items: baseline; }
+
+.name-pattern {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: #ff9a91;
+  background: rgba(255, 90, 80, .1);
+  border: 1px solid rgba(255, 90, 80, .28);
+  border-radius: 6px;
+  padding: 2px 8px;
+}
+
+.name-card .rule-action.allow + .name-badge ~ * .name-pattern,
+.rule-card.name-card:has(.rule-action.allow) .name-pattern {
+  color: #7fe0a8;
+  background: rgba(80, 200, 130, .1);
+  border-color: rgba(80, 200, 130, .28);
+}
+
+.name-scope {
+  font-size: 10px;
+  color: rgba(255, 255, 255, .3);
+}
+
+.draft-hint code {
+  background: rgba(255, 255, 255, .06);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 10px;
+}

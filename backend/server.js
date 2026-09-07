@@ -104,11 +104,11 @@ runMigrations()
   .then(async () => {
     await seedAdmin();
 
-    // Seed gate_policies from policy.yaml on a fresh database, then serve the
-    // active revision from there. Fail loudly: a gate with no policy is worse
-    // than a gate that refuses to start.
+    // Seed the policy from policy.yaml on a fresh database, then serve it from
+    // there. Fail loudly: a gate with no policy is worse than a gate that
+    // refuses to start.
     const seededPolicy = await bootstrapPolicy();
-    write('info', 'policy_ready', { revision: seededPolicy.revision, source: seededPolicy.source });
+    write('info', 'policy_ready', { version: seededPolicy.version, source: seededPolicy.source });
 
     app.use(session({
       name: cookieName,

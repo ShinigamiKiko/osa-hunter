@@ -29,9 +29,9 @@ test('a policy stored in the database enforces exactly like the YAML file', () =
   assert.equal(resolveDecision(compiled, [], { ecosystem: 'Ubuntu:26.04', name: 'curl', version: '8' }).decision, 'deny');
 });
 
-test('the revision number becomes the policy version, so activating busts the cache', () => {
-  // cachedGate keys verdicts by policy.version; if two revisions shared one,
-  // an activated policy would keep serving the previous verdicts.
+test('the version counter feeds the policy version, so a save busts the cache', () => {
+  // cachedGate keys verdicts by policy.version; if two saves shared one,
+  // a saved policy would keep serving the previous verdicts.
   assert.equal(compileBody(base, 7).version, 'db:7');
   assert.notEqual(compileBody(base, 7).version, compileBody(base, 8).version);
 });
