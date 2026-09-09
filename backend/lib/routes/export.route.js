@@ -67,6 +67,20 @@ async function enrichTrivyVulns(trivyResult) {
   return { vulns: enrichedVulns, counts };
 }
 
+// Puppeteer 23+ returns a Uint8Array from page.pdf(), not a Buffer. res.send()
+// treats anything that is not a Buffer/string as JSON, so the download was a
+// 7 MB file reading {"0":37,"1":80,...} - the right bytes, serialised as
+// numbers, saved as .pdf and refusing to open. Convert before sending.
+function sendPdf(res, bytes, filename) {
+  const body = Buffer.isBuffer(bytes) ? bytes : Buffer.from(bytes);
+  res.set({
+    'Content-Type': 'application/pdf',
+    'Content-Disposition': `attachment; filename="${filename}"`,
+    'Content-Length': String(body.length),
+  });
+  res.end(body);
+}
+
 router.post('/export/pdf', rateLimit(scanLimiter), async (req, res) => {
   const { type, params } = req.body || {};
   if (!type || !params) return res.status(400).json({ error: '"type" and "params" required' });
@@ -164,12 +178,7 @@ router.post('/export/pdf', rateLimit(scanLimiter), async (req, res) => {
       type === 'os'   ? `osa-os-${nameSlug(scan.package || scan.image)}` :
                         `osa-sast-${nameSlug(scan.repo)}`;
 
-    res.set({
-      'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename="${name}.pdf"`,
-      'Content-Length': pdf.length,
-    });
-    res.send(pdf);
+    sendPdf(res, pdf, `${name}.pdf`);
   } catch (e) {
     console.error('[PDF export]', e.message);
     if (!res.headersSent) res.status(500).json({ error: 'PDF generation failed: ' + e.message });
@@ -179,3 +188,4 @@ router.post('/export/pdf', rateLimit(scanLimiter), async (req, res) => {
 });
 
 module.exports = router;
+module.exports.sendPdf = sendPdf;
