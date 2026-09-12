@@ -51,8 +51,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      nexus:
-        condition: service_started
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:3001/api/ready || exit 1"]
       interval: 10s
@@ -61,7 +59,11 @@ services:
       start_period: 15s
     restart: unless-stopped
 
+  # Optional: a Nexus alongside OSA. Off by default so NEXUS_UPSTREAM can point
+  # at one on another host; start it with `docker compose --profile nexus up -d`.
+  # For a separate machine use deploy/nexus/ instead.
   nexus:
+    profiles: ["nexus"]
     image: sonatype/nexus3:3.70.1
     container_name: osvguard-nexus
     networks:

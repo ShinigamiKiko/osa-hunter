@@ -98,3 +98,16 @@ test('rule text written by a person cannot break the HTTP response', () => {
     assert.ok(c.charCodeAt(0) >= 0x20 && c.charCodeAt(0) <= 0x7e);
   }
 });
+
+test('an IPv4 client is recorded as IPv4, not as its IPv6-mapped spelling', () => {
+  // Node hands back ::ffff:91.122.9.47 on a dual-stack socket. Same address,
+  // but nobody greps their logs for that form.
+  const { clientIp } = require('../lib/routes/gate-proxy.route');
+  assert.equal(clientIp({ ip: '::ffff:91.122.9.47' }), '91.122.9.47');
+  assert.equal(clientIp({ ip: '::FFFF:10.0.0.1' }), '10.0.0.1');
+  // Real IPv6 and plain IPv4 are left exactly as they are.
+  assert.equal(clientIp({ ip: '2001:db8::1' }), '2001:db8::1');
+  assert.equal(clientIp({ ip: '::1' }), '::1');
+  assert.equal(clientIp({ ip: '172.18.0.1' }), '172.18.0.1');
+  assert.equal(clientIp({}), null);
+});
