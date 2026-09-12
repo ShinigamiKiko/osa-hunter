@@ -1,0 +1,42 @@
+# Standalone Sonatype Nexus, to run on its own host.
+#
+#   docker compose up -d
+#
+# OSA then points at it with NEXUS_UPSTREAM=http://<this-host>:8081 and reaches
+# it over the network, so the two machines only share that one port.
+services:
+  nexus:
+    image: sonatype/nexus3:3.70.1
+    container_name: nexus
+    # Nexus runs as uid 200 and needs to own its data directory.
+    user: "200"
+    ports:
+      # Bind to the interface OSA reaches this host on. 0.0.0.0 publishes the
+      # admin UI to every network the host is on - narrow it to the LAN address
+      # (e.g. "10.0.0.12:8081:8081") unless a firewall already covers it.
+      - "8081:8081"
+    volumes:
+      - nexus-data:/nexus-data
+    environment:
+      # Default heap is 2703m and the container needs roughly 1 GB on top of it.
+      # Below ~4 GB of RAM the JVM dies during startup with no useful message.
+      INSTALL4J_ADD_VM_PARAMS: >-
+        -Xms2703m -Xmx2703m
+        -XX:MaxDirectMemorySize=2703m
+        -Djava.util.prefs.userRoot=/nexus-data/javaprefs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8081/service/rest/v1/status || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 30
+      # First boot unpacks and initialises the database; it really does take
+      # this long before the API answers.
+      start_period: 180s
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+
+volumes:
+  nexus-data:

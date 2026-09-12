@@ -199,6 +199,29 @@ scanning every historical version. Unknown artifact paths are blocked while
 `static.crates.io` for archive downloads; configure `downloadUpstream` for that
 repository when using direct mirrors.
 
+### Nexus on a separate host
+
+Nexus is optional and off by default. To run it on its own machine, use
+`deploy/nexus/` there:
+
+```bash
+docker compose -f deploy/nexus/docker-compose.yml up -d
+docker exec nexus cat /nexus-data/admin.password     # first boot only
+./deploy/nexus/bootstrap.sh http://<nexus-host>:8081 '<password>'
+```
+
+Then point OSA at it in `.env` and restart the backend:
+
+```env
+NEXUS_UPSTREAM=http://<nexus-host>:8081
+NEXUS_AUTH=Basic <base64 of admin:password>
+```
+
+Only repositories without their own `upstream` go through Nexus; anything with
+`"direct": true` in `OSA_NEXUS_REPOSITORIES` fetches from the internet itself and
+ignores these settings. To keep a Nexus next to OSA instead, start it with
+`docker compose --profile nexus up -d`.
+
 Detailed documentation: [Russian](docs/package-gate.ru.md) · [English](docs/package-gate.en.md)
 
 ---
