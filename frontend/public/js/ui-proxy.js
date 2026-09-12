@@ -84,6 +84,21 @@ function _proxyPager(page, pages, total) {
   </div>`;
 }
 
+// The reasons column holds the rule ids that fired, comma separated. Turn each
+// into a link to that rule. A name-based verdict has no rule id of its own, so
+// it points at the entry matching the package name.
+function _proxyReasonLinks(e) {
+  const ids = String(e.reasons || '').split(',').map(s => s.trim()).filter(Boolean);
+  if (!ids.length) return '';
+  return ids.map(id => {
+    const byName = id === 'denylist' || id === 'allowlist';
+    if (byName && !e.name) return esc(id);
+    const target = byName ? `name:${e.name}` : `rule:${id}`;
+    return `<a class="reason-link" href="#" data-rule-target="${esc(target)}"
+       title="Open this rule">${esc(id)}</a>`;
+  }).join(', ');
+}
+
 async function proxyLoadTable() {
   const t = document.getElementById('proxyTable');
   if (!t) return;
@@ -119,7 +134,7 @@ async function proxyLoadTable() {
     <td>${esc(e.name || '—')}</td>
     <td>${esc(e.version || '')}</td>
     <td><span class="verdict ${e.decision === 'deny' ? 'deny' : e.decision === 'error' ? 'err' : 'allow'}">${esc(e.decision)}</span></td>
-    <td class="reasons">${esc(e.reasons || '')}</td>
+    <td class="reasons">${_proxyReasonLinks(e)}</td>
     <td class="ip">${esc(e.client_ip || '')}</td>
   </tr>`).join('');
   t.innerHTML = `<table class="proxy-table">
@@ -127,4 +142,11 @@ async function proxyLoadTable() {
     <tbody>${rows}</tbody></table>
      ${_proxyPager(d.page, d.pages, d.total)}`;
   t.querySelectorAll('[data-proxy-page]').forEach(button => button.addEventListener('click', () => proxyGoPage(Number(button.dataset.proxyPage))));
+  t.querySelectorAll('[data-rule-target]').forEach(link => link.addEventListener('click', event => {
+    event.preventDefault();
+    // Jump to the rule that produced this verdict instead of making the
+    // operator find it by eye in the policy.
+    if (typeof rulesFocusOn === 'function') rulesFocusOn(link.dataset.ruleTarget);
+    navTo('rules');
+  }));
 }

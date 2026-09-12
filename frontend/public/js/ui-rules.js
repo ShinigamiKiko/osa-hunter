@@ -6,6 +6,12 @@
 let _rulesState = null;   // { source, body, dirty }
 let _rulesFacts = [];
 let _draft = null;        // rule being filled in the New rule dialog
+let _rulesQuery = '';     // filter typed into the search box
+const _rulesCollapsed = new Set();   // keys of rules folded down to their name
+let _rulesFocus = null;   // "rule:<id>" or "name:<package>", set from the Proxy view
+
+// Called from the Proxy view: open Rules and put this rule in front of the user.
+function rulesFocusOn(target) { _rulesFocus = target; }
 
 const RULES_OPS = [
   { v: '>=', l: '≥' }, { v: '>', l: '>' }, { v: '<=', l: '≤' },
@@ -114,6 +120,8 @@ function rulesPaint() {
         ${_rulesState.dirty ? '<span class="rules-dirty">unsaved — press Save to apply</span>' : ''}
       </div>
       <div class="rules-actions">
+        <input id="rulesSearch" class="rules-search" placeholder="filter by name…" value="${esc(_rulesQuery)}"/>
+        <button id="rulesFold">${_rulesCollapsed.size ? 'Expand all' : 'Collapse all'}</button>
         <button id="rulesAdd">+ Rule</button>
         <button id="rulesExport">Export YAML</button>
         <button id="rulesImport">Import YAML</button>
@@ -134,12 +142,46 @@ function rulesPaint() {
       </label>
     </div>
 
-    <div id="rulesList">${
-      names.map(_nameCard).join('')
-      + rules.map((r, i) => _ruleCard(r, i)).join('')
-      || '<div class="rules-empty">No rules yet — everything falls through to the default.</div>'}</div>`;
+    <div id="rulesList">${_rulesListHtml(names, rules)}</div>`;
 
   rulesBind();
+  rulesApplyFocus();
+}
+
+// The search box matches what the card shows as its name: a rule's id, or the
+// package pattern of a name rule.
+function _rulesMatches(label) {
+  const q = _rulesQuery.trim().toLowerCase();
+  return !q || String(label || '').toLowerCase().includes(q);
+}
+
+function _rulesListHtml(names, rules) {
+  const shownNames = names.filter(n => _rulesMatches(n.pattern));
+  const shownRules = rules.map((r, i) => [r, i]).filter(([r]) => _rulesMatches(r.id));
+  const html = shownNames.map(_nameCard).join('')
+    + shownRules.map(([r, i]) => _ruleCard(r, i)).join('');
+  if (html) return html;
+  return _rulesQuery.trim()
+    ? `<div class="rules-empty">Nothing matches “${esc(_rulesQuery)}”.</div>`
+    : '<div class="rules-empty">No rules yet — everything falls through to the default.</div>';
+}
+
+// Scroll the rule a Proxy verdict pointed at into view and mark it, so the
+// operator lands on the rule instead of hunting for it.
+function rulesApplyFocus() {
+  if (!_rulesFocus) return;
+  const target = _rulesFocus;
+  _rulesFocus = null;
+  const card = document.querySelector(`.rule-card[data-key="${CSS.escape(target)}"]`);
+  if (!card) {
+    // It may be hidden by an active filter, or deleted since the verdict.
+    if (_rulesQuery) { _rulesQuery = ''; _rulesFocus = target; rulesPaint(); }
+    return;
+  }
+  _rulesCollapsed.delete(target);
+  card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  card.classList.add('focused');
+  setTimeout(() => card.classList.remove('focused'), 2600);
 }
 
 function _ruleCard(rule, index) {
@@ -151,8 +193,11 @@ function _ruleCard(rule, index) {
     : rows.map((row, ri) => _conditionRow(row, index, ri)).join('')
       + `<button class="cond-add" data-add-cond="${index}">+ condition</button>`;
 
-  return `<div class="rule-card ${disabled ? 'off' : ''}" data-rule="${index}">
+  const key = `rule:${rule.id || ''}`;
+  const folded = _rulesCollapsed.has(key);
+  return `<div class="rule-card ${disabled ? 'off' : ''} ${folded ? 'folded' : ''}" data-rule="${index}" data-key="${esc(key)}">
     <div class="rule-head">
+      <button class="rule-fold" data-fold="${esc(key)}" title="${folded ? 'Expand' : 'Collapse'}">${folded ? '▸' : '▾'}</button>
       <span class="rule-lead">name</span>
       <input class="rule-id" data-field="id" data-rule="${index}" value="${esc(rule.id || '')}" placeholder="rule-id"/>
       <select class="rule-action ${rule.action}" data-field="action" data-rule="${index}">
@@ -183,8 +228,11 @@ function _ruleCard(rule, index) {
 function _nameCard(entry) {
   const { action, pattern, index, enabled, reason } = entry;
   const ref = `${action}:${index}`;
-  return `<div class="rule-card name-card ${enabled ? '' : 'off'}" data-name="${ref}">
+  const key = `name:${pattern}`;
+  const folded = _rulesCollapsed.has(key);
+  return `<div class="rule-card name-card ${enabled ? '' : 'off'} ${folded ? 'folded' : ''}" data-name="${ref}" data-key="${esc(key)}">
     <div class="rule-head">
+      <button class="rule-fold" data-fold="${esc(key)}" title="${folded ? 'Expand' : 'Collapse'}">${folded ? '▸' : '▾'}</button>
       <span class="rule-lead">name</span>
       <input class="rule-id" data-name-field="pattern" data-name="${ref}"
              value="${esc(pattern)}" placeholder="curl"/>
@@ -259,6 +307,8 @@ window.addEventListener('beforeunload', (e) => {
   e.returnValue = '';
 });
 
+// Toolbar and defaults: these live outside #rulesList, which the search box
+// repaints on its own, so they are bound once per full paint.
 function rulesBind() {
   const host = document.getElementById('rulesContent');
   const body = _rulesState.body;
@@ -270,7 +320,44 @@ function rulesBind() {
     body.defaults = { ...body.defaults, on_gate_error: e.target.value }; _touch(); rulesPaint();
   });
 
-  host.querySelectorAll('[data-field]').forEach(el => el.addEventListener('change', () => {
+  const search = host.querySelector('#rulesSearch');
+  search.addEventListener('input', () => {
+    _rulesQuery = search.value;
+    // Repaint only the list: a full repaint would take the caret out of the
+    // field after every keystroke.
+    document.getElementById('rulesList').innerHTML = _rulesListHtml(_nameEntries(body), body.rules || []);
+    rulesBindList();
+  });
+
+  host.querySelector('#rulesFold').addEventListener('click', () => {
+    if (_rulesCollapsed.size) _rulesCollapsed.clear();
+    else for (const c of host.querySelectorAll('.rule-card[data-key]')) _rulesCollapsed.add(c.dataset.key);
+    rulesPaint();
+  });
+
+  host.querySelector('#rulesAdd').addEventListener('click', rulesNewRule);
+  host.querySelector('#rulesSave').addEventListener('click', rulesSave);
+  host.querySelector('#rulesExport').addEventListener('click', rulesExport);
+  host.querySelector('#rulesImport').addEventListener('click', rulesImport);
+
+  rulesBindList();
+}
+
+// Handlers for the cards. Rebound on their own whenever the search box
+// rerenders just the list.
+function rulesBindList() {
+  const list = document.getElementById('rulesList');
+  if (!list) return;
+  const body = _rulesState.body;
+
+  list.querySelectorAll('[data-fold]').forEach(b => b.addEventListener('click', () => {
+    const key = b.dataset.fold;
+    if (_rulesCollapsed.has(key)) _rulesCollapsed.delete(key);
+    else _rulesCollapsed.add(key);
+    rulesPaint();
+  }));
+
+  list.querySelectorAll('[data-field]').forEach(el => el.addEventListener('change', () => {
     const rule = body.rules[Number(el.dataset.rule)];
     const field = el.dataset.field;
     if (field === 'enabled') { if (el.checked) delete rule.enabled; else rule.enabled = false; }
@@ -278,10 +365,10 @@ function rulesBind() {
     _touch(); rulesPaint();
   }));
 
-  host.querySelectorAll('.cond-match, .cond-fact, .cond-op, .cond-value').forEach(el =>
+  list.querySelectorAll('.cond-match, .cond-fact, .cond-op, .cond-value').forEach(el =>
     el.addEventListener('change', () => rulesSyncConditions(Number(el.dataset.rule))));
 
-  host.querySelectorAll('[data-add-cond]').forEach(b => b.addEventListener('click', () => {
+  list.querySelectorAll('[data-add-cond]').forEach(b => b.addEventListener('click', () => {
     const i = Number(b.dataset.addCond);
     const { match, rows } = _whenToRows(body.rules[i].when);
     rows.push({ fact: _rulesFacts[0].key, op: '>=', value: '1' });
@@ -289,7 +376,7 @@ function rulesBind() {
     _touch(); rulesPaint();
   }));
 
-  host.querySelectorAll('[data-del-cond]').forEach(b => b.addEventListener('click', () => {
+  list.querySelectorAll('[data-del-cond]').forEach(b => b.addEventListener('click', () => {
     const i = Number(b.dataset.rule);
     const { match, rows } = _whenToRows(body.rules[i].when);
     rows.splice(Number(b.dataset.delCond), 1);
@@ -297,20 +384,18 @@ function rulesBind() {
     _touch(); rulesPaint();
   }));
 
-  host.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => {
+  list.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => {
     if (!confirm(`Delete rule "${body.rules[Number(b.dataset.del)].id}"?`)) return;
     body.rules.splice(Number(b.dataset.del), 1); _touch(); rulesPaint();
   }));
 
-  host.querySelector('#rulesAdd').addEventListener('click', rulesNewRule);
-
   // Name cards edit policy.exceptions. Changing the verdict moves the entry
   // between the deny and allow lists.
-  host.querySelectorAll('[data-name-field]').forEach(el => el.addEventListener('change', () => {
+  list.querySelectorAll('[data-name-field]').forEach(el => el.addEventListener('change', () => {
     const [action, raw] = el.dataset.name.split(':');
     const i = Number(raw);
-    const list = body.exceptions[action];
-    const cur = typeof list[i] === 'string' ? { pattern: list[i] } : { ...list[i] };
+    const arr = body.exceptions[action];
+    const cur = typeof arr[i] === 'string' ? { pattern: arr[i] } : { ...arr[i] };
     // A plain entry stays a plain string; only an off switch or a reason needs
     // the object form, so an exported policy.yaml keeps its usual shape.
     const write = ({ pattern, enabled = true, reason = '' }) =>
@@ -321,29 +406,25 @@ function rulesBind() {
     if (field === 'pattern') {
       const v = el.value.trim();
       if (!v) return;
-      list[i] = write({ ...cur, pattern: v, enabled: cur.enabled !== false });
+      arr[i] = write({ ...cur, pattern: v, enabled: cur.enabled !== false });
     } else if (field === 'enabled') {
-      list[i] = write({ ...cur, enabled: el.checked });
+      arr[i] = write({ ...cur, enabled: el.checked });
     } else if (field === 'reason') {
-      list[i] = write({ ...cur, reason: el.value.trim(), enabled: cur.enabled !== false });
+      arr[i] = write({ ...cur, reason: el.value.trim(), enabled: cur.enabled !== false });
     } else {
-      list.splice(i, 1);
+      arr.splice(i, 1);
       body.exceptions[el.value] = body.exceptions[el.value] || [];
       body.exceptions[el.value].push(write({ ...cur, enabled: cur.enabled !== false }));
     }
     _touch(); rulesPaint();
   }));
 
-  host.querySelectorAll('[data-name-del]').forEach(b => b.addEventListener('click', () => {
+  list.querySelectorAll('[data-name-del]').forEach(b => b.addEventListener('click', () => {
     const [action, raw] = b.dataset.nameDel.split(':');
     const item = body.exceptions[action][Number(raw)];
     if (!confirm(`Delete rule "${typeof item === 'string' ? item : item.pattern}"?`)) return;
     body.exceptions[action].splice(Number(raw), 1); _touch(); rulesPaint();
   }));
-
-  host.querySelector('#rulesSave').addEventListener('click', rulesSave);
-  host.querySelector('#rulesExport').addEventListener('click', rulesExport);
-  host.querySelector('#rulesImport').addEventListener('click', rulesImport);
 }
 
 // Read every condition control inside a container back into row objects.
