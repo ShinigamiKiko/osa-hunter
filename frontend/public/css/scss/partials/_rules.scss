@@ -506,3 +506,56 @@
   border-color: rgba(80, 200, 130, .75);
   box-shadow: 0 0 0 3px rgba(80, 200, 130, .12);
 }
+
+// ── search, folding, focus ───────────────────────────────────
+.rules-search {
+  background: rgba(0, 0, 0, .3);
+  border: 1px solid rgba(255, 255, 255, .12);
+  color: #e6e9ef;
+  border-radius: 8px;
+  padding: 7px 11px;
+  font-size: 12px;
+  font-family: var(--font-mono);
+  min-width: 190px;
+
+  &::placeholder { color: rgba(255, 255, 255, .28); }
+  &:focus { outline: none; border-color: rgba(120, 170, 255, .5); }
+}
+
+.rule-fold {
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 2px 4px;
+  line-height: 1;
+
+  &:hover { color: #fff; }
+  &:focus { outline: none; }
+  &:focus-visible { outline: 1px solid rgba(120, 170, 255, .5); border-radius: 4px; }
+}
+
+// Folded: the head alone, so a long policy can be scanned by name.
+.rule-card.folded {
+  .rule-head { margin-bottom: 0; }
+  .rule-when,
+  .rule-detail-row { display: none; }
+}
+
+// Where the Proxy view sent us. Fades out on its own.
+.rule-card.focused {
+  border-color: rgba(120, 170, 255, .65);
+  box-shadow: 0 0 0 3px rgba(120, 170, 255, .14);
+  transition: border-color .3s, box-shadow .3s;
+}
+
+// Reason cells in the Proxy table point at the rule that decided.
+.proxy-table .reason-link {
+  color: #ff8a5c;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+  cursor: pointer;
+
+  &:hover { color: #ffb08c; text-decoration-style: solid; }
+}

@@ -104,8 +104,17 @@ function isGateError(reasons) {
   return (reasons || []).length > 0 && reasons.every(r => r.rule === 'gate-error');
 }
 
+// Node reports an IPv4 client on a dual-stack socket as ::ffff:91.122.9.47.
+// That is the same address written the long way; store the plain form so the
+// Proxy view and any grep over it see what the operator expects.
+function clientIp(req) {
+  const raw = req.ip || '';
+  const m = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/i.exec(raw);
+  return (m ? m[1] : raw) || null;
+}
+
 function recordEvent(req, { decision, ecosystem, name, version, repository, reasons }) {
-  const ip = req.ip || null;
+  const ip = clientIp(req);
   getPool().query(
     `INSERT INTO proxy_events (ecosystem, package_name, version, repository, decision, reasons, client_ip)
      VALUES ($1,$2,$3,$4,$5,$6,$7)`,
@@ -203,4 +212,4 @@ router.all('/*', async (req, res) => {
   }
 });
 
-module.exports = { router, parseArtifact, metadataAllowed, isGateError, headerSafe };
+module.exports = { router, parseArtifact, metadataAllowed, isGateError, headerSafe, clientIp };
