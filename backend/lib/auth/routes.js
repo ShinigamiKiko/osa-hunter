@@ -124,6 +124,58 @@ router.delete('/auth/users/:id', requireAdmin, async (req, res) => {
   }
 });
 
+// Self-service password change. An admin can already reset anyone's password
+// below; this is the one a plain user needs, and the only place where knowing
+// the current password is required - an admin reset does not ask for it.
+const MIN_PASSWORD = 8;
+const changeLimiter = new RateLimiter(5, 60000);
+
+router.post('/auth/password', async (req, res) => {
+  const user = req.session?.user;
+  if (!user) return res.status(401).json({ error: 'Not authenticated' });
+
+  const { currentPassword, newPassword } = req.body || {};
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ error: 'currentPassword and newPassword required' });
+  }
+  if (String(newPassword).length < MIN_PASSWORD) {
+    return res.status(400).json({ error: `New password must be at least ${MIN_PASSWORD} characters` });
+  }
+  if (currentPassword === newPassword) {
+    return res.status(400).json({ error: 'New password must differ from the current one' });
+  }
+
+  try {
+    const { rows } = await getPool().query('SELECT password FROM users WHERE id = $1', [user.id]);
+    if (!rows.length) return res.status(404).json({ error: 'User not found' });
+
+    if (!await bcrypt.compare(currentPassword, rows[0].password)) {
+      // Only wrong guesses count against the limit. Charging the budget for a
+      // mistyped new password would lock someone out of their own account for
+      // fumbling the form, without anyone guessing anything.
+      const ip = req.ip || req.socket?.remoteAddress || 'unknown';
+      if (!changeLimiter.check(ip)) {
+        return res.status(429).json({ error: 'Too many attempts. Please wait.' });
+      }
+      return res.status(403).json({ error: 'Current password is incorrect' });
+    }
+
+    const hash = await bcrypt.hash(newPassword, SALT_ROUNDS);
+    await getPool().query(
+      'UPDATE users SET password = $1, updated_at = NOW() WHERE id = $2', [hash, user.id]);
+
+    // Rotate the session id: the credential behind this session just changed,
+    // and anything that knew the old id should not keep riding on it.
+    return req.session.regenerate(err => {
+      if (err) return res.status(500).json({ error: 'Password changed, please sign in again' });
+      req.session.user = user;
+      return res.json({ ok: true });
+    });
+  } catch (e) {
+    return res.status(500).json({ error: e.message });
+  }
+});
+
 router.patch('/auth/users/:id/password', requireAdmin, async (req, res) => {
   const id = parseInt(req.params.id, 10);
   const { password } = req.body || {};
