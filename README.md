@@ -87,6 +87,17 @@ curl -X POST /api/ghscan -d '{"url":"https://github.com/owner/repo"}'
 
 Full endpoint list: `libscan` · `depscan` · `composer` · `osscan` · `trivy/scan` · `ghscan` · `scans/history` · `export/pdf`
 
+### Accounts
+
+Any signed-in user changes their own password from the account menu in the top
+right: `POST /api/auth/password` with `currentPassword` and `newPassword`. The
+current password is required, the new one must be at least 8 characters, and the
+session id is rotated on success. Only a wrong current password counts against
+the rate limit, so a mistyped form cannot lock anyone out.
+
+An admin resets somebody else's password in **Manage Users**
+(`PATCH /api/auth/users/:id/password`); that path does not ask for the old one.
+
 ### Prometheus and logs
 
 Metrics are published on a separate port bound to localhost only, not on the
