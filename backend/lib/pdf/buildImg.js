@@ -1,5 +1,5 @@
 'use strict';
-const { esc, wrapHtml, buildHeader, buildChips, buildAlerts, buildFooter, sevBadge, epssCell, cvssCell } = require('./style');
+const { esc, safeSeverity, wrapHtml, buildHeader, buildChips, buildAlerts, buildFooter, sevBadge, epssCell, cvssCell } = require('./style');
 
 const SEV_W = { CRITICAL:4, HIGH:3, MEDIUM:2, LOW:1, UNKNOWN:0 };
 
@@ -74,14 +74,14 @@ function buildImgReportHtml(scan, { osaPngB64 = '' } = {}) {
                      g.vulns.find(v => v.FixedVersion || v.fixedVersion)?.fixedVersion || '';
 
     const cveRows = g.vulns.map(v => {
-      const sev     = (v.Severity || v.severity || 'UNKNOWN').toUpperCase();
+      const sev     = safeSeverity(v.Severity || v.severity);
       const cveId   = v.VulnerabilityID || v.cve || v.id || '';
-      const nvdUrl  = cveId.startsWith('CVE-') ? `https://nvd.nist.gov/vuln/detail/${cveId}` : '';
+      const nvdUrl  = cveId.startsWith('CVE-') ? `https://nvd.nist.gov/vuln/detail/${encodeURIComponent(cveId)}` : '';
       const title   = v.Title || v.summary || v.Description || '';
       const libVer  = v.InstalledVersion || v.installedVersion || ver;
       const fix     = v.FixedVersion || v.fixedVersion || v.fix || '';
       const kevBadge = v.inKev ? '<span class="badge kev">🔥 KEV</span>' : '';
-      const pocBadge = (v.pocs||[]).length ? `<span class="badge poc">💥 PoC×${v.pocs.length}</span>` : '';
+      const pocBadge = Array.isArray(v.pocs) && v.pocs.length ? `<span class="badge poc">💥 PoC×${v.pocs.length}</span>` : '';
       const cvss3   = v.cvss?.cvss3?.score;
       const epssVal = v.epss?.epss;
       const cvssStr = cvss3 != null ? `CVSS ${cvss3}` : '';

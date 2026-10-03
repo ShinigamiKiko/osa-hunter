@@ -104,6 +104,8 @@ function resolveDecision(policy, hits, { ecosystem, name, version }) {
   const warns  = hits.filter(h => h.action === 'warn');
   if (denies.length) return { decision: 'deny', reasons: denies };
   if (warns.length)  return { decision: 'warn', reasons: warns };
+  const allows = hits.filter(h => h.action === 'allow');
+  if (allows.length) return { decision: 'allow', reasons: allows };
   return { decision: policy.default || 'allow', reasons: [] };
 }
 
@@ -205,9 +207,14 @@ async function gateDecide({ name, ecosystem, version, includeDeps = false }, pol
   }
 
   const cveIds = extractCVEs(vulns);
-  const [toxicRes, enrichRes] = await Promise.allSettled([checkToxic(pkg), bulkEnrich(cveIds)]);
-  const toxic = toxicRes.status === 'fulfilled' ? toxicRes.value : { found: false };
-  const maps  = enrichRes.status === 'fulfilled' ? enrichRes.value : { epssMap: {}, kevSet: new Set(), cvssMap: {}, pocMap: {} };
+  const requiredFacts = new Set((policy.rules || []).flatMap(rule => rule.facts
+    || ['severity', 'kev', 'epssMax', 'pocCount', 'toxic.found']));
+  if ([...requiredFacts].some(f => f.startsWith('counts.') || f === 'topSeverity')) requiredFacts.add('severity');
+  const [toxic, maps] = await Promise.all([
+    [...requiredFacts].some(f => f === 'toxic' || f.startsWith('toxic.'))
+      ? checkToxic(pkg, { strict: true }) : { found: false },
+    bulkEnrich(cveIds, { requiredFacts }),
+  ]);
 
   const enriched = enrichVulns(vulns, maps);
   const facts = buildFacts({ ecosystem: eco, name: pkg, version: ver }, enriched, toxic);

@@ -1,23 +1,5 @@
-async function doDepScan(){
-  const sys  = selDepSys;
-  const pkg  = document.getElementById('dPkg').value.trim();
-  const ver  = document.getElementById('dVer').value.trim();
-  const desc = document.getElementById('dDesc').value.trim();
-  document.getElementById('dmerr').style.display='none';
-  if(!sys) return showErr('dmerr','Select a package system');
-  if(!pkg) return showErr('dmerr','Enter a package name');
-  if(depScanInFlight) return;
-  depScanInFlight=true;
-  setBtn('btnDepGo',true,'Scanning…');
-  try{
-    const ep = (sys==='COMPOSER') ? '/api/composerscan' : '/api/depscan';
-    const payload = (sys==='COMPOSER')
-      ? { name:pkg, version:ver||undefined }
-      : { name:pkg, system:sys, version:ver||undefined };
-    const r=await fetch(ep,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
-    const data=await readJson(r);
-    if(!r.ok) throw new Error(data.error||`Error ${r.status}`);
-    if(sys==='COMPOSER' && data.deps && !Array.isArray(data.deps)){
+function normalizeComposerScan(data) {
+    if (data.deps && !Array.isArray(data.deps)) {
       const normDeps=(list,relation)=>(list||[]).map(d=>{
         const epssMap = d.epss||{};
         const cvssMap = d.cvss||{};
@@ -73,6 +55,29 @@ async function doDepScan(){
         vulnerabilityCount: data.deps.reduce((total,d)=>(total+(d.vulns||[]).length),0),
       };
     }
+  return data;
+}
+
+async function doDepScan(){
+  const sys  = selDepSys;
+  const pkg  = document.getElementById('dPkg').value.trim();
+  const ver  = document.getElementById('dVer').value.trim();
+  const desc = document.getElementById('dDesc').value.trim();
+  document.getElementById('dmerr').style.display='none';
+  if(!sys) return showErr('dmerr','Select a package system');
+  if(!pkg) return showErr('dmerr','Enter a package name');
+  if(depScanInFlight) return;
+  depScanInFlight=true;
+  setBtn('btnDepGo',true,'Scanning…');
+  try{
+    const ep = (sys==='COMPOSER') ? '/api/composerscan' : '/api/depscan';
+    const payload = (sys==='COMPOSER')
+      ? { name:pkg, version:ver||undefined }
+      : { name:pkg, system:sys, version:ver||undefined };
+    const r=await fetch(ep,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    const data=await readJson(r);
+    if(!r.ok) throw new Error(data.error||`Error ${r.status}`);
+    if (sys === 'COMPOSER') normalizeComposerScan(data);
     const _ck = `dep:${(data.system||'').toUpperCase()}:${data.package||''}:${data.resolvedVersion||data.version||'latest'}`;
     const ckIdx = depScans.findIndex(s => s._cacheKey === _ck);
     if (ckIdx !== -1) depScans.splice(ckIdx, 1);

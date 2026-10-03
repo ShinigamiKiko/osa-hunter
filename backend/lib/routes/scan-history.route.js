@@ -2,7 +2,7 @@
 
 
 const express = require('express');
-const router  = express.Router();
+const router = require('../utils/router')();
 const { getPool } = require('../auth/db');
 
 const VALID_TYPES = new Set(['lib', 'dep', 'composer', 'os', 'img', 'sast']);

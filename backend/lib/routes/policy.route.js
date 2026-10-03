@@ -1,9 +1,10 @@
 'use strict';
 
 const express = require('express');
-const router = express.Router();
+const router = require('../utils/router')();
 const { apiLimiter, rateLimit } = require('../shared');
 const { getPolicyRow, savePolicy, toYaml, fromYaml, normalizeBody } = require('../gate/policyStore');
+const { requireAdmin } = require('../auth/middleware');
 
 // Policy administration. Mounted behind requireAuth in server.js - only
 // /api/gate is public, and it accepts package paths, never policy input.
@@ -28,7 +29,7 @@ const FACTS = [
 ];
 
 function actor(req) {
-  return req.session?.user?.username || req.session?.user?.email || 'unknown';
+  return req.user?.username || req.session?.user?.username || 'unknown';
 }
 
 router.get('/policy/facts', (req, res) => res.json({ facts: FACTS }));
@@ -68,7 +69,7 @@ router.post('/policy/normalize', rateLimit(apiLimiter), (req, res) => {
 
 // Replace the policy. It takes effect immediately, and the bumped version
 // invalidates every verdict cached under the previous policy.
-router.put('/policy', rateLimit(apiLimiter), async (req, res) => {
+router.put('/policy', requireAdmin, rateLimit(apiLimiter), async (req, res) => {
   try {
     const { body, yaml: yamlText } = req.body || {};
     const source = yamlText ? 'yaml' : 'ui';

@@ -18,8 +18,8 @@ function vulnRow(v, idx, pkgHtml) {
   const cveId = v.cve || v.VulnerabilityID || v.id || '';
   const raw   = v._sev || v.severity || v.Severity || 'UNKNOWN';
   const sev   = (typeof raw === 'string' && !raw.startsWith('[')) ? raw.toUpperCase() : 'UNKNOWN';
-  const nvdUrl  = cveId.startsWith('CVE-') ? `https://nvd.nist.gov/vuln/detail/${cveId}` : '';
-  const osvUrl  = (!cveId.startsWith('CVE-') && cveId) ? `https://osv.dev/vulnerability/${cveId}` : '';
+  const nvdUrl  = cveId.startsWith('CVE-') ? `https://nvd.nist.gov/vuln/detail/${encodeURIComponent(cveId)}` : '';
+  const osvUrl  = (!cveId.startsWith('CVE-') && cveId) ? `https://osv.dev/vulnerability/${encodeURIComponent(cveId)}` : '';
   const summary = esc(String(v.summary || v.Title || v.Description || '').slice(0, 160));
   const rowBg   = idx % 2 === 0 ? '' : '';
 

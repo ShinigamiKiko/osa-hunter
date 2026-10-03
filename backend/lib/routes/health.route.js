@@ -1,6 +1,6 @@
 'use strict';
 const express   = require('express');
-const router    = express.Router();
+const router = require('../utils/router')();
 const { execFile } = require('child_process');
 const { EPSS_URL } = require('../shared');
 const { getPool } = require('../auth/db');

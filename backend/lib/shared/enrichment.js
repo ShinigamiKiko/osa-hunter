@@ -6,6 +6,7 @@ const { nvdCache, getCisaSet } = require('./cisaKev');
 const { getPool } = require('../auth/db');
 const { HTTP_CONCURRENCY, HTTP_TIMEOUT_MS } = require('../config');
 const { observeExternalError } = require('../observability/metrics');
+const { fromVector } = require('ae-cvss-calculator');
 
 const NVD_API_KEY     = process.env.NVD_API_KEY || '';
 const NVD_CONCURRENCY = NVD_API_KEY ? Math.min(HTTP_CONCURRENCY, 10) : Math.min(HTTP_CONCURRENCY, 3);
@@ -20,25 +21,29 @@ if (NVD_API_KEY) {
 
 const EPSS_ENABLED = process.env.OSA_EPSS_ENABLED !== 'false';
 
-async function fetchEpss(cveIds) {
+async function fetchEpss(cveIds, { strict = false } = {}) {
   if (!cveIds.length || !EPSS_ENABLED) return {};
   const results = {};
   for (let i = 0; i < cveIds.length; i += 30) {
     const chunk = cveIds.slice(i, i + 30);
     try {
       const r = await fetch(`${EPSS_URL}?cve=${chunk.join(',')}&limit=${chunk.length}`, { signal: AbortSignal.timeout(15000) });
-      if (!r.ok) continue;
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const d = await r.json();
-      for (const item of d.data || [])
+      if (!Array.isArray(d.data)) throw new Error('Invalid EPSS response');
+      for (const item of d.data || []) {
+        if (typeof item.cve !== 'string' || !Number.isFinite(Number(item.epss)) || Number(item.epss) < 0 || Number(item.epss) > 1) throw new Error('Invalid EPSS score');
         results[item.cve] = { epss: parseFloat(item.epss), percentile: parseFloat(item.percentile) };
-    } catch { observeExternalError('epss'); }
+      }
+    } catch (error) { observeExternalError('epss'); if (strict) throw new Error(`EPSS unavailable: ${error.message}`); }
   }
   return results;
 }
 
-async function fetchCvss(cveIds) {
+async function fetchCvss(cveIds, { strict = false } = {}) {
   if (!cveIds.length) return {};
   const result = {};
+  const errors = [];
   await pLimit(cveIds, NVD_CONCURRENCY, async (cveId) => {
     if (nvdCache.has(cveId)) { result[cveId] = nvdCache.get(cveId); return; }
     try {
@@ -48,32 +53,38 @@ async function fetchCvss(cveIds) {
         `https://services.nvd.nist.gov/rest/json/cves/2.0?cveId=${encodeURIComponent(cveId)}`,
         { signal: AbortSignal.timeout(NVD_TIMEOUT_MS), headers }
       );
-      if (r.status === 429) { observeExternalError('nvd'); result[cveId] = null; return; }
-      if (!r.ok) { nvdCache.set(cveId, null); return; }
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const d = await r.json();
+      if (!Array.isArray(d.vulnerabilities)) throw new Error('Invalid NVD response');
       const vuln = (d.vulnerabilities || [])[0]?.cve;
-      if (!vuln) { nvdCache.set(cveId, null); return; }
+      if (d.vulnerabilities.length && !vuln) throw new Error('Invalid NVD vulnerability record');
+      if (!vuln) { nvdCache.set(cveId, null); result[cveId] = null; return; }
       const metrics = vuln.metrics || {};
-      const v3data  = (metrics.cvssMetricV31 || metrics.cvssMetricV30 || [])[0]?.cvssData;
-      const v2data  = (metrics.cvssMetricV2  || [])[0]?.cvssData;
+      const highest = keys => keys.flatMap(key => metrics[key] || []).map(m => m.cvssData)
+        .filter(m => Number.isFinite(m?.baseScore)).sort((a,b) => b.baseScore - a.baseScore)[0];
+      const v4data = highest(['cvssMetricV40']);
+      const v3data = highest(['cvssMetricV31', 'cvssMetricV30']);
+      const v2data = highest(['cvssMetricV2']);
       const entry = {
+        cvss4: v4data ? { score: v4data.baseScore, vector: v4data.vectorString, severity: v4data.baseSeverity, version: v4data.version } : null,
         cvss3: v3data ? { score: v3data.baseScore, vector: v3data.vectorString, severity: v3data.baseSeverity, version: v3data.version } : null,
         cvss2: v2data ? { score: v2data.baseScore, vector: v2data.vectorString, severity: v2data.baseSeverity } : null,
         description: vuln.descriptions?.find(d => d.lang === 'en')?.value || null,
       };
       nvdCache.set(cveId, entry);
       result[cveId] = entry;
-    } catch { observeExternalError('nvd'); nvdCache.set(cveId, null); }
+    } catch (error) { observeExternalError('nvd'); errors.push(error); }
   });
-  for (const c of cveIds) if (!(c in result)) result[c] = nvdCache.get(c) ?? null;
+  if (strict && errors.length) throw new Error(`NVD unavailable: ${errors[0].message}`);
   return result;
 }
 
 const POC_ENABLED = process.env.OSA_POC_ENABLED !== 'false';
 
-async function fetchPocs(cveIds) {
+async function fetchPocs(cveIds, { strict = false } = {}) {
   if (!cveIds.length || !POC_ENABLED) return {};
   const result = {};
+  const errors = [];
   await pLimit(cveIds, 10, async (cveId) => {
     const m = cveId.match(/CVE-(\d{4})-/);
     if (!m) { result[cveId] = []; return; }
@@ -83,14 +94,16 @@ async function fetchPocs(cveIds) {
         headers: { 'Cache-Control': 'no-cache' },
       });
       if (r.status === 404) { result[cveId] = []; return; }
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const d = await r.json();
+      if (!Array.isArray(d)) throw new Error('Invalid PoC response');
       result[cveId] = (Array.isArray(d) ? d : [])
         .map(p => ({ name: p.full_name || p.name, url: p.html_url, stars: p.stargazers_count || 0 }))
         .sort((a, b) => b.stars - a.stars)
         .slice(0, 5);
-    } catch { observeExternalError('poc'); result[cveId] = []; }
+    } catch (error) { observeExternalError('poc'); errors.push(error); }
   });
-  for (const c of cveIds) if (!result[c]) result[c] = [];
+  if (strict && errors.length) throw new Error(`PoC feed unavailable: ${errors[0].message}`);
   return result;
 }
 
@@ -119,9 +132,12 @@ async function osvQuery(pkgName, ecosystem, version) {
   try {
     const body = { package: { name: pkgName, ecosystem } };
     if (version) body.version = version;
+    const seen = new Set(), records = new Map();
+    const signal = AbortSignal.timeout(HTTP_TIMEOUT_MS);
+    for (let page = 0; page < 100; page++) {
     const r = await fetch(`${OSV_URL}/query`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body), signal: AbortSignal.timeout(HTTP_TIMEOUT_MS),
+      body: JSON.stringify(body), signal,
     });
     if (!r.ok) {
       const e = new Error(`OSV returned HTTP ${r.status}`);
@@ -129,13 +145,23 @@ async function osvQuery(pkgName, ecosystem, version) {
       throw e;
     }
     const d = await r.json();
-    return (d.vulns || []).map(v => ({
+    if (!d || typeof d !== 'object' || Array.isArray(d) || (d.vulns !== undefined && !Array.isArray(d.vulns))) throw new Error('Invalid OSV response');
+    for (const v of d.vulns || []) {
+      if (!v || typeof v.id !== 'string') throw new Error('Invalid OSV vulnerability record');
+      records.set(v.id, v);
+    }
+    if (!d.next_page_token) return [...records.values()].map(v => ({
       ...v,
       _sev    : parseSev(v),
       _fix    : getFixed(v),
       _aliases: v.aliases || [],
       _refs   : (v.references || []).map(ref => ref.url),
     })).sort((a, b) => SEV_ORD.indexOf(a._sev) - SEV_ORD.indexOf(b._sev));
+    if (typeof d.next_page_token !== 'string' || seen.has(d.next_page_token)) throw new Error('Invalid OSV pagination token');
+    seen.add(d.next_page_token);
+    body.page_token = d.next_page_token;
+    }
+    throw new Error('OSV pagination limit exceeded');
   } catch (e) {
     if (e.status) throw e;
     const upstream = new Error(`OSV query failed: ${e.message}`);
@@ -151,14 +177,10 @@ async function osvQuery(pkgName, ecosystem, version) {
 async function loadCveCache(cveIds) {
   if (!cveIds.length) return {};
   try {
-    const query = CVE_CACHE_TTL_HOURS > 0
-      ? `SELECT cve, cvss, poc FROM cve_enrichment WHERE cve = ANY($1)
-         AND updated_at > NOW() - ($2 || ' hours')::interval`
-      : `SELECT cve, cvss, poc FROM cve_enrichment WHERE cve = ANY($1)`;
-    const params = CVE_CACHE_TTL_HOURS > 0 ? [cveIds, CVE_CACHE_TTL_HOURS] : [cveIds];
-    const { rows } = await getPool().query(query, params);
+    const { rows } = await getPool().query(`SELECT cve, cvss, poc, cvss_complete, poc_complete,
+      cvss_updated_at, poc_updated_at FROM cve_enrichment WHERE cve = ANY($1)`, [cveIds]);
     const out = {};
-    for (const r of rows) out[r.cve] = { cvss: r.cvss, poc: r.poc };
+    for (const r of rows) out[r.cve] = r;
     return out;
   } catch (e) { console.error('[cve-cache] read failed:', e.message); return {}; }
 }
@@ -169,39 +191,61 @@ async function saveCveCache(entries) {
   try {
     await pLimit(items, 20, async ([cve, v]) => {
       await getPool().query(
-        `INSERT INTO cve_enrichment (cve, cvss, poc, updated_at)
-         VALUES ($1, $2::jsonb, $3::jsonb, NOW())
-         ON CONFLICT (cve) DO UPDATE SET cvss = EXCLUDED.cvss, poc = EXCLUDED.poc, updated_at = NOW()`,
-        [cve, JSON.stringify(v.cvss ?? null), JSON.stringify(v.poc ?? [])]);
+        `INSERT INTO cve_enrichment (cve, cvss, poc, cvss_complete, poc_complete, cvss_updated_at, poc_updated_at, updated_at)
+         VALUES ($1, $2::jsonb, $3::jsonb, $4, $5, CASE WHEN $4 THEN NOW() END, CASE WHEN $5 THEN NOW() END, NOW())
+         ON CONFLICT (cve) DO UPDATE SET
+           cvss = CASE WHEN EXCLUDED.cvss_complete THEN EXCLUDED.cvss ELSE cve_enrichment.cvss END,
+           poc = CASE WHEN EXCLUDED.poc_complete THEN EXCLUDED.poc ELSE cve_enrichment.poc END,
+           cvss_complete = cve_enrichment.cvss_complete OR EXCLUDED.cvss_complete,
+           poc_complete = cve_enrichment.poc_complete OR EXCLUDED.poc_complete,
+           cvss_updated_at = CASE WHEN EXCLUDED.cvss_complete THEN EXCLUDED.cvss_updated_at ELSE cve_enrichment.cvss_updated_at END,
+           poc_updated_at = CASE WHEN EXCLUDED.poc_complete THEN EXCLUDED.poc_updated_at ELSE cve_enrichment.poc_updated_at END,
+           updated_at = NOW()`,
+        [cve, JSON.stringify(v.cvss ?? null), JSON.stringify(v.poc ?? []), Object.hasOwn(v, 'cvss'), Object.hasOwn(v, 'poc')]);
     });
   } catch (e) { console.error('[cve-cache] write failed:', e.message); }
 }
 
 // CVSS + PoC via the persistent cache; only misses hit NVD / PoC-in-GitHub.
-async function cachedCvssPoc(cveIds) {
+async function cachedCvssPoc(cveIds, { cvss = true, poc = true, strict = false } = {}) {
   const cache = await loadCveCache(cveIds);
-  const missing = cveIds.filter(c => !(c in cache));
   const cvssMap = {}, pocMap = {};
-  for (const c of cveIds) if (cache[c]) { cvssMap[c] = cache[c].cvss; pocMap[c] = cache[c].poc || []; }
-
-  if (missing.length) {
-    const [freshCvss, freshPoc] = await Promise.all([fetchCvss(missing), fetchPocs(missing)]);
-    const toSave = {};
-    for (const c of missing) {
-      cvssMap[c] = freshCvss[c] ?? null;
-      pocMap[c]  = freshPoc[c]  ?? [];
-      toSave[c]  = { cvss: cvssMap[c], poc: pocMap[c] };
-    }
-    saveCveCache(toSave); // fire-and-forget
+  const fresh = timestamp => timestamp && (CVE_CACHE_TTL_HOURS <= 0
+    || Date.now() - new Date(timestamp).getTime() < CVE_CACHE_TTL_HOURS * 3600000);
+  for (const c of cveIds) {
+    if (cache[c]?.cvss_complete && fresh(cache[c].cvss_updated_at)) cvssMap[c] = cache[c].cvss;
+    if (POC_ENABLED && cache[c]?.poc_complete && fresh(cache[c].poc_updated_at)) pocMap[c] = cache[c].poc || [];
   }
+  const [freshCvss, freshPoc] = await Promise.all([
+    cvss ? fetchCvss(cveIds.filter(c => !Object.hasOwn(cvssMap, c)), { strict }) : {},
+    poc ? fetchPocs(cveIds.filter(c => !Object.hasOwn(pocMap, c)), { strict }) : {},
+  ]);
+  Object.assign(cvssMap, freshCvss); Object.assign(pocMap, freshPoc);
+  const toSave = {};
+  for (const c of cveIds) {
+    const entry = {};
+    if (Object.hasOwn(freshCvss, c)) entry.cvss = freshCvss[c];
+    if (Object.hasOwn(freshPoc, c)) entry.poc = freshPoc[c];
+    if (Object.keys(entry).length) toSave[c] = entry;
+  }
+  await saveCveCache(toSave);
   return { cvssMap, pocMap };
 }
 
-async function bulkEnrich(cveIds) {
+async function bulkEnrich(cveIds, { requiredFacts } = {}) {
+  const strict = requiredFacts !== undefined;
+  const needs = fact => !strict || requiredFacts.has(fact);
+  const jobs = [
+    needs('epssMax') ? fetchEpss(cveIds, { strict }) : {},
+    (async () => { if (!cveIds.length || !needs('kev')) return []; const s = await getCisaSet({ strict }); return cveIds.filter(c => s.has(c)); })(),
+    cachedCvssPoc(cveIds, { strict, cvss: needs('severity'), poc: needs('pocCount') }),
+  ];
+  if (strict) {
+    const [epssMap, kev, maps] = await Promise.all(jobs);
+    return { epssMap, kevSet: new Set(kev), ...maps };
+  }
   const [epssRes, kevRes, cvssPocRes] = await Promise.allSettled([
-    fetchEpss(cveIds),
-    (async () => { const s = await getCisaSet(); return cveIds.filter(c => s.has(c)); })(),
-    cachedCvssPoc(cveIds),
+    ...jobs,
   ]);
   const cvssPoc = cvssPocRes.status === 'fulfilled' ? cvssPocRes.value : { cvssMap: {}, pocMap: {} };
   return {
@@ -232,7 +276,9 @@ function enrichVulns(vulns, { epssMap, kevSet, cvssMap, pocMap }) {
       const e = epssMap[c];
       if (e && (!epss || e.epss > epss.epss)) epss = e;
     }
-    const cvss = cves.map(c => cvssMap[c]).find(Boolean) || null;
+    const candidates = cves.map(c => cvssMap[c]).filter(Boolean);
+    const score = entry => Math.max(0, ...['cvss4', 'cvss3', 'cvss2'].map(key => entry?.[key]?.score).filter(Number.isFinite));
+    const cvss = candidates.sort((a, b) => score(b) - score(a))[0] || null;
     const pocs = cves.flatMap(c => pocMap[c] || []);
     return {
       id       : v.id,
@@ -240,7 +286,7 @@ function enrichVulns(vulns, { epssMap, kevSet, cvssMap, pocMap }) {
       details  : v.details   || null,
       published: v.published || null,
       modified : v.modified  || null,
-      severity : v._sev,
+      severity : worstSeverity([v._sev || parseSev(v), scoreToSev(score(cvss))]),
       fix      : v._fix      || null,
       aliases  : v._aliases,
       refs     : v._refs,
@@ -295,16 +341,50 @@ function scoreToSev(sc) {
   return null;
 }
 
-function parseSev(v) {
-  for (const s of v.severity || []) {
-    let sc = parseFloat(s.score);
-    if (isNaN(sc)) sc = cvssV3BaseScore(s.score);
-    const sev = (sc != null && !isNaN(sc)) ? scoreToSev(sc) : null;
-    if (sev) return sev;
+function vectorBaseScore(vector) {
+  if (typeof vector !== 'string') return null;
+  if (/^CVSS:3\.[01]\//.test(vector)) return cvssV3BaseScore(vector);
+  const v4 = vector.startsWith('CVSS:4.0/');
+  const v2 = vector.startsWith('CVSS:2.0/') || vector.startsWith('AV:');
+  if (!v4 && !v2) return null;
+  // The calculator accepts partial vectors with defaults; OSV severity needs
+  // every base metric so an incomplete assessment cannot become score zero.
+  const required = v4 ? { AV:'NALP', AC:'LH', AT:'NP', PR:'NLH', UI:'NPA',
+    VC:'HLN', VI:'HLN', VA:'HLN', SC:'HLN', SI:'HLN', SA:'HLN' }
+    : { AV:'NAL', AC:'LMH', Au:'MSN', C:'NPC', I:'NPC', A:'NPC' };
+  const metrics = new Map();
+  for (const item of vector.split('/').filter(s => !s.startsWith('CVSS:'))) {
+    const [key,value,...rest] = item.split(':');
+    if (!key || !value || rest.length || metrics.has(key)) return null;
+    metrics.set(key,value);
   }
-  const db = ((v.database_specific || {}).severity || '').toUpperCase();
-  return ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'].includes(db) ? db : 'UNKNOWN';
+  for (const [key, values] of Object.entries(required)) {
+    const value = metrics.get(key);
+    if (!value || value.length !== 1 || !values.includes(value)) return null;
+  }
+  try {
+    const scores = fromVector(vector)?.calculateScores();
+    return v4 ? scores?.baseMetricsOnly : scores?.base;
+  } catch { return null; }
 }
+
+function parseSev(v) {
+  const severities = [];
+  const sources = [v, v.database_specific, v.ecosystem_specific,
+    ...(v.affected || []).flatMap(a => [a, a.database_specific, a.ecosystem_specific])];
+  for (const source of sources.filter(Boolean)) {
+    if (typeof source.severity === 'string') severities.push(source.severity.toUpperCase());
+    for (const s of Array.isArray(source.severity) ? source.severity : []) {
+      const value = s.score;
+      const sc = typeof value === 'number' || (typeof value === 'string' && /^\d+(?:\.\d+)?$/.test(value))
+        ? Number(value) : vectorBaseScore(value);
+      if (Number.isFinite(sc) && sc >= 0 && sc <= 10) severities.push(scoreToSev(sc));
+    }
+  }
+  return worstSeverity(severities);
+}
+
+function worstSeverity(values) { return SEV_ORD.find(sev => values.includes(sev)) || 'UNKNOWN'; }
 
 function getFixed(v) {
   for (const a of v.affected || [])
@@ -325,7 +405,7 @@ function extractCVEs(vulns) {
 }
 
 function calcRisk(cvss, epss) {
-  const cvssScore = cvss?.cvss3?.score ?? cvss?.cvss2?.score ?? 0;
+  const cvssScore = cvss?.cvss4?.score ?? cvss?.cvss3?.score ?? cvss?.cvss2?.score ?? 0;
   const epssScore = epss?.epss ?? 0;
   const raw = (cvssScore / 10) * 0.6 + epssScore * 0.4;
   const pct = Math.round(raw * 100);

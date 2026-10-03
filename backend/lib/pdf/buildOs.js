@@ -1,5 +1,5 @@
 'use strict';
-const { wrapHtml, buildHeader, buildChips, buildAlerts, buildFooter } = require('./style');
+const { esc, wrapHtml, buildHeader, buildChips, buildAlerts, buildFooter } = require('./style');
 const { vulnThead, vulnRowsOs } = require('./rows');
 
 function buildOsReportHtml(scan, { osaPngB64 = '' } = {}) {
@@ -15,7 +15,7 @@ function buildOsReportHtml(scan, { osaPngB64 = '' } = {}) {
   const date    = new Date(scan.scannedAt || Date.now()).toLocaleString('en-US', { year:'numeric', month:'short', day:'2-digit', hour:'2-digit', minute:'2-digit' });
 
   const distroStr = distro ? `${distro}${distroV ? ' ' + distroV : ''}` : '';
-  const extraChip = distroStr ? `<div class="chip"><b>Distro:</b> ${distroStr}</div>` : '';
+  const extraChip = distroStr ? `<div class="chip"><b>Distro:</b> ${esc(distroStr)}</div>` : '';
 
   const header = buildHeader({
     logo: osaPngB64,

@@ -4,7 +4,7 @@ const { Semaphore } = require('../shared/primitives');
 const { GRYPE_CONCURRENCY, GRYPE_QUEUE_SIZE } = require('../config');
 
 const express      = require('express');
-const router       = express.Router();
+const router = require('../utils/router')();
 const { execFile } = require('child_process');
 const {
   SEV_ORD, scanLimiter, getCisaSet,

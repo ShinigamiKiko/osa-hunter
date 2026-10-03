@@ -2,7 +2,7 @@
 const { withCache } = require('../auth/scanCache');
 
 const express = require('express');
-const router = express.Router();
+const router = require('../utils/router')();
 
 const { scanLimiter, rateLimit } = require('../shared');
 const { scanComposer } = require('../services/composerScan');
