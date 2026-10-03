@@ -30,7 +30,7 @@ services:
     networks:
       - osvguard
     ports:
-       - "3001:3001"
+       - "127.0.0.1:3001:3001"
        - "127.0.0.1:${METRICS_PORT:-9100}:9100"
     env_file:
       - .env
@@ -45,6 +45,7 @@ services:
       - NEXUS_UPSTREAM=${NEXUS_UPSTREAM:-http://nexus:8081}
       - NODE_ENV=production
       - METRICS_PORT=9100
+      - TRUSTED_PROXY_HOSTS=frontend
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - trivy-cache:/app/.trivy-cache

@@ -1,6 +1,6 @@
 'use strict';
 const express = require('express');
-const router  = express.Router();
+const router = require('../utils/router')();
 const { TtlCache, apiLimiter, rateLimit } = require('../shared');
 
 const DEPSDEV_URL  = 'https://api.deps.dev/v3alpha';

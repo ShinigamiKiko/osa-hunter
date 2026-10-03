@@ -40,12 +40,7 @@
     },
     dep(e)      { return {...e, id:e._cacheKey, desc:e.desc||'', scannedAt:e.scannedAt||e._cachedAt}; },
     composer(e) {
-      const deps = Array.isArray(e.deps) ? e.deps : [
-        e.deps?.root ? {...e.deps.root, relation:'ROOT'} : null,
-        ...(e.deps?.direct||[]).map(d=>({...d, relation:d.relation||'DIRECT'})),
-        ...(e.deps?.transitive||[]).map(d=>({...d, relation:d.relation||'INDIRECT'})),
-      ].filter(Boolean);
-      return {...e, deps, id:e._cacheKey, desc:e.desc||'', scannedAt:e.scannedAt||e._cachedAt};
+      return normalizeComposerScan({...e, id:e._cacheKey, desc:e.desc||'', scannedAt:e.scannedAt||e._cachedAt});
     },
     os(e) {
       const d = distroMeta(e.distro);
@@ -69,12 +64,12 @@
   };
 
   const META = {
-    lib     :{lsKey:'es_lib',global:'libScans',max:50},
-    dep     :{lsKey:'es_dep',global:'depScans',max:20},
-    composer:{lsKey:'es_dep',global:'depScans',max:20},
-    os      :{lsKey:'es_os', global:'osScans', max:30},
-    img     :{lsKey:'es_img',global:'imgScans',max:20},
-    sast    :{lsKey:'es_gh', global:'ghScans', max:20},
+    lib     :{lsKey:'es_lib',get:()=>libScans,max:50},
+    dep     :{lsKey:'es_dep',get:()=>depScans,max:20},
+    composer:{lsKey:'es_dep',get:()=>depScans,max:20},
+    os      :{lsKey:'es_os', get:()=>osScans, max:30},
+    img     :{lsKey:'es_img',get:()=>imgScans,max:20},
+    sast    :{lsKey:'es_gh', get:()=>ghScans, max:20},
   };
 
   const PAGE_TYPES = {
@@ -89,7 +84,6 @@
 
   async function fetchAndMerge(type) {
     if (fetched.has(type)) return;
-    fetched.add(type);
 
     let entries;
     try {
@@ -98,11 +92,9 @@
       entries = (await r.json()).entries || [];
     } catch(e) { console.warn('[scan-history] fetch failed:', e.message); return; }
 
-    if (!entries.length) return;
-
     const meta = META[type];
-    const arr  = window[meta.global];
-    if (!Array.isArray(arr)) return;
+    const arr  = meta.get();
+    if (!Array.isArray(arr) || !Array.isArray(entries)) return;
 
     const existing = new Set(arr.map(s => String(s._cacheKey || s.id || '')));
     let added = 0;
@@ -117,6 +109,7 @@
       added++;
     }
 
+    fetched.add(type);
     if (!added) return;
 
     arr.sort((a,b) => new Date(b.scannedAt||0) - new Date(a.scannedAt||0));

@@ -1,5 +1,5 @@
 'use strict';
-const { esc, wrapHtml, buildHeader, buildChips, buildAlerts, buildFooter, sevBadge } = require('./style');
+const { esc, safeSeverity, wrapHtml, buildHeader, buildChips, buildAlerts, buildFooter, sevBadge } = require('./style');
 
 function parseCweId(cweArr) {
   const raw = (cweArr||[])[0] || '';
@@ -89,7 +89,7 @@ function buildSastReportHtml(scan, { osaPngB64 = '' } = {}) {
     const topSevG = ['CRITICAL','HIGH','MEDIUM','LOW'].find(s => items.some(f => (f.severity||'').toUpperCase()===s)) || 'UNKNOWN';
     const cweLabel = cweId ? ` · CWE-${cweId}` : '';
     const rows = items.map(f => {
-      const sev       = (f.severity||'UNKNOWN').toUpperCase();
+      const sev       = safeSeverity(f.severity);
       const shortName = f.ruleShortName || (f.ruleId||'').split('.').pop().replace(/[-_]/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
       const fileLoc   = f.path ? `${f.path}${f.line ? ':'+f.line : ''}` : '';
       const codeStr   = f.codeSnippet ? (f.codeSnippet.split('\n')[0]||'').slice(0,100) : '';

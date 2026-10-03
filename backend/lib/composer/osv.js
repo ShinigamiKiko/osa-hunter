@@ -1,51 +1,12 @@
 'use strict';
 
-const { OSV_URL, extractCVEs, parseSev, getFixed } = require('../shared');
+const { osvQuery, extractCVEs } = require('../shared');
 
 const OSV_ECOSYSTEM = 'Packagist';
-const SEV_ORD = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'UNKNOWN', 'NONE'];
 
 async function osvQueryPackagist(name, version) {
-  try {
-    const body = { package: { name, ecosystem: OSV_ECOSYSTEM } };
-    if (version) body.version = version;
-
-    const r = await fetch(`${OSV_URL}/query`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(12000),
-    });
-    if (!r.ok) {
-      const e = new Error(`OSV returned HTTP ${r.status}`);
-      e.status = 502;
-      throw e;
-    }
-
-    const ct = r.headers.get('content-type') || '';
-    if (!ct.includes('application/json') && !ct.includes('text/json')) {
-      console.warn(`[osvQueryPackagist] Non-JSON response for ${name}@${version}`);
-      return [];
-    }
-
-    const d = await r.json();
-    return (d.vulns || [])
-      .map(v => ({
-        ...v,
-        _sev: parseSev(v),
-        _fix: getFixed(v),
-        _aliases: v.aliases || [],
-        _refs: (v.references || []).map(r => r.url),
-      }))
-      .sort((a, b) => SEV_ORD.indexOf(a._sev) - SEV_ORD.indexOf(b._sev));
-  } catch (e) {
-    if (e.status) throw e;
-    const upstream = new Error(`OSV query failed: ${e.message}`);
-    upstream.status = 502;
-    throw upstream;
-  }
+  return osvQuery(name, OSV_ECOSYSTEM, version);
 }
-
 function mapVulnForApi(x) {
   return {
     id: x.id,

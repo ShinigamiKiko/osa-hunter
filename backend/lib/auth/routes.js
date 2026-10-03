@@ -2,7 +2,7 @@
 
 const express  = require('express');
 const bcrypt   = require('bcryptjs');
-const router   = express.Router();
+const router   = require('../utils/router')();
 const { getPool } = require('./db');
 const { requireAdmin } = require('./middleware');
 const { RateLimiter } = require('../shared/primitives');
@@ -34,7 +34,7 @@ router.post('/auth/login', (req, res, next) => {
     const pool = getPool();
 
     const { rows } = await pool.query(
-      'SELECT id, username, password, role FROM users WHERE username = $1',
+      'SELECT id, username, password, role, session_version FROM users WHERE username = $1',
       [username.trim()]
     );
     if (!rows.length) return res.status(401).json({ error: 'Invalid credentials' });
@@ -43,7 +43,7 @@ router.post('/auth/login', (req, res, next) => {
     const valid = await bcrypt.compare(password, user.password);
     if (!valid) return res.status(401).json({ error: 'Invalid credentials' });
 
-    const sessionUser = { id: user.id, username: user.username, role: user.role };
+    const sessionUser = { id: user.id, username: user.username, role: user.role, sessionVersion: user.session_version };
 
     // Rotate the session id on privilege change to prevent session fixation:
     // a pre-auth id planted in the victim's browser must not survive login.
@@ -73,8 +73,8 @@ router.post('/auth/logout', (req, res) => {
 });
 
 router.get('/auth/me', (req, res) => {
-  if (!req.session?.user) return res.status(401).json({ error: 'Not authenticated' });
-  return res.json({ user: req.session.user });
+  if (!req.user) return res.status(401).json({ error: 'Not authenticated' });
+  return res.json({ user: req.user });
 });
 
 router.get('/auth/users', requireAdmin, async (req, res) => {
@@ -161,14 +161,17 @@ router.post('/auth/password', async (req, res) => {
     }
 
     const hash = await bcrypt.hash(newPassword, SALT_ROUNDS);
-    await getPool().query(
-      'UPDATE users SET password = $1, updated_at = NOW() WHERE id = $2', [hash, user.id]);
+    const updated = await getPool().query(
+      `UPDATE users SET password = $1, updated_at = NOW(), session_version = session_version + 1
+       WHERE id = $2 AND password = $3 RETURNING id, username, role, session_version`, [hash, user.id, rows[0].password]);
+    if (!updated.rowCount) return res.status(409).json({ error: 'Password changed concurrently, please sign in again' });
+    const account = updated.rows[0];
 
     // Rotate the session id: the credential behind this session just changed,
     // and anything that knew the old id should not keep riding on it.
     return req.session.regenerate(err => {
       if (err) return res.status(500).json({ error: 'Password changed, please sign in again' });
-      req.session.user = user;
+      req.session.user = { id: account.id, username: account.username, role: account.role, sessionVersion: account.session_version };
       return res.json({ ok: true });
     });
   } catch (e) {
@@ -184,7 +187,7 @@ router.patch('/auth/users/:id/password', requireAdmin, async (req, res) => {
   try {
     const hash = await bcrypt.hash(password, SALT_ROUNDS);
     const { rowCount } = await getPool().query(
-      'UPDATE users SET password = $1, updated_at = NOW() WHERE id = $2',
+      'UPDATE users SET password = $1, updated_at = NOW(), session_version = session_version + 1 WHERE id = $2',
       [hash, id]
     );
     if (!rowCount) return res.status(404).json({ error: 'User not found' });

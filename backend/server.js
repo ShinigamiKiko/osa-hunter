@@ -60,7 +60,7 @@ app.use((req, res, next) => {
   next();
 });
 
-app.set('trust proxy', 1);
+app.use(require('./lib/utils/trustedProxy').configureTrustedProxy(app));
 
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -155,9 +155,9 @@ runMigrations()
 
     app.use('/api/gate', gateProxyRoutes);
 
-    app.use('/api', authRoutes);
-
     app.use('/api', requireAuth);
+
+    app.use('/api', authRoutes);
 
     app.use('/api', apiKeyRoutes);
     app.use('/api', scanHistoryRoutes);

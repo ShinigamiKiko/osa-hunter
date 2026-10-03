@@ -1,7 +1,6 @@
 'use strict';
 
-const { Readable } = require('stream');
-const { osaBase, fwd } = require('./common');
+const { osaBase, fwd, streamResponse } = require('./common');
 
 function handles(ecosystem) { return ecosystem === 'NuGet'; }
 
@@ -47,12 +46,7 @@ async function download(req, res, repoCfg, _repository, artifactPath) {
   const upstream = await fetch(`${base}/${artifactPath}`, {
     method: req.method, headers, signal: AbortSignal.timeout(60000),
   });
-  res.status(upstream.status);
-  upstream.headers.forEach((value, key) => {
-    if (!['content-encoding', 'transfer-encoding', 'connection'].includes(key)) res.setHeader(key, value);
-  });
-  if (req.method === 'HEAD' || !upstream.body) return res.end();
-  return Readable.fromWeb(upstream.body).pipe(res);
+  return streamResponse(req, res, upstream);
 }
 
 module.exports = { handles, parse, serveIndex, download };
