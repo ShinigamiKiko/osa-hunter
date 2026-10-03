@@ -6,6 +6,7 @@ const {
   fetchEpss,
   fetchCvss,
   fetchPocs,
+  enrichVulns,
 } = require('../shared');
 
 const { osvQueryPackagist, mapVulnForApi, extractCvesFromOsv } = require('./osv');
@@ -22,12 +23,13 @@ async function enrichOne(depName, version, cisaSet) {
     fetchPocs(cves),
   ]);
   const kev = cves.filter(id => cisaSet.has(id));
+  const enriched = enrichVulns(vulns, { epssMap: epss, kevSet: cisaSet, cvssMap: cvss, pocMap: pocs });
 
   return {
     name: depName,
     version: version || null,
     toxic,
-    vulns: vulns.map(mapVulnForApi),
+    vulns: vulns.map((v, i) => ({ ...mapVulnForApi(v), severity: enriched[i].severity })),
     cves,
     kev,
     epss,

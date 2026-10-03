@@ -26,7 +26,7 @@ async function cachedGate(input) {
   const name = input.name.trim();
   const ecosystem = input.ecosystem.trim();
   const requestedVersion = (input.version || '').trim() || 'latest';
-  const key = `gate:${version}:${ecosystem}:${name}:${requestedVersion}:${input.includeDeps ? 'deps' : 'root'}`;
+  const key = `gate:v2:${version}:${ecosystem}:${name}:${requestedVersion}:${input.includeDeps ? 'deps' : 'root'}`;
   const pool = getPool();
 
   const ttl = input.ttlHours ?? DEFAULT_TTL_HOURS;

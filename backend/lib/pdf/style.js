@@ -100,9 +100,14 @@ td{padding:10px 14px;vertical-align:top;font-size:12px;overflow:hidden}
 `;
 
 function sevBadge(sev) {
-  const s = (sev||'UNKNOWN').toUpperCase();
+  const s = safeSeverity(sev);
   return `<span class="sev ${s}">${esc(s)}</span>`;
 }
+function safeSeverity(value) {
+  const severity = String(value || 'UNKNOWN').toUpperCase();
+  return ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'UNKNOWN', 'NONE'].includes(severity) ? severity : 'UNKNOWN';
+}
+function count(value) { return Number.isSafeInteger(value) && value >= 0 ? value : 0; }
 function scoreClass(n) {
   if (n >= 9) return 'score-crit';
   if (n >= 7) return 'score-high';
@@ -111,20 +116,20 @@ function scoreClass(n) {
   return 'score-none';
 }
 function epssCell(epss) {
-  if (!epss || epss.epss == null) return '<span class="score-none">—</span>';
+  if (!Number.isFinite(epss?.epss) || epss.epss < 0 || epss.epss > 1) return '<span class="score-none">—</span>';
   const pct = (epss.epss * 100).toFixed(2);
   const cls = epss.epss >= 0.1 ? 'score-crit' : epss.epss >= 0.01 ? 'score-med' : 'score-low';
   return `<span class="${cls}">${pct}%</span>`;
 }
 function cvssCell(cvss) {
-  const score = cvss?.cvss3?.score;
-  if (score == null) return '<span class="score-none">—</span>';
+  const score = cvss?.cvss4?.score ?? cvss?.cvss3?.score ?? cvss?.cvss2?.score;
+  if (!Number.isFinite(score) || score < 0 || score > 10) return '<span class="score-none">—</span>';
   return `<span class="${scoreClass(score)}">${score}</span>`;
 }
 function badges(v) {
   let out = '';
   if (v.inKev) out += '<span class="badge kev">🔥 KEV</span>';
-  if ((v.pocs||[]).length) out += `<span class="badge poc">💥 PoC×${v.pocs.length}</span>`;
+  if (Array.isArray(v.pocs) && v.pocs.length) out += `<span class="badge poc">💥 PoC×${v.pocs.length}</span>`;
   return out;
 }
 function fixCell(v) {
@@ -151,9 +156,10 @@ function toxicLine(toxic) {
   return `<div style="font-size:12px;color:#c084fc;font-weight:600;margin-top:6px">☠ Toxic: ${esc(label)}${desc}</div>`;
 }
 function wrapHtml(bodyHtml) {
-  return `<!doctype html><html><head><meta charset="utf-8"/><style>${BASE_CSS}</style></head><body><div class="report">${bodyHtml}</div></body></html>`;
+  return `<!doctype html><html><head><meta charset="utf-8"/><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'"/><style>${BASE_CSS}</style></head><body><div class="report">${bodyHtml}</div></body></html>`;
 }
 function buildHeader({ logo, title, sub, sev, meta, right = '' }) {
+  sev = safeSeverity(sev);
   const sevHtml = sev && sev !== 'NONE' ? `<span class="rpt-sev ${sev}">${esc(sev)}</span>` : '';
   return `<div class="rpt-header">
     <div>
@@ -167,6 +173,8 @@ function buildHeader({ logo, title, sub, sev, meta, right = '' }) {
   </div>`;
 }
 function buildChips(counts, kevHits, pocHits, extra) {
+  counts = Object.fromEntries(Object.entries(counts || {}).map(([key, value]) => [key, count(value)]));
+  kevHits = count(kevHits); pocHits = count(pocHits);
   const CLS = { CRITICAL:'crit', HIGH:'high', MEDIUM:'med', LOW:'low', UNKNOWN:'' };
   let html = ['CRITICAL','HIGH','MEDIUM','LOW','UNKNOWN']
     .filter(s => (counts||{})[s])
@@ -180,7 +188,7 @@ function buildAlerts(kevHits, pocHits, toxic) {
   const rows = [];
   if (kevHits)      rows.push(`<div class="alert kev">🔥 ${kevHits} CVE${kevHits>1?'s':''} found in CISA KEV — actively exploited in the wild</div>`);
   if (pocHits)      rows.push(`<div class="alert poc">💥 ${pocHits} CVE${pocHits>1?'s':''} with public PoC on GitHub</div>`);
-  if (toxic?.found) rows.push(`<div class="alert toxic">☠ Toxic repository — ${toxic.problem_type||'unknown issue'}</div>`);
+  if (toxic?.found) rows.push(`<div class="alert toxic">☠ Toxic repository — ${esc(toxic.problem_type||'unknown issue')}</div>`);
   if (!rows.length) rows.push(`<div class="alert clean">✅ No active exploits or toxic flags detected</div>`);
   return `<div class="alerts">${rows.join('')}</div>`;
 }
@@ -188,4 +196,4 @@ function buildFooter(date) {
   return `<div class="rpt-footer"><span>OSA Hunter — Vulnerability Scanner</span><span>Generated ${date}</span></div>`;
 }
 
-module.exports = { esc, BASE_CSS, sevBadge, scoreClass, epssCell, cvssCell, badges, fixCell, activityLine, toxicLine, wrapHtml, buildHeader, buildChips, buildAlerts, buildFooter };
+module.exports = { esc, safeSeverity, BASE_CSS, sevBadge, scoreClass, epssCell, cvssCell, badges, fixCell, activityLine, toxicLine, wrapHtml, buildHeader, buildChips, buildAlerts, buildFooter };

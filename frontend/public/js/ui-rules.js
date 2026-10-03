@@ -71,6 +71,10 @@ function _rowsToWhen(match, rows) {
 async function renderRules() {
   const host = document.getElementById('rulesContent');
   if (!host) return;
+  if (window._authUser?.role !== 'admin') {
+    host.innerHTML = '<div style="padding:24px;color:var(--muted)">Policy editing requires an administrator account.</div>';
+    return;
+  }
   host.innerHTML = '<div style="padding:24px;color:var(--muted)">Loading…</div>';
   try {
     const [factsRes, policyRes] = await Promise.all([

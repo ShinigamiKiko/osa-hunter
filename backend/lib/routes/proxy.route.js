@@ -3,7 +3,7 @@
 // Proxy activity API for the UI. What packages entered the system through the
 // gate, filterable by ecosystem/decision, with the client IP that pulled them.
 const express = require('express');
-const router = express.Router();
+const router = require('../utils/router')();
 const { getPool } = require('../auth/db');
 const { requireAdmin } = require('../auth/middleware');
 

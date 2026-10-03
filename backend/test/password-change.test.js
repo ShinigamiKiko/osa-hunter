@@ -28,7 +28,7 @@ require.cache[dbPath] = {
         }
         if (/UPDATE users SET password/i.test(sql)) {
           stored.password = args[0];
-          return { rowCount: 1 };
+          return { rowCount: 1, rows: [{ id: 7, username: 'dev', role: 'user', session_version: 2 }] };
         }
         return { rows: [], rowCount: 0 };
       },

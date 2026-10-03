@@ -1,7 +1,7 @@
 'use strict';
 
 const express = require('express');
-const router = express.Router();
+const router = require('../utils/router')();
 const fs = require('fs');
 const nodePath = require('path');
 
@@ -79,6 +79,15 @@ function sendPdf(res, bytes, filename) {
     'Content-Length': String(body.length),
   });
   res.end(body);
+}
+
+async function secureReportPage(page) {
+  await page.setJavaScriptEnabled(false);
+  await page.setRequestInterception(true);
+  page.on('request', request => {
+    const action = /^data:image\/(?:png|jpeg);base64,/.test(request.url()) ? request.continue() : request.abort();
+    Promise.resolve(action).catch(() => {});
+  });
 }
 
 router.post('/export/pdf', rateLimit(scanLimiter), async (req, res) => {
@@ -159,6 +168,7 @@ router.post('/export/pdf', rateLimit(scanLimiter), async (req, res) => {
     });
 
     const page = await browser.newPage();
+    await secureReportPage(page);
     await page.setDefaultNavigationTimeout(120000);
     await page.setDefaultTimeout(120000);
     await page.setContent(html, { waitUntil: 'domcontentloaded', timeout: 60000 });
@@ -170,10 +180,10 @@ router.post('/export/pdf', rateLimit(scanLimiter), async (req, res) => {
       margin: { top: '0', right: '0', bottom: '0', left: '0' },
     });
 
-    const nameSlug = s => (s||'scan').replace(/[^a-z0-9]/gi, '-').toLowerCase();
+    const nameSlug = s => String(s||'scan').replace(/[^a-z0-9]/gi, '-').toLowerCase();
     const name =
       type === 'lib'  ? `osa-lib-${nameSlug(scan.package || scan.pkg)}` :
-      type === 'img'  ? `osa-img-${nameSlug(scan.image)}-${scan.tag||'latest'}` :
+      type === 'img'  ? `osa-img-${nameSlug(scan.image)}-${nameSlug(scan.tag||'latest')}` :
       type === 'dep'  ? `osa-dep-${nameSlug(scan.package)}` :
       type === 'os'   ? `osa-os-${nameSlug(scan.package || scan.image)}` :
                         `osa-sast-${nameSlug(scan.repo)}`;
@@ -189,3 +199,4 @@ router.post('/export/pdf', rateLimit(scanLimiter), async (req, res) => {
 
 module.exports = router;
 module.exports.sendPdf = sendPdf;
+module.exports.secureReportPage = secureReportPage;

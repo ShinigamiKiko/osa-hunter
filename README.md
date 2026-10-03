@@ -98,6 +98,21 @@ the rate limit, so a mistyped form cannot lock anyone out.
 An admin resets somebody else's password in **Manage Users**
 (`PATCH /api/auth/users/:id/password`); that path does not ask for the old one.
 
+Password changes revoke other browser sessions; an admin reset revokes all of
+that account's browser sessions. Account deletion and role changes are checked
+on every authenticated request, including `/api/auth/me`. API keys remain
+separate credentials. Only administrators can save the gateway policy.
+
+The session-version migration requires existing users to sign in again once.
+The enrichment migration discards old library, dependency, OS and gate cache
+entries because their verdicts may be incomplete; these scans will run again
+on demand.
+
+The Compose backend port 3001 is published on localhost. Forwarded client
+addresses are trusted only from the `frontend` container. For another reverse
+proxy, set `TRUSTED_PROXIES` to its addresses/CIDRs or `TRUSTED_PROXY_HOSTS` to
+its DNS names. Direct deployments ignore forwarded headers by default.
+
 ### Prometheus and logs
 
 Metrics are published on a separate port bound to localhost only, not on the

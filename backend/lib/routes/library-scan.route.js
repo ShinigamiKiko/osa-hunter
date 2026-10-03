@@ -1,7 +1,7 @@
 'use strict';
 const { withCache, ScanError } = require('../auth/scanCache');
 const express = require('express');
-const router  = express.Router();
+const router = require('../utils/router')();
 const {
   SEV_ORD, scanLimiter, rateLimit,
   checkToxic,
