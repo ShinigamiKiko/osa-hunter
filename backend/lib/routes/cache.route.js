@@ -1,6 +1,6 @@
 'use strict';
 const express = require('express');
-const router  = express.Router();
+const router = require('../utils/router')();
 const { getPool } = require('../auth/db');
 const { requireAdmin } = require('../auth/middleware');
 const { clearProxyData } = require('../gate/retention');

@@ -82,11 +82,11 @@ function parseBool(v) {
 }
 
 function compare(actual, expected) {
-  if (typeof expected !== 'string') return actual === expected;
   // Boolean-style match: `kev: yes` / `kev: no` (also true/false/on/off).
   // Truthiness is checked, so a count fact like kev=2 counts as "yes".
   const bool = parseBool(expected);
-  if (bool !== null) return bool ? !!actual : !actual;
+  if (bool !== null) return actual !== undefined && (bool ? !!actual : !actual);
+  if (typeof expected !== 'string') return actual === expected;
   // Wildcard/glob: any `*` in the value makes it a pattern, e.g.
   // cves: "CVE-2026-*". `*` matches any run of characters; everything else is
   // literal. On arrays this means "any element matches the pattern".
@@ -129,7 +129,7 @@ function conditionMatches(condition, facts) {
 function compilePolicy(source) {
   if (!source || typeof source !== 'object') throw new Error('Policy must be an object');
   const defaults = source.defaults || {};
-  const rules = (source.rules || []).map(rule => {
+  const rules = (source.rules || []).filter(rule => rule.enabled !== false).map(rule => {
     if (!rule.id || !['allow', 'warn', 'deny'].includes(rule.action)) {
       throw new Error('Each policy rule requires id and action (allow, warn or deny)');
     }
@@ -138,6 +138,7 @@ function compilePolicy(source) {
       action: rule.action,
       when: facts => conditionMatches(rule.when, facts),
       detail: rule.detail || rule.id,
+      facts: conditionFacts(rule.when),
     };
   });
   return {
@@ -148,6 +149,12 @@ function compilePolicy(source) {
     onGateError: defaults.on_gate_error || 'deny',
     version: String(source.version || 1),
   };
+}
+
+function conditionFacts(condition) {
+  if (!condition || typeof condition !== 'object') return [];
+  return Object.entries(condition).flatMap(([key, value]) =>
+    ['all', 'any'].includes(key) && Array.isArray(value) ? value.flatMap(conditionFacts) : [key]);
 }
 
 function formatException(item) {
@@ -188,4 +195,4 @@ function evalRules(policy, facts) {
   return hits;
 }
 
-module.exports = { DEFAULT_POLICY, evalRules, loadPolicy, compilePolicy, POLICY_FILE };
+module.exports = { DEFAULT_POLICY, evalRules, loadPolicy, compilePolicy, formatException, POLICY_FILE };

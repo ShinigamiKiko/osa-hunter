@@ -13,15 +13,31 @@ async function requireAuth(req, res, next) {
   const open = [
     '/auth/login',
     '/auth/status',
+    '/auth/logout',
     '/health',
     '/ready',
   ];
-  if (open.some(p => req.path === p || req.path.startsWith(p + '/'))) return next();
+  if (open.includes(req.path)) return next();
 
-  if (req.session?.user) return next();
+  if (req.session?.user) {
+    try {
+      const { rows } = await getPool().query(
+        'SELECT id, username, role, session_version FROM users WHERE id = $1', [req.session.user.id]);
+      const user = rows[0];
+      if (user && user.session_version === req.session.user.sessionVersion) {
+        req.user = { id: user.id, username: user.username, role: user.role };
+        req.session.user = { ...req.user, sessionVersion: user.session_version };
+        return next();
+      }
+      delete req.session.user;
+    } catch (error) {
+      console.error('[auth/session]', error.message);
+      return res.status(503).json({ error: 'Authentication temporarily unavailable' });
+    }
+  }
 
   const apiKey = req.headers['x-api-key'];
-  if (apiKey && apiKey.startsWith('osa_')) {
+  if (typeof apiKey === 'string' && apiKey.startsWith('osa_')) {
     try {
       const hash = hashKey(apiKey);
       const { rows } = await getPool().query(
@@ -49,7 +65,7 @@ async function requireAuth(req, res, next) {
 }
 
 function requireAdmin(req, res, next) {
-  const role = req.session?.user?.role || req.user?.role;
+  const role = req.user?.role || req.session?.user?.role;
   if (role === 'admin') return next();
   return res.status(403).json({ error: 'Forbidden — admin only' });
 }

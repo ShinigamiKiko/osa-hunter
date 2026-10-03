@@ -1,7 +1,7 @@
 'use strict';
 
 const express = require('express');
-const router = express.Router();
+const router = require('../utils/router')();
 const { getPool } = require('../auth/db');
 const { cachedGate } = require('../gate/service');
 const { fwd, proxyResponse } = require('../gate/proxy/common');
@@ -208,6 +208,7 @@ router.all('/*', async (req, res) => {
     }
     return res.status(404).json({ error: 'not a package or recognized metadata path' });
   } catch (error) {
+    if (res.headersSent || res.destroyed) { if (!res.destroyed) res.destroy(); return; }
     return res.status(error.status || 502).json({ error: error.message || 'gate proxy failed' });
   }
 });

@@ -2,7 +2,7 @@
 const { withCache, ScanError } = require('../auth/scanCache');
 
 const express      = require('express');
-const router       = express.Router();
+const router = require('../utils/router')();
 const { execFile } = require('child_process');
 const fs           = require('fs');
 const path         = require('path');

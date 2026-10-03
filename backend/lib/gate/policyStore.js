@@ -3,7 +3,7 @@
 const fs = require('fs');
 const yaml = require('js-yaml');
 const { getPool } = require('../auth/db');
-const { compilePolicy, POLICY_FILE } = require('./policy');
+const { compilePolicy, formatException, POLICY_FILE } = require('./policy');
 
 // The gate reads its policy from a single database row. `body` keeps the
 // declarative YAML shape, so it compiles with the same compilePolicy() the file
@@ -40,7 +40,7 @@ const STARTER_BODY = {
 function normalizeExceptions(list) {
   return (list || []).map(item => {
     if (item && typeof item === 'object') {
-      const pattern = String(item.pattern ?? item.name ?? '').trim();
+      const pattern = String(item.pattern ?? formatException(item)).trim();
       const reason = String(item.reason || '').trim();
       const off = item.enabled === false;
       if (!off && !reason) return pattern;

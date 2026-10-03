@@ -1,6 +1,6 @@
 'use strict';
 const express   = require('express');
-const router    = express.Router();
+const router = require('../utils/router')();
 const { execFile } = require('child_process');
 const { trivyLimiter, validateImage } = require('../shared');
 const { Semaphore } = require('../shared/primitives');

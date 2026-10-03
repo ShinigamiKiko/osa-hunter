@@ -2,7 +2,7 @@
 
 const express  = require('express');
 const crypto   = require('crypto');
-const router   = express.Router();
+const router = require('../utils/router')();
 const { getPool }      = require('./db');
 const { requireAdmin } = require('./middleware');
 
