@@ -6,7 +6,7 @@ function esc(s) {
 
 const BASE_CSS = `
 *{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-html,body{margin:0;padding:0;background:#0a0c12;color:#e5e7eb;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+html,body{margin:0;padding:0;background:#0a0c12;color:#e5e7eb;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
 .report{width:100%;background:#07090f}
 .rpt-header{background:#0b0f18;border-bottom:1px solid #1a2030;padding:28px 32px;display:flex;align-items:flex-start;justify-content:space-between;gap:24px}
 .rpt-brand{display:flex;align-items:center;gap:10px;margin-bottom:14px}

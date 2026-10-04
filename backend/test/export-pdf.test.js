@@ -5,6 +5,7 @@ const assert = require('node:assert/strict');
 const express = require('express');
 const { sendPdf } = require('../lib/routes/export.route');
 const { secureReportPage } = require('../lib/routes/export.route');
+const { browserLaunchArgs } = require('../lib/routes/export.route');
 const reports = require('../lib/pdf');
 
 // Regression: puppeteer 23+ returns a Uint8Array from page.pdf(). res.send()
@@ -27,6 +28,21 @@ function withServer(bytes, fn) {
 
 // "%PDF-1.4" followed by a byte that is not valid UTF-8 on its own.
 const PDF_BYTES = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 0x31, 0x2e, 0x34, 0x0a, 0xff, 0xfe]);
+
+test('Chromium sandbox is enabled by default and disabled only by an explicit operator setting', () => {
+  const before = process.env.PUPPETEER_NO_SANDBOX;
+  try {
+    for (const value of [undefined, 'false', '1', 'TRUE']) {
+      if (value === undefined) delete process.env.PUPPETEER_NO_SANDBOX; else process.env.PUPPETEER_NO_SANDBOX = value;
+      assert.ok(!browserLaunchArgs().includes('--no-sandbox'));
+      assert.ok(!browserLaunchArgs().includes('--disable-setuid-sandbox'));
+    }
+    process.env.PUPPETEER_NO_SANDBOX = 'true';
+    assert.ok(browserLaunchArgs().includes('--no-sandbox'));
+  } finally {
+    if (before === undefined) delete process.env.PUPPETEER_NO_SANDBOX; else process.env.PUPPETEER_NO_SANDBOX = before;
+  }
+});
 
 test('a Uint8Array from puppeteer is sent as PDF bytes, not as JSON',
   withServer(PDF_BYTES, async (r, body) => {

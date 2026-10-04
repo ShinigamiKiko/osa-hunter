@@ -65,6 +65,10 @@ async function navTo(page, opts={}){
   document.getElementById('nav-proxy')?.classList.toggle('active',isProxy);
   document.getElementById('nav-rules')?.classList.toggle('active',isRules);
   document.getElementById('nav-admin')?.classList.toggle('active', page==='admin');
+  document.querySelectorAll('.sidebar-nav .nav-item').forEach(item => {
+    if (item.classList.contains('active')) item.setAttribute('aria-current', 'page');
+    else item.removeAttribute('aria-current');
+  });
 
   if(isProxy){
     document.getElementById('topbarLeft').innerHTML=`<span style="font-family:'Syne',sans-serif;font-size:17px;font-weight:700;color:#fff">Proxy activity</span>`;
