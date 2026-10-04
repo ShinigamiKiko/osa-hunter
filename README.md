@@ -40,6 +40,14 @@ Library CVEs · Dependency trees · Docker images · OS packages · GitHub SAST 
 
 Every scanned package is checked against a curated blocklist of repositories known to contain malicious or harmful code. If a dependency traces back to one of these repos — you'll know before it reaches production.
 
+Matches use an explicit package URL/PURL or the package's source repository from
+registry metadata, including its host and owner. A repository basename or an
+unscoped package name alone is insufficient. Repository lookup supports npm,
+PyPI, Packagist, crates.io, RubyGems and GitHub-hosted Go modules; other ecosystems
+require an explicit package identity in the feed. GitHub scans compare the full
+repository identity. Metadata lookups are cached; failures in a toxic gate rule
+follow `on_gate_error`. Feed entries retain the categories assigned by its authors.
+
 | Category | Description |
 |---|---|
 | 💀 DDoS Tool | Packages designed to flood networks or amplify attacks |
@@ -87,6 +95,23 @@ curl -X POST /api/ghscan -d '{"url":"https://github.com/owner/repo"}'
 
 Full endpoint list: `libscan` · `depscan` · `composer` · `osscan` · `trivy/scan` · `ghscan` · `scans/history` · `export/pdf`
 
+Image scans accept a repository name and a separate tag. Unqualified names such
+as `nginx` use Docker Hub. `TRIVY_ALLOWED_REGISTRIES` is a comma-separated list of
+exact registry hosts, including ports where used. Defaults allow Docker Hub,
+GHCR, Quay, Kubernetes, Microsoft, Google and public ECR registries. Add private
+registries explicitly; an empty list rejects all image scans. The check runs
+before cache access and Trivy execution, including scans requested by PDF export.
+It restricts the registry named in a submitted image reference. Registry redirects,
+authentication endpoints and external layer URLs still require network-level
+egress controls when strict outbound isolation is needed.
+
+PDF rendering keeps JavaScript and external resource loading disabled. Chromium
+uses its sandbox by default in direct backend launches. Compose defaults
+`PUPPETEER_NO_SANDBOX=true` for hosts whose container policy prevents sandbox
+namespace creation; set it to `false` when the host supports sandboxing. There is
+no automatic fallback after a sandbox failure. The image includes
+`chromium-sandbox` and runs as a non-root user.
+
 ### Accounts
 
 Any signed-in user changes their own password from the account menu in the top
@@ -94,6 +119,10 @@ right: `POST /api/auth/password` with `currentPassword` and `newPassword`. The
 current password is required, the new one must be at least 8 characters, and the
 session id is rotated on success. Only a wrong current password counts against
 the rate limit, so a mistyped form cannot lock anyone out.
+
+Sign-in attempts are limited to ten per minute per IP and per trimmed,
+case-sensitive username. Unknown users still run a cost-12 bcrypt comparison
+and return the same invalid-credentials response as wrong passwords.
 
 An admin resets somebody else's password in **Manage Users**
 (`PATCH /api/auth/users/:id/password`); that path does not ask for the old one.

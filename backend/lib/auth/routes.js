@@ -8,8 +8,12 @@ const { requireAdmin } = require('./middleware');
 const { RateLimiter } = require('../shared/primitives');
 
 const loginLimiter = new RateLimiter(10, 60000);
+const accountLoginLimiter = new RateLimiter(10, 60000);
 
 const SALT_ROUNDS = 12;
+// Generate once at the same cost as stored credentials. Unknown accounts still
+// perform the password comparison and always fail, including a matching dummy.
+const dummyPasswordHash = bcrypt.hashSync(require('node:crypto').randomBytes(32).toString('hex'), SALT_ROUNDS);
 
 router.get('/auth/status', async (req, res) => {
   try {
@@ -29,19 +33,22 @@ router.post('/auth/login', (req, res, next) => {
   const { username, password } = req.body || {};
   if (!username || !password)
     return res.status(400).json({ error: 'username and password required' });
+  const accountName = username.trim();
+  if (!accountName || accountName.length > 128 || Array.from(accountName).length > 64)
+    return res.status(400).json({ error: 'username must contain between 1 and 64 characters' });
+  if (!accountLoginLimiter.check(accountName))
+    return res.status(429).json({ error: 'Too many login attempts. Please wait.' });
 
   try {
     const pool = getPool();
 
     const { rows } = await pool.query(
       'SELECT id, username, password, role, session_version FROM users WHERE username = $1',
-      [username.trim()]
+      [accountName]
     );
-    if (!rows.length) return res.status(401).json({ error: 'Invalid credentials' });
-
     const user = rows[0];
-    const valid = await bcrypt.compare(password, user.password);
-    if (!valid) return res.status(401).json({ error: 'Invalid credentials' });
+    const valid = await bcrypt.compare(password, user?.password || dummyPasswordHash);
+    if (!user || !valid) return res.status(401).json({ error: 'Invalid credentials' });
 
     const sessionUser = { id: user.id, username: user.username, role: user.role, sessionVersion: user.session_version };
 

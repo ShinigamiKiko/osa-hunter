@@ -2,7 +2,8 @@
 const express   = require('express');
 const router = require('../utils/router')();
 const { execFile } = require('child_process');
-const { trivyLimiter, validateImage } = require('../shared');
+const { trivyLimiter } = require('../shared');
+const { imageReference } = require('../utils/imageReference');
 const { Semaphore } = require('../shared/primitives');
 const { withCache } = require('../auth/scanCache');
 const { TRIVY_CONCURRENCY, TRIVY_QUEUE_SIZE } = require('../config');
@@ -19,10 +20,9 @@ router.post('/trivy/scan', async (req, res) => {
 
   const { image, tag } = req.body || {};
   if (!image) return res.status(400).json({ error: 'image is required' });
-  if (!validateImage(image)) return res.status(400).json({ error: 'Invalid image name' });
-  if (tag && !validateImage(tag)) return res.status(400).json({ error: 'Invalid tag' });
-
-  const fullImage = tag ? `${image}:${tag}` : `${image}:latest`;
+  let fullImage;
+  try { fullImage = imageReference(image, tag); }
+  catch (error) { return res.status(400).json({ error: error.message }); }
   const _cacheKey = `img:${fullImage}`;
 
   const release = await trivySemaphore.acquire();

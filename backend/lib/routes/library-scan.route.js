@@ -34,7 +34,7 @@ router.post('/libscan', rateLimit(scanLimiter), async (req, res) => {
   const cveIds = extractCVEs(vulns);
 
   const [toxicRes, enrichMaps] = await Promise.allSettled([
-    checkToxic(pkg),
+    checkToxic(pkg, { ecosystem: eco, version: ver }),
     bulkEnrich(cveIds),
   ]);
 

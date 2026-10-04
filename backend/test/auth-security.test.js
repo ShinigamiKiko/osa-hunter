@@ -78,6 +78,27 @@ test('deleted, old-version and unversioned sessions fail on APIs and nginx auth 
   });
 });
 
+test('browser Accept headers never redirect API auth checks, including revoked sessions', async () => {
+  await withApp(app(), async base => {
+    const accept = 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8';
+    for (const session of ['', '1:0:admin']) {
+      for (const path of ['/api/auth/me', '/api/private']) {
+        const response = await fetch(base + path, {
+          headers: { Accept: accept, 'test-session': session }, redirect: 'manual',
+        });
+        assert.equal(response.status, 401);
+        assert.equal(response.headers.get('location'), null);
+        assert.deepEqual(await response.json(), { error: 'Unauthorized' });
+      }
+    }
+    const response = await fetch(base + '/api/auth/me', {
+      headers: { Accept: accept, 'test-session': '1:1:admin' }, redirect: 'manual',
+    });
+    assert.equal(response.status, 200);
+    assert.equal((await response.json()).user.username, 'admin');
+  });
+});
+
 test('administrator password reset and deletion revoke existing sessions', async () => {
   await withApp(app(), async base => {
     const response = await fetch(base + '/api/auth/users/2/password', {

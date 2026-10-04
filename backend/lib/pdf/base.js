@@ -22,7 +22,7 @@ function buildBaseHtml({
 
   return `<!doctype html><html><head><meta charset="utf-8"/>
   <style>
-  html,body{margin:0;padding:0;background:#05070d;color:#e5e7eb;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Arial,sans-serif}
+  html,body{margin:0;padding:0;background:#05070d;color:#e5e7eb;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Arial,sans-serif}
   .page{width:210mm;min-height:297mm;padding:28px 26px;box-sizing:border-box}
   .cover{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;margin-bottom:18px}
   .brand{display:flex;align-items:center;gap:10px}
