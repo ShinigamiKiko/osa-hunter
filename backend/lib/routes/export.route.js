@@ -90,6 +90,13 @@ async function secureReportPage(page) {
   });
 }
 
+function browserLaunchArgs(disableSandbox = process.env.PUPPETEER_NO_SANDBOX === 'true') {
+  return [
+    ...(disableSandbox ? ['--no-sandbox', '--disable-setuid-sandbox'] : []),
+    '--disable-dev-shm-usage', '--disable-gpu',
+  ];
+}
+
 router.post('/export/pdf', rateLimit(scanLimiter), async (req, res) => {
   const { type, params } = req.body || {};
   if (!type || !params) return res.status(400).json({ error: '"type" and "params" required' });
@@ -158,12 +165,7 @@ router.post('/export/pdf', rateLimit(scanLimiter), async (req, res) => {
       headless: 'new',
       executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
       protocolTimeout: 120000,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-gpu',
-      ],
+      args: browserLaunchArgs(),
       timeout: 60000,
     });
 
@@ -200,3 +202,4 @@ router.post('/export/pdf', rateLimit(scanLimiter), async (req, res) => {
 module.exports = router;
 module.exports.sendPdf = sendPdf;
 module.exports.secureReportPage = secureReportPage;
+module.exports.browserLaunchArgs = browserLaunchArgs;

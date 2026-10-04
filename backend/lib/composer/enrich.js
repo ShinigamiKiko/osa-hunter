@@ -17,7 +17,7 @@ async function enrichOne(depName, version, cisaSet) {
   // These four calls are independent — run them in parallel instead of
   // serializing ~4 round-trips per package across the whole dependency tree.
   const [toxic, epss, cvss, pocs] = await Promise.all([
-    checkToxic(depName),
+    checkToxic(depName, { ecosystem: 'Packagist', version }),
     fetchEpss(cves),
     fetchCvss(cves),
     fetchPocs(cves),

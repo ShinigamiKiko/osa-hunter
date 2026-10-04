@@ -16,7 +16,7 @@
   background: #0b0f18;
   border: 1px solid #1a2030;
   border-radius: 20px;
-  padding: 48px 72px 56px;
+  padding: 40px 48px 48px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -45,8 +45,8 @@
 }
 
 .login-brand-sub {
-  font-size: 13px;
-  color: #5a6478;
+  font-size: 14px;
+  color: var(--muted);
 }
 
 // ── Form ──────────────────────────────────────────────────────
@@ -60,7 +60,7 @@
 
   label {
     display: block;
-    font-size: 11px;
+    font-size: 14px;
     font-weight: 700;
     color: #8a9ab0;
     letter-spacing: .05em;
@@ -75,13 +75,13 @@
     border: 1px solid #1a2030;
     border-radius: 9px;
     color: #e5e7eb;
-    font-size: 14px;
+    font-size: 16px;
     outline: none;
     transition: border-color .15s;
     box-sizing: border-box;
 
     &:focus { border-color: #5ef0c8; }
-    &::placeholder { color: #3a4458; }
+    &::placeholder { color: var(--muted); }
   }
 }
 
@@ -92,7 +92,7 @@
   border: none;
   border-radius: 9px;
   color: #07090f;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 800;
   cursor: pointer;
   margin-top: 6px;
@@ -109,6 +109,11 @@
   color: #ff6b6b;
   border-radius: 8px;
   padding: 10px 14px;
-  font-size: 12px;
+  font-size: 14px;
   margin-top: 14px;
+}
+
+@media (max-width: 480px) {
+  .login-page { padding: 16px; }
+  .login-card { padding: 24px; }
 }
