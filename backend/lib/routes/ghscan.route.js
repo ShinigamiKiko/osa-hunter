@@ -7,6 +7,7 @@ const { execFile } = require('child_process');
 const fs           = require('fs');
 const path         = require('path');
 const os           = require('os');
+const { semgrepSnippet } = require('../utils/semgrepSnippet');
 const { scanLimiter, rateLimit, checkToxic, SEV_ORD } = require('../shared');
 
 const GH_RE = /^https:\/\/github\.com\/([a-zA-Z0-9._-]+)\/([a-zA-Z0-9._-]+?)(\.git)?$/;
@@ -171,11 +172,9 @@ router.post('/ghscan', rateLimit(scanLimiter), async (req, res) => {
     console.log(`[GHScan] ${repo} — JSON file deleted`);
   }
 
-  cleanup(tmpDir);
-  console.log(`[GHScan] ${repo} — temp repo cleaned`);
-
   const rawFindings = parsed.results || [];
-  const findings = rawFindings.map(f => {
+  let findings;
+  try { findings = rawFindings.map(f => {
     const rawPath = f.path || '';
     const relPath = rawPath.startsWith(tmpDir)
       ? rawPath.slice(tmpDir.length + 1)
@@ -188,7 +187,7 @@ router.post('/ghscan', rateLimit(scanLimiter), async (req, res) => {
     const startLine = f.start?.line || 1;
     const endLine   = f.end?.line   || startLine;
 
-    const codeSnippet = (f.extra?.lines || '').trimEnd();
+    const codeSnippet = semgrepSnippet(tmpDir, f);
 
     return {
       ruleId,
@@ -213,7 +212,10 @@ router.post('/ghscan', rateLimit(scanLimiter), async (req, res) => {
       references:    normArr(meta.references),
       technology:    normArr(meta.technology),
     };
-  });
+  }); } finally {
+    cleanup(tmpDir);
+    console.log(`[GHScan] ${repo} — temp repo cleaned`);
+  }
 
   findings.sort((a,b) => SEV_ORD.indexOf(a.severity) - SEV_ORD.indexOf(b.severity));
 
@@ -223,7 +225,7 @@ router.post('/ghscan', rateLimit(scanLimiter), async (req, res) => {
 
   console.log(`[GHScan] ${repo} — ${findings.length} findings (${topSev})`);
 
-  const toxic = await checkToxic(repo).catch(() => ({ found: false }));
+  const toxic = await checkToxic(repo, { repository: url }).catch(() => ({ found: false }));
   console.log(`[GHScan] ${repo} — toxic: ${toxic.found}`);
 
   return { repo, url, desc: desc||'', findings, counts, topSev, toxic, errors: (parsed.errors||[]).length, scannedAt: new Date().toISOString() };

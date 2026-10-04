@@ -66,7 +66,7 @@ test('rules on any toxic field load and enforce the feed', async () => {
   let toxicRequests=0;
   global.fetch = async url => {
     if (String(url).includes('api.osv.dev')) return json({});
-    toxicRequests++; return json([{ name:'pkg',problem_type:'malicious code' }]);
+    toxicRequests++; return json([{ name:'pkg',problem_type:'malicious code', PURL: 'pkg:npm/pkg' }]);
   };
   assert.equal((await gateDecide(pkg,policy)).decision,'deny'); assert.equal(toxicRequests,1);
 });

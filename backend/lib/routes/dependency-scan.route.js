@@ -116,14 +116,14 @@ router.post('/depscan', rateLimit(scanLimiter), async (req, res) => {
     const depEco = SYSTEM_TO_OSV[dep.system] || osvEco;
     const [vulns, toxic] = await Promise.all([
       osvQuery(dep.name, depEco, dep.version),
-      checkToxic(dep.name),
+      checkToxic(dep.name, { ecosystem: depEco, version: dep.version }),
     ]);
     scannedDeps.push({ ...dep, vulns, toxic });
   });
 
   const [rootVulns, rootToxic] = await Promise.all([
     osvQuery(pkg, osvEco, resolvedVersion),
-    checkToxic(pkg),
+    checkToxic(pkg, { ecosystem: osvEco, version: resolvedVersion }),
   ]);
 
   const orderedDeps = deps.map(d =>

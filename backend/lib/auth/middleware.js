@@ -59,8 +59,8 @@ async function requireAuth(req, res, next) {
     }
   }
 
-  const wants = req.headers.accept || '';
-  if (wants.includes('text/html')) return res.redirect('/login.html');
+  // API authentication must return 401 even for browser navigation headers.
+  // nginx auth_request rejects redirects and turns them into HTTP 500.
   return res.status(401).json({ error: 'Unauthorized' });
 }
 

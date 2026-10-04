@@ -212,7 +212,7 @@ async function gateDecide({ name, ecosystem, version, includeDeps = false }, pol
   if ([...requiredFacts].some(f => f.startsWith('counts.') || f === 'topSeverity')) requiredFacts.add('severity');
   const [toxic, maps] = await Promise.all([
     [...requiredFacts].some(f => f === 'toxic' || f.startsWith('toxic.'))
-      ? checkToxic(pkg, { strict: true }) : { found: false },
+      ? checkToxic(pkg, { strict: true, ecosystem: eco, version: ver }) : { found: false },
     bulkEnrich(cveIds, { requiredFacts }),
   ]);
 

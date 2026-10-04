@@ -46,6 +46,7 @@ services:
       - NODE_ENV=production
       - METRICS_PORT=9100
       - TRUSTED_PROXY_HOSTS=frontend
+      - PUPPETEER_NO_SANDBOX=${PUPPETEER_NO_SANDBOX:-true}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - trivy-cache:/app/.trivy-cache
@@ -91,7 +92,8 @@ services:
     ports:
       - "3000:80"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:
