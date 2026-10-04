@@ -11,26 +11,164 @@
 [![Semgrep](https://img.shields.io/badge/Semgrep-SAST-FF6B35?style=for-the-badge)](https://semgrep.dev)
 [![License](https://img.shields.io/badge/License-MIT-22c55e?style=for-the-badge)](#license)
 
-**Self-hosted vulnerability scanner for your entire stack.**  
-Library CVEs · Dependency trees · Docker images · OS packages · GitHub SAST — one dark dashboard, no SaaS.
+**Self-hosted package firewall for your software supply chain.**  
+OSA Hunter sits between your package managers and the registries they pull from, and blocks
+vulnerable, exploited or malicious packages before they are downloaded.  
+npm · PyPI · Go · Maven · NuGet · Cargo · Composer · RubyGems · apt · apk · rpm
 
 </div>
 
 ---
 
-![Feature Cards](docs/features.svg)
+## How It Works
 
-<br/>
+```text
+npm / pip / go / mvn / apt …  ->  OSA gate  ->  (Nexus, optional)  ->  upstream registry
+                                     |
+                         OSV · CISA KEV · EPSS · PoC · toxic repos · your rules
+```
 
-| | Scanner | What it checks |
-|---|---|---|
-| 📦 | **Library Scan** | Single package CVEs — OSV + CVSS + EPSS + CISA KEV + PoC |
-| 🔗 | **Dependency Scan** | Full transitive dependency tree via deps.dev |
-| 🐘 | **Composer Scan** | PHP require tree via Packagist |
-| 🐋 | **Image Scan** | Docker image OS + language packages via Trivy |
-| 🐧 | **OS Package Scan** | Single package on Ubuntu / Debian / RHEL / Alpine / SUSE |
-| 🔍 | **GitHub SAST** | Public repo static analysis via Semgrep |
+Point a package manager at OSA instead of the public registry. For every archive
+it requests, OSA resolves the ecosystem, name and version, evaluates the policy,
+and then either streams the package from upstream or refuses it:
 
+| Answer | Meaning |
+|---|---|
+| `200` | allowed (or allowed with a warning) — bytes are streamed from upstream |
+| `403 Blocked by OSA gate (<rule>)` | the policy rejected this version |
+| `503 … vulnerability data unavailable, retry` | a check could not run; with `on_gate_error: deny` the package is held back, not judged |
+
+If you know Sonatype Nexus Firewall or JFrog Curation, the model is the same: the
+registry proxy decides per artifact, so a blocked version never reaches a
+developer machine or a CI runner. OSA Hunter is the self-hosted, MIT-licensed
+take on it — the policy is YAML you can keep in git, and Nexus is optional.
+
+What a rule can match on:
+
+| Check | Source |
+|---|---|
+| Known vulnerabilities and severity | OSV, CVSS |
+| Actively exploited | CISA KEV |
+| Likely to be exploited | EPSS |
+| Public exploit code | PoC-in-GitHub |
+| Malicious or hostile packages | toxic-repos feed |
+| Package name, version, globs | your own denylist (`crossenv*`, `npm/left-pad@1.3.0`) |
+
+Metadata requests pass through; only artifact downloads are evaluated. OSA does
+not install, extract or execute packages, and it does not store archives — Nexus
+can cache them if you run one. The open gateway is read-only and accepts only
+known package and metadata paths. Every decision is logged and shown under
+**Proxy activity** in the UI. Client setup is under [Nexus Gateway](#nexus-gateway).
+
+---
+
+## Quick Start
+
+```bash
+git clone https://github.com/yourname/osa-hunter.git
+cd osa-hunter
+cp .env.example .env   # add NVD_API_KEY + SESSION_SECRET
+docker compose up --build
+```
+
+Open **http://localhost:3000**. Set `ADMIN_PASSWORD` before the first start.
+
+> Configure the initial administrator password before exposing the instance.
+
+---
+
+## Gate Policy
+
+The enforced policy lives in the database. On first boot `policy.yaml` is
+imported, so an existing file-based setup keeps working and its rules appear in
+the UI unchanged.
+
+Manage it under **Rules** in the sidebar. Two kinds of rule share one list:
+
+- **by name** — the package name is matched before anything is scanned, so it
+  works in every ecosystem and never depends on a feed being reachable
+  (`curl`, `npm/left-pad@1.3.0`, `crossenv*`);
+- **by scan result** — conditions over the findings: severity counts, CISA KEV,
+  EPSS, PoC, CVE ids.
+
+Saving replaces the policy and takes effect immediately. There is no revision
+history: keep the audited copy in git by pasting **Export YAML** into
+`policy.yaml`. Every save bumps an internal counter that is part of the
+verdict-cache key, so decisions cached under the previous policy are never
+reused.
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /api/policy` | the policy the gate enforces |
+| `GET /api/policy/yaml` | export it as `policy.yaml` |
+| `PUT /api/policy` | replace it (`body` or `yaml`) |
+| `POST /api/policy/normalize` | validate without storing |
+| `GET /api/policy/facts` | the facts rules can match on |
+
+All of these sit behind authentication; `/api/gate` stays the only open
+endpoint. A policy is data, never code — rules are `{fact: expression}` pairs
+interpreted by `lib/gate/policy.js`, and nothing in a policy is evaluated as JS.
+
+**Blocked vs. undecidable.** A package the policy rejects returns `403 Blocked by
+OSA gate (<rule>)`. When `defaults.on_gate_error` is `deny` and the vulnerability
+data itself is unreachable, the package is still not served, but it was never
+judged — that answer is `503 OSA gate: vulnerability data unavailable, retry`
+with a `Retry-After` header, so clients retry instead of reporting the package as
+forbidden by policy. Fail-closed verdicts are never cached.
+
+---
+
+## Nexus Gateway
+
+OSA can run in front of Nexus and gate artifact requests before forwarding them:
+
+```text
+client -> OSA /nexus -> Nexus /repository -> upstream registry
+```
+
+Configure `NEXUS_UPSTREAM` and map repository names with
+`OSA_NEXUS_REPOSITORIES`. Supported ecosystems are npm (JS/TS), PyPI
+(Python), Packagist (PHP), Go, Maven (Java/Kotlin), NuGet (.NET), crates.io
+(Rust), RubyGems (Ruby), Debian/Ubuntu, Alpine and RPM-based distributions.
+Clients use `/api/gate/<repository>/...`:
+
+```bash
+npm config set registry http://localhost:3001/api/gate/npm-proxy
+export GOPROXY=http://localhost:3001/api/gate/go-proxy
+pip install --index-url http://localhost:3001/api/gate/pypi-proxy/simple package
+export CARGO_REGISTRIES_CRATES_IO_INDEX=sparse+http://localhost:3001/api/gate/cargo-proxy/
+```
+
+Artifact requests are gated lazily; metadata requests are forwarded without
+scanning every historical version. Unknown artifact paths are blocked while
+`OSA_NEXUS_STRICT=true`. Cargo uses `index.crates.io` for metadata and
+`static.crates.io` for archive downloads; configure `downloadUpstream` for that
+repository when using direct mirrors.
+
+### Nexus on a separate host
+
+Nexus is optional and off by default. To run it on its own machine, use
+`deploy/nexus/` there:
+
+```bash
+docker compose -f deploy/nexus/docker-compose.yml up -d
+docker exec nexus cat /nexus-data/admin.password     # first boot only
+./deploy/nexus/bootstrap.sh http://<nexus-host>:8081 '<password>'
+```
+
+Then point OSA at it in `.env` and restart the backend:
+
+```env
+NEXUS_UPSTREAM=http://<nexus-host>:8081
+NEXUS_AUTH=Basic <base64 of admin:password>
+```
+
+Only repositories without their own `upstream` go through Nexus; anything with
+`"direct": true` in `OSA_NEXUS_REPOSITORIES` fetches from the internet itself and
+ignores these settings. To keep a Nexus next to OSA instead, start it with
+`docker compose --profile nexus up -d`.
+
+Detailed documentation: [Russian](docs/package-gate.ru.md) · [English](docs/package-gate.en.md)
 
 ---
 
@@ -58,26 +196,28 @@ follow `on_gate_error`. Feed entries retain the categories assigned by its autho
 
 ---
 
-## Quick Start
+## Built-in Scanners
 
-```bash
-git clone https://github.com/yourname/osa-hunter.git
-cd osa-hunter
-cp .env.example .env   # add NVD_API_KEY + SESSION_SECRET
-docker compose up --build
-```
+The gate's vulnerability data is also available as on-demand scans in the UI and
+the API — to investigate why a package was blocked, or to audit what is already
+in your stack.
 
-Open **http://localhost:3000**. Set `ADMIN_PASSWORD` before the first start.
+![Feature Cards](docs/features.svg)
 
-> Configure the initial administrator password before exposing the instance.
+<br/>
 
----
+| | Scanner | What it checks |
+|---|---|---|
+| 📦 | **Library Scan** | Single package CVEs — OSV + CVSS + EPSS + CISA KEV + PoC |
+| 🔗 | **Dependency Scan** | Full transitive dependency tree via deps.dev |
+| 🐘 | **Composer Scan** | PHP require tree via Packagist |
+| 🐋 | **Image Scan** | Docker image OS + language packages via Trivy |
+| 🐧 | **OS Package Scan** | Single package on Ubuntu / Debian / RHEL / Alpine / SUSE |
+| 🔍 | **GitHub SAST** | Public repo static analysis via Semgrep |
 
 ![Terminal Animation](docs/terminal.svg)
 
----
-
-## API
+### Scanner API
 
 All endpoints require a session cookie or `X-Api-Key` header.
 
@@ -111,6 +251,10 @@ uses its sandbox by default in direct backend launches. Compose defaults
 namespace creation; set it to `false` when the host supports sandboxing. There is
 no automatic fallback after a sandbox failure. The image includes
 `chromium-sandbox` and runs as a non-root user.
+
+---
+
+## Operations
 
 ### Accounts
 
@@ -178,107 +322,6 @@ docker run --rm -v osa-hunter_nexus-data:/data -v "$PWD":/backup alpine \
   tar czf /backup/nexus-data.tgz -C /data .
 ```
 
-## Package Proxy
-
-OSA accepts package-manager metadata and archive requests, checks the package
-name and version against OSV and `policy.yaml`, and streams allowed bytes from
-the configured upstream. It does not install or execute packages. The open
-gateway is read-only and only accepts known package paths and metadata paths.
-
-The policy is evaluated after the package name and version are resolved.
-
-## Gate Policy
-
-The enforced policy lives in the database. On first boot `policy.yaml` is
-imported, so an existing file-based setup keeps working and its rules appear in
-the UI unchanged.
-
-Manage it under **Rules** in the sidebar. Two kinds of rule share one list:
-
-- **by name** — the package name is matched before anything is scanned, so it
-  works in every ecosystem and never depends on a feed being reachable
-  (`curl`, `npm/left-pad@1.3.0`, `crossenv*`);
-- **by scan result** — conditions over the findings: severity counts, CISA KEV,
-  EPSS, PoC, CVE ids.
-
-Saving replaces the policy and takes effect immediately. There is no revision
-history: keep the audited copy in git by pasting **Export YAML** into
-`policy.yaml`. Every save bumps an internal counter that is part of the
-verdict-cache key, so decisions cached under the previous policy are never
-reused.
-
-| Endpoint | Purpose |
-|---|---|
-| `GET /api/policy` | the policy the gate enforces |
-| `GET /api/policy/yaml` | export it as `policy.yaml` |
-| `PUT /api/policy` | replace it (`body` or `yaml`) |
-| `POST /api/policy/normalize` | validate without storing |
-| `GET /api/policy/facts` | the facts rules can match on |
-
-All of these sit behind authentication; `/api/gate` stays the only open
-endpoint. A policy is data, never code — rules are `{fact: expression}` pairs
-interpreted by `lib/gate/policy.js`, and nothing in a policy is evaluated as JS.
-
-**Blocked vs. undecidable.** A package the policy rejects returns `403 Blocked by
-OSA gate (<rule>)`. When `defaults.on_gate_error` is `deny` and the vulnerability
-data itself is unreachable, the package is still not served, but it was never
-judged — that answer is `503 OSA gate: vulnerability data unavailable, retry`
-with a `Retry-After` header, so clients retry instead of reporting the package as
-forbidden by policy. Fail-closed verdicts are never cached.
-
-
-## Nexus Gateway
-
-OSA can run in front of Nexus and gate artifact requests before forwarding them:
-
-```text
-client -> OSA /nexus -> Nexus /repository -> upstream registry
-```
-
-Configure `NEXUS_UPSTREAM` and map repository names with
-`OSA_NEXUS_REPOSITORIES`. Supported ecosystems are npm (JS/TS), PyPI
-(Python), Packagist (PHP), Go, Maven (Java/Kotlin), NuGet (.NET), crates.io
-(Rust), RubyGems (Ruby), Debian/Ubuntu, Alpine and RPM-based distributions.
-Clients use `/api/gate/<repository>/...`:
-
-```bash
-npm config set registry http://localhost:3001/api/gate/npm-proxy
-export GOPROXY=http://localhost:3001/api/gate/go-proxy
-pip install --index-url http://localhost:3001/api/gate/pypi-proxy/simple package
-export CARGO_REGISTRIES_CRATES_IO_INDEX=sparse+http://localhost:3001/api/gate/cargo-proxy/
-```
-
-Artifact requests are gated lazily; metadata requests are forwarded without
-scanning every historical version. Unknown artifact paths are blocked while
-`OSA_NEXUS_STRICT=true`. Cargo uses `index.crates.io` for metadata and
-`static.crates.io` for archive downloads; configure `downloadUpstream` for that
-repository when using direct mirrors.
-
-### Nexus on a separate host
-
-Nexus is optional and off by default. To run it on its own machine, use
-`deploy/nexus/` there:
-
-```bash
-docker compose -f deploy/nexus/docker-compose.yml up -d
-docker exec nexus cat /nexus-data/admin.password     # first boot only
-./deploy/nexus/bootstrap.sh http://<nexus-host>:8081 '<password>'
-```
-
-Then point OSA at it in `.env` and restart the backend:
-
-```env
-NEXUS_UPSTREAM=http://<nexus-host>:8081
-NEXUS_AUTH=Basic <base64 of admin:password>
-```
-
-Only repositories without their own `upstream` go through Nexus; anything with
-`"direct": true` in `OSA_NEXUS_REPOSITORIES` fetches from the internet itself and
-ignores these settings. To keep a Nexus next to OSA instead, start it with
-`docker compose --profile nexus up -d`.
-
-Detailed documentation: [Russian](docs/package-gate.ru.md) · [English](docs/package-gate.en.md)
-
 ---
 
 ## Configuration
@@ -308,7 +351,7 @@ CVE_CACHE_TTL_HOURS=24             # refresh enrichment data after 24 hours
 
 <div align="center">
 
-**[⭐ Star this repo](../../stargazers)** if OSA Hunter caught something in your stack
+**[⭐ Star this repo](../../stargazers)** if OSA Hunter stopped something before it reached your stack
 
 <sub>Built with ☕ and mild existential dread about open source dependencies</sub>
 
