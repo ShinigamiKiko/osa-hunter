@@ -6,6 +6,9 @@ const fs = require('fs');
 const nodePath = require('path');
 
 const { scanLimiter, rateLimit } = require('../shared');
+const { Semaphore } = require('../shared/primitives');
+const { PDF_CONCURRENCY, PDF_QUEUE_SIZE } = require('../config');
+const pdfSemaphore = new Semaphore(PDF_CONCURRENCY, PDF_QUEUE_SIZE);
 const { buildLibReportHtml, buildImgReportHtml, buildDepReportHtml, buildOsReportHtml, buildSastReportHtml } = require('../pdf');
 
 let OSA_PNG_B64 = '';
@@ -159,6 +162,12 @@ router.post('/export/pdf', rateLimit(scanLimiter), async (req, res) => {
     return res.status(500).json({ error: 'Failed to build report: ' + e.message });
   }
 
+  const release = await pdfSemaphore.acquire();
+  if (!release) {
+    res.setHeader('Retry-After', '30');
+    return res.status(503).json({ error: 'PDF export queue is full. Please retry shortly.' });
+  }
+  if (res.destroyed) { release(); return; }
   let browser;
   try {
     browser = await puppeteer.launch({
@@ -196,6 +205,7 @@ router.post('/export/pdf', rateLimit(scanLimiter), async (req, res) => {
     if (!res.headersSent) res.status(500).json({ error: 'PDF generation failed: ' + e.message });
   } finally {
     if (browser) await browser.close().catch(() => {});
+    release();
   }
 });
 

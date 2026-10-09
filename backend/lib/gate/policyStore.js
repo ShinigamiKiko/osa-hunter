@@ -157,7 +157,7 @@ async function savePolicy(body, { user, source = 'ui' } = {}) {
 // Seed the database from policy.yaml on first boot, so an existing file-based
 // setup keeps working and its rules show up in the UI unchanged.
 async function bootstrapPolicy() {
-  const existing = await getPolicyRow().catch(() => null);
+  const existing = await getPolicyRow();
   if (existing) return existing;
 
   let body = STARTER_BODY, source = 'builtin';
@@ -169,7 +169,17 @@ async function bootstrapPolicy() {
       throw new Error(`policy.yaml is present but unreadable: ${e.message}`);
     }
   }
-  return savePolicy(body, { source, user: 'system' });
+  const clean = normalizeBody(body);
+  // Seeding is insert-only: another instance or an administrator may have
+  // saved the policy since the initial read. Never replace that winning row.
+  const { rows } = await getPool().query(
+    `INSERT INTO gate_policy (id, version, source, body, updated_by, updated_at)
+     VALUES (1, 1, $1, $2::jsonb, 'system', NOW())
+     ON CONFLICT (id) DO NOTHING RETURNING *`,
+    [source, JSON.stringify(clean)]);
+  const row = rows[0] || await getPolicyRow();
+  if (!row) throw new Error('Gate policy could not be initialized');
+  return row;
 }
 
 // What the gate enforces. Falls back to the last good compile if the database
