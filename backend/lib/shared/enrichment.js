@@ -7,6 +7,7 @@ const { getPool } = require('../auth/db');
 const { HTTP_CONCURRENCY, HTTP_TIMEOUT_MS } = require('../config');
 const { observeExternalError } = require('../observability/metrics');
 const { fromVector } = require('ae-cvss-calculator');
+const semver = require('semver');
 
 const NVD_API_KEY     = process.env.NVD_API_KEY || '';
 const NVD_CONCURRENCY = NVD_API_KEY ? Math.min(HTTP_CONCURRENCY, 10) : Math.min(HTTP_CONCURRENCY, 3);
@@ -153,7 +154,7 @@ async function osvQuery(pkgName, ecosystem, version) {
     if (!d.next_page_token) return [...records.values()].map(v => ({
       ...v,
       _sev    : parseSev(v),
-      _fix    : getFixed(v),
+      _fix    : getFixed(v, { name: pkgName, ecosystem, version }),
       _aliases: v.aliases || [],
       _refs   : (v.references || []).map(ref => ref.url),
     })).sort((a, b) => SEV_ORD.indexOf(a._sev) - SEV_ORD.indexOf(b._sev));
@@ -386,12 +387,40 @@ function parseSev(v) {
 
 function worstSeverity(values) { return SEV_ORD.find(sev => values.includes(sev)) || 'UNKNOWN'; }
 
-function getFixed(v) {
-  for (const a of v.affected || [])
-    for (const r of a.ranges || [])
-      for (const e of r.events || [])
-        if (e.fixed) return e.fixed;
-  return null;
+function getFixed(v, { name, ecosystem, version } = {}) {
+  const packageName = value => ecosystem === 'PyPI'
+    ? value.toLowerCase().replace(/[-_.]+/g, '-')
+    : ['npm', 'Packagist', 'NuGet'].includes(ecosystem) ? value.toLowerCase() : value;
+  const fixes = new Set();
+  const requested = typeof version === 'string' ? semver.valid(version) : null;
+  for (const affected of v.affected || []) {
+    const pkg = affected.package;
+    if (name && (!pkg?.name || packageName(pkg.name) !== packageName(name))) continue;
+    if (ecosystem && pkg?.ecosystem && pkg.ecosystem !== ecosystem
+        && !pkg.ecosystem.startsWith(ecosystem + ':')) continue;
+    for (const range of affected.ranges || []) {
+      if (range.type === 'GIT') continue;
+      if (requested && range.type === 'SEMVER') {
+        let introduced = null;
+        for (const event of range.events || []) {
+          if (event.introduced !== undefined) introduced = event.introduced;
+          const end = event.fixed ?? event.last_affected ?? event.limit;
+          if (end === undefined) continue;
+          const startVersion = introduced === '0' ? null : semver.valid(introduced || '');
+          const endVersion = semver.valid(end);
+          if (introduced !== null && (introduced === '0' || startVersion)
+              && endVersion && (!startVersion || semver.gte(requested, startVersion))
+              && (event.last_affected !== undefined ? semver.lte(requested, endVersion) : semver.lt(requested, endVersion))
+              && event.fixed) fixes.add(event.fixed);
+          introduced = null;
+        }
+      } else {
+        // Without an ordering for this ecosystem, only a unique fix is safe.
+        for (const event of range.events || []) if (event.fixed) fixes.add(event.fixed);
+      }
+    }
+  }
+  return fixes.size === 1 ? [...fixes][0] : null;
 }
 
 function extractCVEs(vulns) {

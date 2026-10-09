@@ -150,11 +150,9 @@ router.post('/ghscan', rateLimit(scanLimiter), async (req, res) => {
     semgrepErr = e.stderr || '';
     console.log(`[GHScan] semgrep exit: code=${e.code} signal=${e.signal} killed=${e.killed}`);
     console.log(`[GHScan] semgrep stderr: ${semgrepErr.slice(0, 500)}`);
-    if (!fs.existsSync(jsonOut)) {
-      cleanup(tmpDir);
-      cleanupFile(jsonOut);
-      throw new ScanError(500, 'Semgrep failed: ' + (semgrepErr.slice(0,200) || e.message));
-    }
+    cleanup(tmpDir);
+    cleanupFile(jsonOut);
+    throw new ScanError(502, 'Semgrep failed: ' + (semgrepErr.slice(0,200) || e.message));
   }
 
   let parsed;
@@ -170,6 +168,15 @@ router.post('/ghscan', rateLimit(scanLimiter), async (req, res) => {
   } finally {
     cleanupFile(jsonOut);
     console.log(`[GHScan] ${repo} — JSON file deleted`);
+  }
+
+  if (!Array.isArray(parsed?.results) || (parsed.errors !== undefined && !Array.isArray(parsed.errors))) {
+    cleanup(tmpDir);
+    throw new ScanError(502, 'Invalid Semgrep output; scan was not completed');
+  }
+  if (parsed.errors?.length) {
+    cleanup(tmpDir);
+    throw new ScanError(502, `Semgrep scan incomplete: ${parsed.errors.length} analysis error(s). Retry the scan.`);
   }
 
   const rawFindings = parsed.results || [];
@@ -221,14 +228,14 @@ router.post('/ghscan', rateLimit(scanLimiter), async (req, res) => {
 
   const counts = { CRITICAL:0, HIGH:0, MEDIUM:0, LOW:0, UNKNOWN:0 };
   findings.forEach(f => { if (f.severity in counts) counts[f.severity]++; });
-  const topSev = ['CRITICAL','HIGH','MEDIUM','LOW'].find(s => counts[s]) || 'NONE';
+  const topSev = ['CRITICAL','HIGH','MEDIUM','LOW','UNKNOWN'].find(s => counts[s]) || 'NONE';
 
   console.log(`[GHScan] ${repo} — ${findings.length} findings (${topSev})`);
 
   const toxic = await checkToxic(repo, { repository: url }).catch(() => ({ found: false }));
   console.log(`[GHScan] ${repo} — toxic: ${toxic.found}`);
 
-  return { repo, url, desc: desc||'', findings, counts, topSev, toxic, errors: (parsed.errors||[]).length, scannedAt: new Date().toISOString() };
+  return { repo, url, desc: desc||'', findings, counts, topSev, toxic, complete: true, errors: 0, scannedAt: new Date().toISOString() };
   });
 });
 

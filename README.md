@@ -165,6 +165,12 @@ queue returns HTTP `503`; the per-client rate limits return HTTP `429`. The
 default limits are 5 Trivy requests/minute, 20 scan requests/minute, 120 API
 requests/minute and 120 gateway requests/minute.
 
+PDF exports use `PDF_CONCURRENCY` (default 1) and `PDF_QUEUE_SIZE` (default 4).
+A full PDF queue returns HTTP `503` with a `Retry-After` header. Dependency
+graphs above 500 packages return HTTP `413` instead of a partial result.
+Semgrep process or analysis errors return HTTP `502` and are not cached.
+Older SAST results without a completion marker require a rescan.
+
 Scan and gate results are stored in PostgreSQL. A cache hit returns immediately
 with `_cached: true`; a cache miss runs the scan and stores its result. The
 `osa_cache_operations_total` metric tracks hits and misses by cache type.

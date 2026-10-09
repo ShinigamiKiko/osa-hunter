@@ -53,7 +53,7 @@ function buildSastReportHtml(scan, { osaPngB64 = '' } = {}) {
   const url      = scan.url || '';
   const findings = scan.findings || [];
   const counts   = scan.counts || {};
-  const topSev   = ['CRITICAL','HIGH','MEDIUM','LOW'].find(s => (counts[s]||0) > 0) || 'NONE';
+  const topSev   = ['CRITICAL','HIGH','MEDIUM','LOW','UNKNOWN'].find(s => (counts[s]||0) > 0) || 'NONE';
   const date     = new Date(scan.scannedAt || Date.now()).toLocaleString('en-US', { year:'numeric', month:'short', day:'2-digit', hour:'2-digit', minute:'2-digit' });
 
   const fileCount = new Set(findings.map(f => f.path).filter(Boolean)).size;
@@ -82,11 +82,12 @@ function buildSastReportHtml(scan, { osaPngB64 = '' } = {}) {
     meta: `Scanned: ${date} · ${findings.length} finding${findings.length!==1?'s':''} in ${fileCount} file${fileCount!==1?'s':''} · ${sortedGroups.length} vuln type${sortedGroups.length!==1?'s':''}`,
   });
 
-  const chips  = buildChips(counts, 0, 0);
+  const chips  = scan.complete === true ? buildChips(counts, 0, 0)
+    : '<div class="chips"><div class="chip">Scan completeness unknown — rescan required</div></div>';
   const alerts = buildAlerts(0, 0, scan.toxic);
 
   const groupSections = sortedGroups.map(({ vtype, cweId, items }) => {
-    const topSevG = ['CRITICAL','HIGH','MEDIUM','LOW'].find(s => items.some(f => (f.severity||'').toUpperCase()===s)) || 'UNKNOWN';
+    const topSevG = ['CRITICAL','HIGH','MEDIUM','LOW','UNKNOWN'].find(s => items.some(f => (f.severity||'').toUpperCase()===s)) || 'UNKNOWN';
     const cweLabel = cweId ? ` · CWE-${cweId}` : '';
     const rows = items.map(f => {
       const sev       = safeSeverity(f.severity);
@@ -117,7 +118,7 @@ function buildSastReportHtml(scan, { osaPngB64 = '' } = {}) {
   }).join('');
 
   const emptyHtml = findings.length === 0
-    ? '<div style="text-align:center;padding:60px;color:#34d399;font-size:14px">✅ No findings — this repository looks clean!</div>'
+    ? (scan.complete === true ? '<div style="text-align:center;padding:60px;color:#34d399;font-size:14px">✅ No findings — this repository looks clean!</div>' : '')
     : groupSections;
 
   return wrapHtml(header + chips + alerts + emptyHtml + buildFooter(date));
