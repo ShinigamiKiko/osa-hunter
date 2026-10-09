@@ -168,7 +168,10 @@ requests/minute and 120 gateway requests/minute.
 PDF exports use `PDF_CONCURRENCY` (default 1) and `PDF_QUEUE_SIZE` (default 4).
 A full PDF queue returns HTTP `503` with a `Retry-After` header. Dependency
 graphs above 500 packages return HTTP `413` instead of a partial result.
-Semgrep process or analysis errors return HTTP `502` and are not cached.
+A failed Semgrep run or malformed output returns HTTP `502`. Files Semgrep
+could not analyze (parse errors, per-file timeouts) keep the other findings but
+mark the result `complete: false` with `errors` and `errorSamples`; incomplete
+results of any scan are never cached.
 Older SAST results without a completion marker require a rescan.
 
 Scan and gate results are stored in PostgreSQL. A cache hit returns immediately

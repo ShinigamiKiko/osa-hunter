@@ -90,7 +90,7 @@ async function renderLibList(){
       <thead><tr><th>Package</th><th>Description</th><th>Version</th><th>Top Severity</th><th>Findings</th><th>Scanned</th><th style="width:28px"></th></tr></thead>
       <tbody>${libScans.map((s,i)=>{
         const cnt={};s.vulns.forEach(v=>{const sv=v._sev||v.severity||'UNKNOWN';cnt[sv]=(cnt[sv]||0)+1;});
-        const pills=['CRITICAL','HIGH','MEDIUM','LOW'].filter(sv=>cnt[sv])
+        const pills=['CRITICAL','HIGH','MEDIUM','LOW','UNKNOWN'].filter(sv=>cnt[sv])
           .map(sv=>`<span class="sev ${sv}" style="font-size:9px;padding:2px 6px">${cnt[sv]} ${sv}</span>`).join(' ');
         const isToxic=s.toxic?.found;
         return`<tr class="row" onclick="navTo('lib-detail',{scan:libScans[${i}]})">
@@ -130,7 +130,7 @@ function renderLibDetail(s){
       </div>
       <div class="detail-chips" style="display:flex;flex-direction:column;align-items:flex-end;gap:8px">
         <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end">
-          ${s.vulns.length===0?'<span class="sev NONE">✅ CLEAN</span>':['CRITICAL','HIGH','MEDIUM','LOW'].filter(sv=>cnt[sv]).map(sv=>`<span class="sev ${sv}">${cnt[sv]} ${sv}</span>`).join('')}
+          ${s.vulns.length===0?'<span class="sev NONE">✅ CLEAN</span>':['CRITICAL','HIGH','MEDIUM','LOW','UNKNOWN'].filter(sv=>cnt[sv]).map(sv=>`<span class="sev ${sv}">${cnt[sv]} ${sv}</span>`).join('')}
         </div>
         ${exportBtnHtml('lib',{name:s.pkg,ecosystem:s.eco,version:s.ver||'',desc:s.desc||'',ecoLabel:s.ecoLabel||'',ecoLogo:s.ecoLogo||''})}
       </div>

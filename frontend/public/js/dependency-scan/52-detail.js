@@ -240,7 +240,7 @@ function renderDepDetail(scan){
     name:scan.package, system:scan.system, version:scan.resolvedVersion,
     relation:'ROOT', toxic:scan.toxic||{found:false},
     topSeverity:['CRITICAL','HIGH','MEDIUM','LOW','UNKNOWN'].find(s=>rootCnt[s]>0)||'NONE',
-    vulnCount:(rootCnt.CRITICAL||0)+(rootCnt.HIGH||0)+(rootCnt.MEDIUM||0)+(rootCnt.LOW||0),
+    vulnCount:(rootCnt.CRITICAL||0)+(rootCnt.HIGH||0)+(rootCnt.MEDIUM||0)+(rootCnt.LOW||0)+(rootCnt.UNKNOWN||0),
     counts:rootCnt,
     vulns:rootVulns,
   };

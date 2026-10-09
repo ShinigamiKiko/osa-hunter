@@ -74,3 +74,33 @@ test('legacy capped dependency scans require rescan, but complete 500-node resul
   const complete = { ...scan, complete: true }; ctx.renderDepDetail(complete);
   assert.ok(!nodes.depDetailContent.innerHTML.includes('Scan incomplete'));
 });
+
+test('OS package scans with only UNKNOWN findings are not labelled clean', () => {
+  const nodes = {};
+  const ctx = { console: { log() {}, warn() {} }, Date, Set, Map, Promise,
+    localStorage: { getItem: () => '[]', setItem() {} },
+    document: { addEventListener() {}, getElementById: id => nodes[id] ||= { innerHTML: '', style: {}, querySelector: () => null, querySelectorAll: () => [] } },
+    navTo() {}, exportBtnHtml: () => '', kevBadge: () => '', pocBadge: () => '' };
+  ctx.window = ctx; vm.createContext(ctx);
+  for (const file of ['utils.js', 'ui-os-scan.js'])
+    vm.runInContext(fs.readFileSync(path.join(__dirname, '../../frontend/public/js', file), 'utf8'), ctx, { filename: file });
+  const scan = { package: 'openssl', distro: 'debian', version: '3.0.9', counts: { UNKNOWN: 1 }, topSev: 'UNKNOWN',
+    vulns: [{ id: 'CVE-2026-2', severity: 'UNKNOWN', package: 'openssl' }] };
+  ctx.renderOsDetail(scan);
+  assert.ok(!nodes.osDetailContent.innerHTML.includes('✅ CLEAN'));
+  assert.match(nodes.osDetailContent.innerHTML, /1 UNKNOWN/);
+});
+
+test('an incomplete SAST scan keeps its findings and names the files Semgrep skipped', () => {
+  const { ctx, nodes } = ui();
+  const scan = { repo: 'example/repo', url: 'https://github.com/example/repo', complete: false, errors: 2,
+    errorSamples: [{ type: 'Timeout', path: 'big.js', message: 'Timeout <b>' }],
+    findings: [], counts: {}, topSev: 'NONE' };
+  ctx.renderGhDetail(scan);
+  assert.match(nodes.ghDetailContent.innerHTML, /Scan incomplete: Semgrep reported 2 analysis errors/);
+  assert.match(nodes.ghDetailContent.innerHTML, /big\.js/);
+  assert.ok(nodes.ghDetailContent.innerHTML.includes('Timeout &lt;b&gt;'));
+  assert.ok(!nodes.ghDetailContent.innerHTML.includes('looks clean'));
+  const html = reports.buildSastReportHtml(scan);
+  assert.match(html, /Incomplete — 2 analysis errors/); assert.ok(!html.includes('<b>✅</b> Clean'));
+});

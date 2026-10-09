@@ -59,6 +59,13 @@ async function withCache(key, type, res, scanFn) {
     throw new Error('Invalid scan result');
   }
 
+  // An incomplete result is shown once, never served from cache: the next
+  // request scans again instead of repeating a partial answer for hours.
+  if (result?.complete === false) {
+    console.log(`[cache] SKIP ${key} (incomplete result)`);
+    return result;
+  }
+
   let serialized;
   try {
     serialized = JSON.stringify(result);

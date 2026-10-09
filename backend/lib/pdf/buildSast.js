@@ -82,8 +82,11 @@ function buildSastReportHtml(scan, { osaPngB64 = '' } = {}) {
     meta: `Scanned: ${date} · ${findings.length} finding${findings.length!==1?'s':''} in ${fileCount} file${fileCount!==1?'s':''} · ${sortedGroups.length} vuln type${sortedGroups.length!==1?'s':''}`,
   });
 
+  const scanErrors = Math.max(0, Math.trunc(Number(scan.errors)) || 0);
   const chips  = scan.complete === true ? buildChips(counts, 0, 0)
-    : '<div class="chips"><div class="chip">Scan completeness unknown — rescan required</div></div>';
+    : scan.complete === false && scanErrors
+      ? buildChips(counts, 0, 0, `<div class="chip">Incomplete — ${scanErrors} analysis error${scanErrors !== 1 ? 's' : ''}</div>`)
+      : '<div class="chips"><div class="chip">Scan completeness unknown — rescan required</div></div>';
   const alerts = buildAlerts(0, 0, scan.toxic);
 
   const groupSections = sortedGroups.map(({ vtype, cweId, items }) => {

@@ -9,7 +9,7 @@ function renderDepPkg(dep, scan){
   const el=document.getElementById('depPkgContent');
   const sysInfo=DEP_SYSTEMS.find(x=>x.id===(dep.system||scan?.system))||{logo:'📦',label:dep.system||'Unknown'};
   const cnt=dep.counts||{};
-  const chips=['CRITICAL','HIGH','MEDIUM','LOW'].filter(sv=>cnt[sv])
+  const chips=['CRITICAL','HIGH','MEDIUM','LOW','UNKNOWN'].filter(sv=>cnt[sv])
     .map(sv=>`<span class="sev ${sv}">${cnt[sv]} ${sv}</span>`).join('');
 
   function toxicBadgeHtml(toxic){
