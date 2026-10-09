@@ -75,10 +75,22 @@ test('a Semgrep failure cannot become a cached clean result even with valid JSON
   const response = await request(ghRoute, 'ghscan', { url: 'https://github.com/example/failure' });
   assert.equal(response.status, 502); assert.match(response.body.error, /Semgrep failed/); assert.deepEqual(saved, []);
 });
-test('Semgrep analysis errors and malformed schemas are not complete scans', async () => {
-  semgrepOutput = { results: [], errors: [{ type: 'Timeout' }] };
+test('Semgrep analysis errors keep the findings, mark the scan incomplete and skip the cache', async () => {
+  semgrepOutput = { results: [{ check_id: 'rules.eval', path: 'app.js', start: { line: 1 }, end: { line: 1 },
+    extra: { severity: 'ERROR', message: 'eval', lines: 'eval(x)' } }],
+  errors: [
+    { level: 'warn', type: ['PartialParsing', []], path: 'vendor/min.js', message: 'Syntax error at line 1' },
+    { level: 'warn', type: 'Timeout', path: 'big.js', message: 'Timeout when running rules.eval' },
+  ] };
   const response = await request(ghRoute, 'ghscan', { url: 'https://github.com/example/timeout' });
-  assert.equal(response.status, 502); assert.match(response.body.error, /incomplete/); assert.deepEqual(saved, []);
+  assert.equal(response.status, 200);
+  assert.equal(response.body.complete, false); assert.equal(response.body.errors, 2);
+  assert.equal(response.body.findings.length, 1); assert.equal(response.body.counts.HIGH, 1);
+  assert.deepEqual(response.body.errorSamples.map(e => [e.type, e.path]), [['PartialParsing', 'vendor/min.js'], ['Timeout', 'big.js']]);
+  assert.deepEqual(saved, []);
+});
+
+test('malformed Semgrep output is a failed scan', async () => {
   semgrepOutput = {};
   const invalid = await request(ghRoute, 'ghscan', { url: 'https://github.com/example/invalid' });
   assert.equal(invalid.status, 502); assert.match(invalid.body.error, /Invalid Semgrep/);

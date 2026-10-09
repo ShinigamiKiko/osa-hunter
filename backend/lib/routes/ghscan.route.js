@@ -174,10 +174,16 @@ router.post('/ghscan', rateLimit(scanLimiter), async (req, res) => {
     cleanup(tmpDir);
     throw new ScanError(502, 'Invalid Semgrep output; scan was not completed');
   }
-  if (parsed.errors?.length) {
-    cleanup(tmpDir);
-    throw new ScanError(502, `Semgrep scan incomplete: ${parsed.errors.length} analysis error(s). Retry the scan.`);
-  }
+  // A run that exits cleanly can still skip files it failed to parse or timed
+  // out on. Real repositories almost always have a few, so the findings are
+  // returned, marked incomplete (and never cached) rather than discarded.
+  const scanErrors = (parsed.errors || []).map(e => ({
+    type:    String(Array.isArray(e?.type) ? e.type[0] : e?.type || 'Error').slice(0, 80),
+    level:   String(e?.level || 'error').slice(0, 20),
+    path:    typeof e?.path === 'string' && e.path.startsWith(tmpDir) ? e.path.slice(tmpDir.length + 1) : (e?.path || null),
+    message: String(e?.message || '').split(tmpDir + path.sep).join('').split(tmpDir).join('').slice(0, 300),
+  }));
+  if (scanErrors.length) console.warn(`[GHScan] ${repo} — ${scanErrors.length} Semgrep analysis error(s); scan incomplete`);
 
   const rawFindings = parsed.results || [];
   let findings;
@@ -235,7 +241,9 @@ router.post('/ghscan', rateLimit(scanLimiter), async (req, res) => {
   const toxic = await checkToxic(repo, { repository: url }).catch(() => ({ found: false }));
   console.log(`[GHScan] ${repo} — toxic: ${toxic.found}`);
 
-  return { repo, url, desc: desc||'', findings, counts, topSev, toxic, complete: true, errors: 0, scannedAt: new Date().toISOString() };
+  return { repo, url, desc: desc||'', findings, counts, topSev, toxic,
+    complete: scanErrors.length === 0, errors: scanErrors.length, errorSamples: scanErrors.slice(0, 20),
+    scannedAt: new Date().toISOString() };
   });
 });
 

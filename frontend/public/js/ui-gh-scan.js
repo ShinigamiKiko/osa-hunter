@@ -41,6 +41,8 @@ async function doGhScan(){
       topSev:    data.topSev    || 'NONE',
       toxic:     data.toxic     || { found: false },
       complete:  data.complete === true,
+      errors:    Number(data.errors) || 0,
+      errorSamples: Array.isArray(data.errorSamples) ? data.errorSamples : [],
       scannedAt: data.scannedAt || new Date().toISOString(),
     });
     if(ghScans.length > 20) ghScans = ghScans.slice(0,20);
@@ -251,7 +253,7 @@ function renderGhDetail(scan){
     '<div class="detail-chips">'+(chips||(scan.complete === true ? '<span class="sev NONE">✅ CLEAN</span>' : '<span class="sev UNKNOWN">RESCAN REQUIRED</span>'))+'</div>' +
     '<div style="margin-left:auto;flex-shrink:0">'+exportBtnHtml('sast','__SAST_SCAN__')+'</div>' +
     '</div>' +
-    (scan.complete !== true ? '<p role="status" style="padding:16px;color:var(--h)">Scan completeness is unknown. Rescan this repository to verify the results.</p>' : '') +
+    _ghCompletenessHtml(scan) +
     (findings.length===0 ? (scan.complete === true ? '<div style="text-align:center;padding:60px;color:var(--l);font-size:14px">✅ No findings — this repository looks clean!</div>' : '') : groupHtml);
 
   var fb=el.querySelector('.pkg-group-body'),fc=el.querySelector('.pkg-chev');
@@ -321,3 +323,18 @@ document.addEventListener('keydown',function(e){
   if(document.getElementById('page-gh-form')&&document.getElementById('page-gh-form').classList.contains('active'))
     if(e.key==='Enter') doGhScan();
 });
+
+// Semgrep skips files it cannot parse or times out on. Say how many and which,
+// so a partial result is not read as a full one.
+function _ghCompletenessHtml(scan){
+  if (scan.complete === true) return '';
+  var errors = Number(scan.errors) || 0;
+  if (scan.complete !== false || !errors)
+    return '<p role="status" style="padding:16px;color:var(--h)">Scan completeness is unknown. Rescan this repository to verify the results.</p>';
+  var samples = (scan.errorSamples || []).map(function(e){
+    return '<li><code>'+esc(e.path || '—')+'</code> · '+esc(e.type || 'Error')+(e.message ? ' — '+esc(e.message) : '')+'</li>';
+  }).join('');
+  return '<div role="status" style="padding:16px;color:var(--h)">Scan incomplete: Semgrep reported '+errors+' analysis error'+(errors!==1?'s':'')+
+    '. Findings in the affected files may be missing; rescan to retry.'+
+    (samples ? '<ul style="margin:8px 0 0 18px;color:var(--muted2);font-size:13px">'+samples+'</ul>' : '')+'</div>';
+}
