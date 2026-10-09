@@ -24,9 +24,12 @@ async function renderDepList(){
       </tr></thead>
       <tbody>
         ${depScans.map((s,i)=>{
+          markDependencyCompleteness(s);
           const sysInfo=DEP_SYSTEMS.find(x=>x.id===s.system)||{logo:'📦',label:s.system};
-          const _sum=s.summary||{};
-          const pills=['CRITICAL','HIGH','MEDIUM','LOW'].filter(sv=>_sum[sv])
+          const _sum={ ...s.summary };
+          if (Array.isArray(s.deps) && s.deps.length)
+            Object.assign(_sum, findingCounts(s.deps.flatMap(d => d.vulns || [])));
+          const pills=['CRITICAL','HIGH','MEDIUM','LOW','UNKNOWN'].filter(sv=>_sum[sv])
             .map(sv=>`<span class="sev ${sv}" style="font-size:9px;padding:2px 6px">${_sum[sv]} ${sv}</span>`).join(' ');
           const legacyVulnerabilityCount = ['CRITICAL','HIGH','MEDIUM','LOW','UNKNOWN']
             .reduce((total,sev)=>total+Number(_sum[sev]||0),0);
@@ -36,7 +39,9 @@ async function renderDepList(){
           const vulnerabilityCount = _sum.vulnerabilityCount ??
             (dependencyVulnerabilityCount || legacyVulnerabilityCount);
           const hasVulnerabilities = vulnerabilityCount>0 || Number(_sum.withVulns||0)>0;
-          const vulnCell  = !hasVulnerabilities
+          const vulnCell  = s.complete === false
+            ? '<span class="sev UNKNOWN">RESCAN REQUIRED</span>'
+            : !hasVulnerabilities
             ? '<span style="color:var(--l);font-size:11px">&#10003; clean</span>'
             : (pills||`<span style="color:var(--muted)">${vulnerabilityCount||'?'}</span>`);
           const toxicCell = _sum.toxic>0 ? `<span style="color:#ff3b30;font-size:11px">&#9760; ${_sum.toxic}</span>` : '<span style="color:var(--l);font-size:11px">&#10003;</span>';

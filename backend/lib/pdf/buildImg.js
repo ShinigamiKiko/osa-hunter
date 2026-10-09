@@ -43,7 +43,7 @@ function buildImgReportHtml(scan, { osaPngB64 = '' } = {}) {
   const desc    = scan.desc  || '';
   const vulns   = scan.vulns || [];
   const counts  = scan.counts || {};
-  const topSev  = ['CRITICAL','HIGH','MEDIUM','LOW'].find(s => (counts[s]||0) > 0) || 'NONE';
+  const topSev  = ['CRITICAL','HIGH','MEDIUM','LOW','UNKNOWN'].find(s => (counts[s]||0) > 0) || 'NONE';
   const kevHits = vulns.filter(v => v.inKev).length;
   const pocHits = vulns.filter(v => (v.pocs||[]).length).length;
   const date    = new Date(scan.scannedAt || Date.now()).toLocaleString('en-US', { year:'numeric', month:'short', day:'2-digit', hour:'2-digit', minute:'2-digit' });
@@ -66,8 +66,8 @@ function buildImgReportHtml(scan, { osaPngB64 = '' } = {}) {
     g.vulns.sort((a, b) => (SEV_W[(b.Severity||b.severity||'UNKNOWN').toUpperCase()]||0) - (SEV_W[(a.Severity||a.severity||'UNKNOWN').toUpperCase()]||0));
 
   const groupSections = sorted.map(([pkgName, g]) => {
-    const topSevG  = ['CRITICAL','HIGH','MEDIUM','LOW'].find(s => g.counts[s]) || 'UNKNOWN';
-    const pills    = ['CRITICAL','HIGH','MEDIUM','LOW'].filter(s => g.counts[s])
+    const topSevG  = ['CRITICAL','HIGH','MEDIUM','LOW','UNKNOWN'].find(s => g.counts[s]) || 'UNKNOWN';
+    const pills    = ['CRITICAL','HIGH','MEDIUM','LOW','UNKNOWN'].filter(s => g.counts[s])
       .map(s => `<span class="sev ${s}" style="font-size:9px;padding:1px 6px">${g.counts[s]}</span>`).join('');
     const ver      = g.vulns[0]?.InstalledVersion || g.vulns[0]?.installedVersion || '';
     const fixedVer = g.vulns.find(v => v.FixedVersion || v.fixedVersion)?.FixedVersion ||

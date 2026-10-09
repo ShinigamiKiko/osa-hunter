@@ -7,6 +7,7 @@ const { getPool } = require('../auth/db');
 const { HTTP_CONCURRENCY, HTTP_TIMEOUT_MS } = require('../config');
 const { observeExternalError } = require('../observability/metrics');
 const { fromVector } = require('ae-cvss-calculator');
+const semver = require('semver');
 
 const NVD_API_KEY     = process.env.NVD_API_KEY || '';
 const NVD_CONCURRENCY = NVD_API_KEY ? Math.min(HTTP_CONCURRENCY, 10) : Math.min(HTTP_CONCURRENCY, 3);
@@ -153,7 +154,7 @@ async function osvQuery(pkgName, ecosystem, version) {
     if (!d.next_page_token) return [...records.values()].map(v => ({
       ...v,
       _sev    : parseSev(v),
-      _fix    : getFixed(v),
+      _fix    : getFixed(v, { name: pkgName, ecosystem, version }),
       _aliases: v.aliases || [],
       _refs   : (v.references || []).map(ref => ref.url),
     })).sort((a, b) => SEV_ORD.indexOf(a._sev) - SEV_ORD.indexOf(b._sev));
@@ -386,12 +387,73 @@ function parseSev(v) {
 
 function worstSeverity(values) { return SEV_ORD.find(sev => values.includes(sev)) || 'UNKNOWN'; }
 
-function getFixed(v) {
-  for (const a of v.affected || [])
-    for (const r of a.ranges || [])
-      for (const e of r.events || [])
-        if (e.fixed) return e.fixed;
-  return null;
+// Dotted releases (PyPI 4.2.24, Maven 2.9.10.4, NuGet, RubyGems) order
+// component by component. A pre-release (4.2a1, 2.0.0-rc1) sorts just below
+// its release, which is enough for OSV bounds such as "introduced: 4.2a1".
+// Other qualifiers (-r0, ~deb12, .post1) follow ecosystem rules: unordered.
+const PRE_RELEASE = /^(?:[-.]?(?:a|b|c|rc|alpha|beta|pre|preview|dev|m)[-.]?\d*)$/i;
+function numericVersion(value) {
+  const m = /^v?(\d+(?:\.\d+)*)(.*)$/.exec(String(value ?? ''));
+  if (!m || (m[2] && !PRE_RELEASE.test(m[2]))) return null;
+  return { parts: m[1].split('.').map(Number), pre: Boolean(m[2]) };
+}
+
+function compareNumeric(a, b) {
+  for (let i = 0; i < Math.max(a.parts.length, b.parts.length); i++) {
+    const d = (a.parts[i] || 0) - (b.parts[i] || 0);
+    if (d) return d;
+  }
+  return a.pre === b.pre ? 0 : a.pre ? -1 : 1;
+}
+
+const RANGE_ORDERS = {
+  SEMVER:    { parse: v => semver.valid(v), compare: semver.compare },
+  ECOSYSTEM: { parse: numericVersion, compare: compareNumeric },
+};
+
+function getFixed(v, { name, ecosystem, version } = {}) {
+  const packageName = value => ecosystem === 'PyPI'
+    ? value.toLowerCase().replace(/[-_.]+/g, '-')
+    : ['npm', 'Packagist', 'NuGet'].includes(ecosystem) ? value.toLowerCase() : value;
+  const matched = [];          // fixes of intervals that contain the scanned version
+  const unordered = new Set(); // fixes of intervals that cannot be compared
+  for (const affected of v.affected || []) {
+    const pkg = affected.package;
+    if (name && (!pkg?.name || packageName(pkg.name) !== packageName(name))) continue;
+    if (ecosystem && pkg?.ecosystem && pkg.ecosystem !== ecosystem
+        && !pkg.ecosystem.startsWith(ecosystem + ':')) continue;
+    for (const range of affected.ranges || []) {
+      const order = RANGE_ORDERS[range.type];
+      if (!order) continue; // GIT ranges end in commit hashes
+      let current = typeof version === 'string' ? order.parse(version) : null;
+      // Two pre-releases of one release cannot be ordered by numbers alone.
+      if (current?.pre) current = null;
+      let introduced = null;
+      for (const event of range.events || []) {
+        if (event.introduced !== undefined) { introduced = event.introduced; continue; }
+        const end = event.fixed ?? event.last_affected ?? event.limit;
+        if (end === undefined) continue;
+        const start = introduced === '0' ? 0 : introduced === null ? null : order.parse(introduced);
+        const stop = order.parse(end);
+        introduced = null;
+        if (!current || start === null || !stop) {
+          if (event.fixed) unordered.add(event.fixed);
+          continue;
+        }
+        const inside = (start === 0 || order.compare(current, start) >= 0)
+          && (event.last_affected !== undefined ? order.compare(current, stop) <= 0
+                                                : order.compare(current, stop) < 0);
+        if (inside && event.fixed) matched.push({ fix: event.fixed, stop, order });
+      }
+    }
+  }
+  if (matched.length) {
+    // Overlapping intervals: only the highest fix leaves all of them.
+    return matched.reduce((best, m) =>
+      m.order === best.order && m.order.compare(m.stop, best.stop) > 0 ? m : best).fix;
+  }
+  // Without an ordering, only a unique fix is safe.
+  return unordered.size === 1 ? [...unordered][0] : null;
 }
 
 function extractCVEs(vulns) {

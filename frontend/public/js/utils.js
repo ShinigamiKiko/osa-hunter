@@ -1,5 +1,14 @@
 const SEV_ORD = ['CRITICAL','HIGH','MEDIUM','LOW','UNKNOWN','NONE'];
 
+function findingCounts(vulns) {
+  const counts = { CRITICAL:0, HIGH:0, MEDIUM:0, LOW:0, UNKNOWN:0 };
+  for (const v of vulns) {
+    const severity = String(v.Severity || v._sev || v.severity || 'UNKNOWN').toUpperCase();
+    counts[Object.hasOwn(counts, severity) ? severity : 'UNKNOWN']++;
+  }
+  return counts;
+}
+
 function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 function safeUrl(u){ try{ const p=new URL(u); return['http:','https:'].includes(p.protocol)?u:'#'; }catch{ return '#'; } }
 function fmtDate(iso){ if(!iso)return'—'; const d=new Date(iso); return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); }

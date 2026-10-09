@@ -1,11 +1,14 @@
 
 function renderDepDetail(scan){
+  markDependencyCompleteness(scan);
   window._lastDepScan=scan;
   currentDepScan=scan;
   const el=document.getElementById('depDetailContent');
   const sysInfo=DEP_SYSTEMS.find(x=>x.id===scan.system)||{logo:'📦',label:scan.system};
-  const sm=scan.summary||{};
-  const chips=['CRITICAL','HIGH','MEDIUM','LOW'].filter(sv=>sm[sv])
+  const sm={ ...scan.summary };
+  if (Array.isArray(scan.deps) && scan.deps.length)
+    Object.assign(sm, findingCounts(scan.deps.flatMap(d => d.vulns || [])));
+  const chips=['CRITICAL','HIGH','MEDIUM','LOW','UNKNOWN'].filter(sv=>sm[sv])
     .map(sv=>`<span class="sev ${sv}">${sm[sv]} ${sv}</span>`).join('');
 
   const allDeps  = Array.isArray(scan.deps) ? scan.deps : [];
@@ -58,8 +61,8 @@ function renderDepDetail(scan){
 
   function depPkgCard(dep, depIdx){
     const isToxic =dep.toxic?.found;
-    const topSev  =dep.topSeverity||(['CRITICAL','HIGH','MEDIUM','LOW'].find(s=>(dep.counts||{})[s])||'NONE');
-    const pills   =['CRITICAL','HIGH','MEDIUM','LOW'].filter(k=>(dep.counts||{})[k])
+    const topSev  =dep.topSeverity||(['CRITICAL','HIGH','MEDIUM','LOW','UNKNOWN'].find(s=>(dep.counts||{})[s])||'NONE');
+    const pills   =['CRITICAL','HIGH','MEDIUM','LOW','UNKNOWN'].filter(k=>(dep.counts||{})[k])
       .map(k=>`<span class="sev ${k}" style="font-size:9px;padding:1px 6px">${dep.counts[k]}</span>`).join('');
     const fixVer  =dep.vulns?.find(v=>v.fix)?.fix;
     const cveCount=dep.vulns?.length||0;
@@ -100,9 +103,9 @@ function renderDepDetail(scan){
   }
 
   function depSection(deps, label, isTransitive, key){
-    const cnt={CRITICAL:0,HIGH:0,MEDIUM:0,LOW:0};
+    const cnt={CRITICAL:0,HIGH:0,MEDIUM:0,LOW:0,UNKNOWN:0};
     deps.forEach(d=>(d.vulns||[]).forEach(v=>{const s=(v.severity||'').toUpperCase();if(s in cnt)cnt[s]++;}));
-    const pills=['CRITICAL','HIGH','MEDIUM','LOW'].filter(k=>cnt[k])
+    const pills=['CRITICAL','HIGH','MEDIUM','LOW','UNKNOWN'].filter(k=>cnt[k])
       .map(k=>`<span class="sev ${k}" style="font-size:9px;padding:1px 6px">${cnt[k]}</span>`).join('');
     const accent=isTransitive?'#3b82f6':'#a78bfa';
     const rgb   =isTransitive?'59,130,246':'167,139,250';
@@ -138,13 +141,14 @@ function renderDepDetail(scan){
 
   const rootVulns = rootDep?.vulns||[];
   const rootCnt   = rootDep?.counts||{};
-  const rootChips = ['CRITICAL','HIGH','MEDIUM','LOW'].filter(sv=>rootCnt[sv])
+  const rootChips = ['CRITICAL','HIGH','MEDIUM','LOW','UNKNOWN'].filter(sv=>rootCnt[sv])
     .map(sv=>`<span class="sev ${sv}">${rootCnt[sv]} ${sv}</span>`).join('');
 
-  const chipsHtml = rootChips||chips||'<span class="sev NONE">&#x2705; CLEAN</span>';
+  const chipsHtml = scan.complete === false ? '<span class="sev UNKNOWN">RESCAN REQUIRED</span>'
+    : chips||rootChips||'<span class="sev NONE">&#x2705; CLEAN</span>';
   const exportBtn      =(typeof exportBtnHtml==='function')?exportBtnHtml('dep','__DEP_SCAN__'):'';
 
-  const rootPills = ['CRITICAL','HIGH','MEDIUM','LOW'].filter(k=>rootCnt[k])
+  const rootPills = ['CRITICAL','HIGH','MEDIUM','LOW','UNKNOWN'].filter(k=>rootCnt[k])
     .map(k=>`<span class="sev ${k}" style="font-size:9px;padding:1px 6px">${rootCnt[k]}</span>`).join('');
   const rootIsClean  = rootVulns.length === 0;
   const rootAccent   = rootIsClean ? '#34c759'            : '#ff3b30';
@@ -184,7 +188,9 @@ function renderDepDetail(scan){
   const vulnCount = sm.vulnerabilityCount ??
     (dependencyVulnerabilityCount || legacyVulnerabilityCount);
   const hasVulnerabilities = vulnCount>0 || Number(sm.withVulns||0)>0;
-  const noVulnsHtml    =hasVulnerabilities
+  const noVulnsHtml    =scan.complete === false
+    ? '<span style="color:var(--h)">Scan incomplete — rescan required</span>'
+    : hasVulnerabilities
     ?`<span style="color:var(--h)">&#9888; ${sm.withVulns||'Some'} deps · ${vulnCount||'?'} vulnerabilities</span>`
     :'<span style="color:var(--l)">&#10003; no vulns</span>';
   const emptyHtml=(!direct.length&&!indirect.length)
@@ -233,8 +239,8 @@ function renderDepDetail(scan){
   window._currentDepScanRoot = rootDep || {
     name:scan.package, system:scan.system, version:scan.resolvedVersion,
     relation:'ROOT', toxic:scan.toxic||{found:false},
-    topSeverity:['CRITICAL','HIGH','MEDIUM','LOW'].find(s=>rootCnt[s]>0)||'NONE',
-    vulnCount:(rootCnt.CRITICAL||0)+(rootCnt.HIGH||0)+(rootCnt.MEDIUM||0)+(rootCnt.LOW||0),
+    topSeverity:['CRITICAL','HIGH','MEDIUM','LOW','UNKNOWN'].find(s=>rootCnt[s]>0)||'NONE',
+    vulnCount:(rootCnt.CRITICAL||0)+(rootCnt.HIGH||0)+(rootCnt.MEDIUM||0)+(rootCnt.LOW||0)+(rootCnt.UNKNOWN||0),
     counts:rootCnt,
     vulns:rootVulns,
   };
