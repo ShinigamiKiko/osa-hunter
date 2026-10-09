@@ -88,7 +88,7 @@ async function renderOsList(){
       <thead><tr><th>Package</th><th>Description</th><th>Distribution</th><th>Version</th><th>Top Severity</th><th>Findings</th><th>Scanned</th><th style="width:28px"></th></tr></thead>
       <tbody>${osScans.map((s,i)=>{
         const counts=s.counts||{};
-        const pills=['CRITICAL','HIGH','MEDIUM','LOW'].filter(sv=>counts[sv])
+        const pills=['CRITICAL','HIGH','MEDIUM','LOW','UNKNOWN'].filter(sv=>counts[sv])
           .map(sv=>`<span class="sev ${sv}" style="font-size:9px;padding:2px 6px">${counts[sv]} ${sv}</span>`).join(' ');
         const vulnLen=(s.vulns||[]).length;
         return`<tr class="row" onclick="navTo('os-detail',{scan:osScans[${i}]})">
@@ -117,7 +117,7 @@ function renderOsDetail(scan){
   const distroInfo=OS_DISTROS.find(d=>d.id===scan.distro)||{logo:'🐧',label:scan.distro};
   const vulns=scan.vulns||[];
   const counts=scan.counts||{};
-  const chips=['CRITICAL','HIGH','MEDIUM','LOW'].filter(sv=>counts[sv])
+  const chips=['CRITICAL','HIGH','MEDIUM','LOW','UNKNOWN'].filter(sv=>counts[sv])
     .map(sv=>`<span class="sev ${sv}">${counts[sv]} ${sv}</span>`).join('');
   const SEV_W={CRITICAL:4,HIGH:3,MEDIUM:2,LOW:1,UNKNOWN:0};
 
@@ -140,8 +140,8 @@ function renderOsDetail(scan){
 
   let gvi=0;
   const groupHtml=sorted.map(([pkgName,g])=>{
-    const topSevG=['CRITICAL','HIGH','MEDIUM','LOW'].find(s=>g.counts[s])||'UNKNOWN';
-    const pills=['CRITICAL','HIGH','MEDIUM','LOW'].filter(sv=>g.counts[sv])
+    const topSevG=['CRITICAL','HIGH','MEDIUM','LOW','UNKNOWN'].find(s=>g.counts[s])||'UNKNOWN';
+    const pills=['CRITICAL','HIGH','MEDIUM','LOW','UNKNOWN'].filter(sv=>g.counts[sv])
       .map(sv=>`<span class="sev ${sv}" style="font-size:9px;padding:1px 6px">${g.counts[sv]}</span>`).join('');
     const pkgVerSpan=g.vulns[0]?.pkgVersion?`<span style="color:var(--muted);font-size:11px;margin-left:6px">v${esc(g.vulns[0].pkgVersion)}</span>`:'';
     const fixedVer=g.vulns.find(v=>v.fix)?.fix;

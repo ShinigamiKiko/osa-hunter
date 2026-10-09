@@ -10,8 +10,13 @@ function buildDepReportHtml(scan, { osaPngB64 = '' } = {}) {
   const deps   = scan.deps || [];
   const summary = scan.summary || {};
 
-  const counts = summary.CRITICAL != null ? summary : (summary.counts || {});
-  const topSev = ['CRITICAL','HIGH','MEDIUM','LOW'].find(s => (counts[s]||0) > 0) || 'NONE';
+  const counts = deps.length ? { CRITICAL:0, HIGH:0, MEDIUM:0, LOW:0, UNKNOWN:0 }
+    : (summary.CRITICAL != null ? summary : (summary.counts || {}));
+  for (const dep of deps) for (const vuln of dep.vulns || []) {
+    const severity = String(vuln._sev || vuln.severity || 'UNKNOWN').toUpperCase();
+    counts[Object.hasOwn(counts, severity) ? severity : 'UNKNOWN']++;
+  }
+  const topSev = ['CRITICAL','HIGH','MEDIUM','LOW','UNKNOWN'].find(s => (counts[s]||0) > 0) || 'NONE';
 
   let kevHits = 0, pocHits = 0;
   deps.forEach(d => (d.vulns||[]).forEach(v => {
@@ -30,7 +35,9 @@ function buildDepReportHtml(scan, { osaPngB64 = '' } = {}) {
     meta: `Scanned: ${date} · ${deps.length} dependencies${desc ? ' · ' + desc : ''}`,
   });
 
-  const chips  = buildChips(counts, kevHits, pocHits, extraChip);
+  const chips  = scan.complete === false
+    ? '<div class="chips"><div class="chip">Scan incomplete — rescan required</div></div>'
+    : buildChips(counts, kevHits, pocHits, extraChip);
   const alerts = buildAlerts(kevHits, pocHits, scan.toxic);
 
   const vulnDeps = deps.filter(d => (d.vulns||[]).length > 0);

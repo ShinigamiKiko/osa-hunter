@@ -1,8 +1,31 @@
 let imgScans = safeLoad('es_img', []);
+imgScans = Array.isArray(imgScans) ? imgScans.map(scan => normalizeImageScan(scan)) : [];
 const saveImg = () => safeSave('es_img', imgScans);
 const OS_PKG_TYPES = new Set(['debian','ubuntu','alpine','rhel','centos','oracle','amazon','rocky','fedora','suse','opensuse','photon','wolfi','chainguard','cbsl','cbl-mariner']);
 
 function whaleSmallSvg(){ return`<span style="font-size:22px;line-height:1">🐋</span>`; }
+
+function normalizeImageScan(data, metadata = {}) {
+  const vulns = Array.isArray(data.Results)
+    ? data.Results.flatMap(result => (result.Vulnerabilities || []).map(v => ({ ...v, _pkgType: result.Type || '' })))
+    : (data.vulns || []).map(v => ({ ...v }));
+  const counts = { CRITICAL:0, HIGH:0, MEDIUM:0, LOW:0, UNKNOWN:0 };
+  for (const vuln of vulns) {
+    const severity = String(vuln.Severity || vuln.severity || 'UNKNOWN').toUpperCase();
+    vuln.Severity = Object.hasOwn(counts, severity) ? severity : 'UNKNOWN';
+    counts[vuln.Severity]++;
+  }
+  vulns.sort((a,b) => SEV_ORD.indexOf(a.Severity) - SEV_ORD.indexOf(b.Severity));
+  return {
+    id: metadata.id ?? data.id ?? data._cacheKey ?? Date.now(),
+    _cacheKey: metadata._cacheKey ?? data._cacheKey,
+    image: metadata.image ?? data.image,
+    tag: metadata.tag ?? data.tag ?? 'latest',
+    desc: metadata.desc ?? data.desc ?? '',
+    vulns, counts,
+    scannedAt: data.scannedAt || data._cachedAt || new Date().toISOString(),
+  };
+}
 
 async function doImageScan(){
   const image=document.getElementById('imgName').value.trim();
@@ -16,15 +39,10 @@ async function doImageScan(){
       headers:{'Content-Type':'application/json'},body:JSON.stringify({image,tag,desc})});
     const data=await readJson(r);
     if(!r.ok) throw new Error(data.error||`Error ${r.status}`);
-    const results=data.Results||[];
-    const allV=[]; results.forEach(t=>(t.Vulnerabilities||[]).forEach(v=>allV.push({...v,_pkgType:t.Type||''})));
-    allV.sort((a,b)=>SEV_ORD.indexOf((a.Severity||'UNKNOWN').toUpperCase())-SEV_ORD.indexOf((b.Severity||'UNKNOWN').toUpperCase()));
-    const counts={CRITICAL:0,HIGH:0,MEDIUM:0,LOW:0,UNKNOWN:0};
-    allV.forEach(v=>{ const s=(v.Severity||'UNKNOWN').toUpperCase(); if(s in counts) counts[s]++; });
     const _ck = `img:${image}:${tag}`;
     const ckIdx = imgScans.findIndex(s => s._cacheKey === _ck);
     if (ckIdx !== -1) imgScans.splice(ckIdx, 1);
-    const scan={id:Date.now(), _cacheKey:_ck, image,tag,desc,vulns:allV,counts,scannedAt:new Date().toISOString()};
+    const scan=normalizeImageScan(data, { id:Date.now(), _cacheKey:_ck, image,tag,desc });
     imgScans.unshift(scan);
     if(imgScans.length>20) imgScans=imgScans.slice(0,20);
     saveImg(); navTo('img-list');
@@ -56,8 +74,8 @@ async function renderImgList(){
         <tbody>
           ${imgScans.map((s,i)=>{
             const _c=s.counts||{}; const _v=s.vulns||[];
-            const topS=['CRITICAL','HIGH','MEDIUM','LOW'].find(sv=>_c[sv])||'NONE';
-            const pills=['CRITICAL','HIGH','MEDIUM','LOW'].filter(sv=>_c[sv])
+            const topS=['CRITICAL','HIGH','MEDIUM','LOW','UNKNOWN'].find(sv=>_c[sv])||'NONE';
+            const pills=['CRITICAL','HIGH','MEDIUM','LOW','UNKNOWN'].filter(sv=>_c[sv])
               .map(sv=>`<span class="sev ${sv}" style="font-size:9px;padding:2px 6px">${_c[sv]} ${sv}</span>`).join(' ');
             return`<tr class="row" onclick="navTo('img-detail',{scan:imgScans[${i}]})">
               <td><div style="display:flex;align-items:center;gap:9px">
@@ -83,7 +101,7 @@ async function renderImgList(){
 
 function renderImgDetail(s){
   const el=document.getElementById('imgDetailContent');
-  const chips=['CRITICAL','HIGH','MEDIUM','LOW'].filter(sv=>s.counts[sv])
+  const chips=['CRITICAL','HIGH','MEDIUM','LOW','UNKNOWN'].filter(sv=>s.counts[sv])
     .map(sv=>`<span class="sev ${sv}">${s.counts[sv]} ${sv}</span>`).join('');
 
   const SEV_W = {CRITICAL:4,HIGH:3,MEDIUM:2,LOW:1,UNKNOWN:0};
@@ -109,8 +127,8 @@ function renderImgDetail(s){
 
   let globalVi = 0;
   const groupHtml = sorted.map(([pkgName, g])=>{
-    const topSev = ['CRITICAL','HIGH','MEDIUM','LOW'].find(s=>g.counts[s])||'UNKNOWN';
-    const pills = ['CRITICAL','HIGH','MEDIUM','LOW'].filter(sv=>g.counts[sv])
+    const topSev = ['CRITICAL','HIGH','MEDIUM','LOW','UNKNOWN'].find(s=>g.counts[s])||'UNKNOWN';
+    const pills = ['CRITICAL','HIGH','MEDIUM','LOW','UNKNOWN'].filter(sv=>g.counts[sv])
       .map(sv=>`<span class="sev ${sv}" style="font-size:9px;padding:1px 6px">${g.counts[sv]}</span>`).join('');
     const pkgVer = g.vulns[0]?.InstalledVersion ? `<span style="color:var(--muted);font-size:11px;margin-left:6px">v${esc(g.vulns[0].InstalledVersion)}</span>` : '';
     const fixedVer= g.vulns.find(v=>v.FixedVersion)?.FixedVersion;

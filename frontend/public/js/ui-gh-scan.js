@@ -40,6 +40,9 @@ async function doGhScan(){
       counts:    data.counts    || {},
       topSev:    data.topSev    || 'NONE',
       toxic:     data.toxic     || { found: false },
+      complete:  data.complete === true,
+      errors:    Number(data.errors) || 0,
+      errorSamples: Array.isArray(data.errorSamples) ? data.errorSamples : [],
       scannedAt: data.scannedAt || new Date().toISOString(),
     });
     if(ghScans.length > 20) ghScans = ghScans.slice(0,20);
@@ -61,7 +64,7 @@ async function renderGhList(){
   }
   var rows = ghScans.map(function(s,i){
     var counts = s.counts||{};
-    var pills = ['CRITICAL','HIGH','MEDIUM','LOW'].filter(function(sv){return counts[sv];})
+    var pills = ['CRITICAL','HIGH','MEDIUM','LOW','UNKNOWN'].filter(function(sv){return counts[sv];})
       .map(function(sv){return '<span class="sev '+sv+'" style="font-size:9px;padding:2px 6px">'+counts[sv]+' '+sv+'</span>';}).join(' ');
     var total = (s.findings||[]).length;
     return '<tr class="row" onclick="navTo(\'gh-detail\',{scan:ghScans['+i+']})">' +
@@ -71,8 +74,8 @@ async function renderGhList(){
       '<div style="margin-top:4px">'+_toxicBadgeHtml(s.toxic)+'</div>' +
       '</div></div></td>' +
       '<td><div class="row-desc">'+esc(s.desc||'—')+'</div></td>' +
-      '<td><span class="sev '+s.topSev+'">'+s.topSev+'</span></td>' +
-      '<td>'+(total===0?'<span style="color:var(--l);font-size:11px">✓ clean</span>':(pills||'<span style="color:var(--muted)">'+total+'</span>'))+'</td>' +
+      '<td><span class="sev '+(s.complete === true ? s.topSev : 'UNKNOWN')+'">'+(s.complete === true ? s.topSev : 'RESCAN')+'</span></td>' +
+      '<td>'+(total===0 ? (s.complete === true ? '<span style="color:var(--l);font-size:11px">✓ clean</span>' : '<span style="color:var(--muted);font-size:11px">Not verified</span>') : (pills||'<span style="color:var(--muted)">'+total+'</span>'))+'</td>' +
       '<td style="color:var(--muted);font-size:10px;white-space:nowrap">'+fmtDate(s.scannedAt)+'</td>' +
       '<td><button onclick="event.stopPropagation();ghScans.splice('+i+',1);saveGh();updateGhBadge();renderGhList()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;padding:3px 5px;border-radius:4px" onmouseover="this.style.color=\'var(--c)\'" onmouseout="this.style.color=\'var(--muted)\'">✕</button></td>' +
       '</tr>';
@@ -171,7 +174,7 @@ function renderGhDetail(scan){
   var el = document.getElementById('ghDetailContent');
   var findings = scan.findings || [];
   var counts   = scan.counts   || {};
-  var chips = ['CRITICAL','HIGH','MEDIUM','LOW'].filter(function(sv){return counts[sv];})
+  var chips = ['CRITICAL','HIGH','MEDIUM','LOW','UNKNOWN'].filter(function(sv){return counts[sv];})
     .map(function(sv){return '<span class="sev '+sv+'">'+counts[sv]+' '+sv+'</span>';}).join('');
 
   var SEV_W = {CRITICAL:4,HIGH:3,MEDIUM:2,LOW:1,UNKNOWN:0};
@@ -198,12 +201,12 @@ function renderGhDetail(scan){
     items.sort(function(a,b){
       return (SEV_W[(b.severity||'UNKNOWN').toUpperCase()]||0)-(SEV_W[(a.severity||'UNKNOWN').toUpperCase()]||0);
     });
-    var topSev = ['CRITICAL','HIGH','MEDIUM','LOW'].find(function(s){
+    var topSev = ['CRITICAL','HIGH','MEDIUM','LOW','UNKNOWN'].find(function(s){
       return items.some(function(f){return (f.severity||'').toUpperCase()===s;});
     })||'UNKNOWN';
     var sevCounts = {};
     items.forEach(function(f){var s=(f.severity||'UNKNOWN').toUpperCase();sevCounts[s]=(sevCounts[s]||0)+1;});
-    var pills = ['CRITICAL','HIGH','MEDIUM','LOW'].filter(function(sv){return sevCounts[sv];})
+    var pills = ['CRITICAL','HIGH','MEDIUM','LOW','UNKNOWN'].filter(function(sv){return sevCounts[sv];})
       .map(function(sv){return '<span class="sev '+sv+'" style="font-size:9px;padding:1px 6px">'+sevCounts[sv]+'</span>';}).join('');
 
     var fileRows = items.map(function(f){
@@ -247,10 +250,11 @@ function renderGhDetail(scan){
     '<div class="detail-sub"><a href="'+esc(scan.url)+'" target="_blank" style="color:var(--muted);text-decoration:none">'+esc(scan.url)+' ↗</a>'+(scan.desc?' · '+esc(scan.desc):'')+' · '+findings.length+' finding'+(findings.length!==1?'s':'')+' in '+fileCount+' file'+(fileCount!==1?'s':'')+' · '+sortedGroups.length+' vuln type'+(sortedGroups.length!==1?'s':'')+' · scanned '+fmtDate(scan.scannedAt)+'</div>' +
     '<div style="margin-top:6px">'+_toxicBadgeHtml(scan.toxic)+'</div>' +
     '</div>' +
-    '<div class="detail-chips">'+(chips||'<span class="sev NONE">✅ CLEAN</span>')+'</div>' +
+    '<div class="detail-chips">'+(chips||(scan.complete === true ? '<span class="sev NONE">✅ CLEAN</span>' : '<span class="sev UNKNOWN">RESCAN REQUIRED</span>'))+'</div>' +
     '<div style="margin-left:auto;flex-shrink:0">'+exportBtnHtml('sast','__SAST_SCAN__')+'</div>' +
     '</div>' +
-    (findings.length===0?'<div style="text-align:center;padding:60px;color:var(--l);font-size:14px">✅ No findings — this repository looks clean!</div>':groupHtml);
+    _ghCompletenessHtml(scan) +
+    (findings.length===0 ? (scan.complete === true ? '<div style="text-align:center;padding:60px;color:var(--l);font-size:14px">✅ No findings — this repository looks clean!</div>' : '') : groupHtml);
 
   var fb=el.querySelector('.pkg-group-body'),fc=el.querySelector('.pkg-chev');
   if(fb){fb.style.display='block';if(fc)fc.style.transform='rotate(180deg)';}
@@ -319,3 +323,18 @@ document.addEventListener('keydown',function(e){
   if(document.getElementById('page-gh-form')&&document.getElementById('page-gh-form').classList.contains('active'))
     if(e.key==='Enter') doGhScan();
 });
+
+// Semgrep skips files it cannot parse or times out on. Say how many and which,
+// so a partial result is not read as a full one.
+function _ghCompletenessHtml(scan){
+  if (scan.complete === true) return '';
+  var errors = Number(scan.errors) || 0;
+  if (scan.complete !== false || !errors)
+    return '<p role="status" style="padding:16px;color:var(--h)">Scan completeness is unknown. Rescan this repository to verify the results.</p>';
+  var samples = (scan.errorSamples || []).map(function(e){
+    return '<li><code>'+esc(e.path || '—')+'</code> · '+esc(e.type || 'Error')+(e.message ? ' — '+esc(e.message) : '')+'</li>';
+  }).join('');
+  return '<div role="status" style="padding:16px;color:var(--h)">Scan incomplete: Semgrep reported '+errors+' analysis error'+(errors!==1?'s':'')+
+    '. Findings in the affected files may be missing; rescan to retry.'+
+    (samples ? '<ul style="margin:8px 0 0 18px;color:var(--muted2);font-size:13px">'+samples+'</ul>' : '')+'</div>';
+}

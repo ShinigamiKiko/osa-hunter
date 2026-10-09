@@ -106,8 +106,8 @@ router.post('/depscan', rateLimit(scanLimiter), async (req, res) => {
   const deps = [...seen.values()];
   const MAX_DEPS = 500;
   if (deps.length > MAX_DEPS) {
-    console.warn(`[depscan] ${deps.length} deps for ${pkg} exceeds cap ${MAX_DEPS}; truncating to bound fan-out`);
-    deps.length = MAX_DEPS;
+    throw new ScanError(413,
+      `Dependency graph contains ${deps.length} dependencies; the limit is ${MAX_DEPS}. Scan was not completed.`);
   }
   console.log(`[depscan] ${deps.length} deps for ${pkg}@${resolvedVersion}`);
 
@@ -168,6 +168,7 @@ router.post('/depscan', rateLimit(scanLimiter), async (req, res) => {
     HIGH      : rootCounts.HIGH     + finalDeps.reduce((a, d) => a + d.counts.HIGH,     0),
     MEDIUM    : rootCounts.MEDIUM   + finalDeps.reduce((a, d) => a + d.counts.MEDIUM,   0),
     LOW       : rootCounts.LOW      + finalDeps.reduce((a, d) => a + d.counts.LOW,      0),
+    UNKNOWN   : rootCounts.UNKNOWN  + finalDeps.reduce((a, d) => a + d.counts.UNKNOWN,  0),
   };
 
   const rootEntry = {
@@ -185,7 +186,7 @@ router.post('/depscan', rateLimit(scanLimiter), async (req, res) => {
   return {
     package: pkg, system: sys, version: version || null,
     resolvedVersion, scannedAt: new Date().toISOString(),
-    toxic: rootToxic,
+    toxic: rootToxic, complete: true,
     info, summary, deps: [rootEntry, ...finalDeps],
   };
   });

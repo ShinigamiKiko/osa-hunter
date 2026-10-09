@@ -1,3 +1,9 @@
+function markDependencyCompleteness(scan) {
+  if (scan.system !== 'COMPOSER' && scan.complete !== true && Number(scan.summary?.totalDeps) >= 500)
+    scan.complete = false;
+  return scan;
+}
+
 function normalizeComposerScan(data) {
     if (data.deps && !Array.isArray(data.deps)) {
       const normDeps=(list,relation)=>(list||[]).map(d=>{
@@ -22,7 +28,7 @@ function normalizeComposerScan(data) {
         });
         const cnt={CRITICAL:0,HIGH:0,MEDIUM:0,LOW:0,UNKNOWN:0};
         vulns.forEach(v=>{const s=(v.severity||'UNKNOWN').toUpperCase();if(s in cnt)cnt[s]++;});
-        const topSev=['CRITICAL','HIGH','MEDIUM','LOW'].find(s=>cnt[s]>0)||'NONE';
+        const topSev=['CRITICAL','HIGH','MEDIUM','LOW','UNKNOWN'].find(s=>cnt[s]>0)||'NONE';
         return{...d,relation,vulns,counts:cnt,topSeverity:topSev,system:data.system||'COMPOSER',toxic:d.toxic||{found:false}};
       });
       console.log('[dep-scan] raw deps from server:', {
@@ -38,7 +44,7 @@ function normalizeComposerScan(data) {
         ...normDeps(data.deps.transitive,  'INDIRECT'),
       ];
       console.log('[dep-scan] after normalize:', data.deps.map(d=>d.name+':'+d.relation));
-      const sevTotals={CRITICAL:0,HIGH:0,MEDIUM:0,LOW:0};
+      const sevTotals={CRITICAL:0,HIGH:0,MEDIUM:0,LOW:0,UNKNOWN:0};
       data.deps.forEach(d=>(d.vulns||[]).forEach(v=>{const s=(v.severity||'').toUpperCase();if(s in sevTotals)sevTotals[s]++;}));
       const toxicCount=data.deps.filter(d=>d.toxic?.found).length;
       const sm=data.summary||{};
@@ -50,6 +56,7 @@ function normalizeComposerScan(data) {
         HIGH      : sevTotals.HIGH,
         MEDIUM    : sevTotals.MEDIUM,
         LOW       : sevTotals.LOW,
+        UNKNOWN   : sevTotals.UNKNOWN,
         toxic     : toxicCount,
         withVulns : data.deps.filter(d=>(d.vulns||[]).length>0).length,
         vulnerabilityCount: data.deps.reduce((total,d)=>(total+(d.vulns||[]).length),0),

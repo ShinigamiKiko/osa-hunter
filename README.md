@@ -11,54 +11,50 @@
 [![Semgrep](https://img.shields.io/badge/Semgrep-SAST-FF6B35?style=for-the-badge)](https://semgrep.dev)
 [![License](https://img.shields.io/badge/License-MIT-22c55e?style=for-the-badge)](#license)
 
-**Self-hosted package firewall for your software supply chain.**  
-OSA Hunter sits between your package managers and the registries they pull from, and blocks
-vulnerable, exploited or malicious packages before they are downloaded.  
-npm · PyPI · Go · Maven · NuGet · Cargo · Composer · RubyGems · apt · apk · rpm
+**Self-hosted vulnerability scanner for your entire stack.**  
+Library CVEs · Dependency trees · Docker images · OS packages · GitHub SAST — one dark dashboard, no SaaS.
 
 </div>
 
 ---
 
-## How It Works
+![Feature Cards](docs/features.svg)
 
-```text
-npm / pip / go / mvn / apt …  ->  OSA gate  ->  (Nexus, optional)  ->  upstream registry
-                                     |
-                         OSV · CISA KEV · EPSS · PoC · toxic repos · your rules
-```
+<br/>
 
-Point a package manager at OSA instead of the public registry. For every archive
-it requests, OSA resolves the ecosystem, name and version, evaluates the policy,
-and then either streams the package from upstream or refuses it:
+| | Scanner | What it checks |
+|---|---|---|
+| 📦 | **Library Scan** | Single package CVEs — OSV + CVSS + EPSS + CISA KEV + PoC |
+| 🔗 | **Dependency Scan** | Full transitive dependency tree via deps.dev |
+| 🐘 | **Composer Scan** | PHP require tree via Packagist |
+| 🐋 | **Image Scan** | Docker image OS + language packages via Trivy |
+| 🐧 | **OS Package Scan** | Single package on Ubuntu / Debian / RHEL / Alpine / SUSE |
+| 🔍 | **GitHub SAST** | Public repo static analysis via Semgrep |
 
-| Answer | Meaning |
+
+---
+
+## ☠ Toxic Repo Detection
+
+![Toxic Repo](docs/toxic.svg)
+
+Every scanned package is checked against a curated blocklist of repositories known to contain malicious or harmful code. If a dependency traces back to one of these repos — you'll know before it reaches production.
+
+Matches use an explicit package URL/PURL or the package's source repository from
+registry metadata, including its host and owner. A repository basename or an
+unscoped package name alone is insufficient. Repository lookup supports npm,
+PyPI, Packagist, crates.io, RubyGems and GitHub-hosted Go modules; other ecosystems
+require an explicit package identity in the feed. GitHub scans compare the full
+repository identity. Metadata lookups are cached; failures in a toxic gate rule
+follow `on_gate_error`. Feed entries retain the categories assigned by its authors.
+
+| Category | Description |
 |---|---|
-| `200` | allowed (or allowed with a warning) — bytes are streamed from upstream |
-| `403 Blocked by OSA gate (<rule>)` | the policy rejected this version |
-| `503 … vulnerability data unavailable, retry` | a check could not run; with `on_gate_error: deny` the package is held back, not judged |
-
-If you know Sonatype Nexus Firewall or JFrog Curation, the model is the same: the
-registry proxy decides per artifact, so a blocked version never reaches a
-developer machine or a CI runner. OSA Hunter is the self-hosted, MIT-licensed
-take on it — the policy is YAML you can keep in git, and Nexus is optional.
-
-What a rule can match on:
-
-| Check | Source |
-|---|---|
-| Known vulnerabilities and severity | OSV, CVSS |
-| Actively exploited | CISA KEV |
-| Likely to be exploited | EPSS |
-| Public exploit code | PoC-in-GitHub |
-| Malicious or hostile packages | toxic-repos feed |
-| Package name, version, globs | your own denylist (`crossenv*`, `npm/left-pad@1.3.0`) |
-
-Metadata requests pass through; only artifact downloads are evaluated. OSA does
-not install, extract or execute packages, and it does not store archives — Nexus
-can cache them if you run one. The open gateway is read-only and accepts only
-known package and metadata paths. Every decision is logged and shown under
-**Proxy activity** in the UI. Client setup is under [Nexus Gateway](#nexus-gateway).
+| 💀 DDoS Tool | Packages designed to flood networks or amplify attacks |
+| 🦠 Malware | Trojans, ransomware, or data-stealing payloads |
+| ⚡ Hostile Actions | Code that destroys data or sabotages systems |
+| 🚫 IP Blocking | Geofencing or censorship embedded in a library |
+| 📢 Political Slogan | Activist payloads that hijack package behavior |
 
 ---
 
@@ -76,6 +72,129 @@ Open **http://localhost:3000**. Set `ADMIN_PASSWORD` before the first start.
 > Configure the initial administrator password before exposing the instance.
 
 ---
+
+![Terminal Animation](docs/terminal.svg)
+
+---
+
+## API
+
+All endpoints require a session cookie or `X-Api-Key` header.
+
+```bash
+# Library
+curl -X POST /api/libscan -H "X-Api-Key: osa_xxxx" \
+  -d '{"name":"lodash","ecosystem":"npm","version":"4.17.20"}'
+
+# Docker image
+curl -X POST /api/trivy/scan -d '{"image":"nginx","tag":"latest"}'
+
+# GitHub repo
+curl -X POST /api/ghscan -d '{"url":"https://github.com/owner/repo"}'
+```
+
+Full endpoint list: `libscan` · `depscan` · `composer` · `osscan` · `trivy/scan` · `ghscan` · `scans/history` · `export/pdf`
+
+Image scans accept a repository name and a separate tag. Unqualified names such
+as `nginx` use Docker Hub. `TRIVY_ALLOWED_REGISTRIES` is a comma-separated list of
+exact registry hosts, including ports where used. Defaults allow Docker Hub,
+GHCR, Quay, Kubernetes, Microsoft, Google and public ECR registries. Add private
+registries explicitly; an empty list rejects all image scans. The check runs
+before cache access and Trivy execution, including scans requested by PDF export.
+It restricts the registry named in a submitted image reference. Registry redirects,
+authentication endpoints and external layer URLs still require network-level
+egress controls when strict outbound isolation is needed.
+
+PDF rendering keeps JavaScript and external resource loading disabled. Chromium
+uses its sandbox by default in direct backend launches. Compose defaults
+`PUPPETEER_NO_SANDBOX=true` for hosts whose container policy prevents sandbox
+namespace creation; set it to `false` when the host supports sandboxing. There is
+no automatic fallback after a sandbox failure. The image includes
+`chromium-sandbox` and runs as a non-root user.
+
+### Accounts
+
+Any signed-in user changes their own password from the account menu in the top
+right: `POST /api/auth/password` with `currentPassword` and `newPassword`. The
+current password is required, the new one must be at least 8 characters, and the
+session id is rotated on success. Only a wrong current password counts against
+the rate limit, so a mistyped form cannot lock anyone out.
+
+Sign-in attempts are limited to ten per minute per IP and per trimmed,
+case-sensitive username. Unknown users still run a cost-12 bcrypt comparison
+and return the same invalid-credentials response as wrong passwords.
+
+An admin resets somebody else's password in **Manage Users**
+(`PATCH /api/auth/users/:id/password`); that path does not ask for the old one.
+
+Password changes revoke other browser sessions; an admin reset revokes all of
+that account's browser sessions. Account deletion and role changes are checked
+on every authenticated request, including `/api/auth/me`. API keys remain
+separate credentials. Only administrators can save the gateway policy.
+
+The session-version migration requires existing users to sign in again once.
+The enrichment migration discards old library, dependency, OS and gate cache
+entries because their verdicts may be incomplete; these scans will run again
+on demand.
+
+The Compose backend port 3001 is published on localhost. Forwarded client
+addresses are trusted only from the `frontend` container. For another reverse
+proxy, set `TRUSTED_PROXIES` to its addresses/CIDRs or `TRUSTED_PROXY_HOSTS` to
+its DNS names. Direct deployments ignore forwarded headers by default.
+
+### Prometheus and logs
+
+Metrics are published on a separate port bound to localhost only, not on the
+public API port:
+
+```bash
+curl http://localhost:9100/metrics
+```
+
+The backend writes one JSON object per line to stdout. Each HTTP request includes
+`timestamp`, `requestId`, `method`, `path`, `statusCode` and `durationMs` fields.
+Sensitive authorization headers and cookies are never included in request logs.
+
+`GET /api/ready` checks PostgreSQL connectivity and is used by the backend
+container healthcheck. Long-running Trivy and Grype operations are limited by
+`TRIVY_CONCURRENCY`/`GRYPE_CONCURRENCY` and their queue-size settings. External
+HTTP calls use `HTTP_TIMEOUT_MS` and `HTTP_CONCURRENCY` as shared defaults.
+
+`TRIVY_QUEUE_SIZE` and `GRYPE_QUEUE_SIZE` limit waiting scan requests. A full
+queue returns HTTP `503`; the per-client rate limits return HTTP `429`. The
+default limits are 5 Trivy requests/minute, 20 scan requests/minute, 120 API
+requests/minute and 120 gateway requests/minute.
+
+PDF exports use `PDF_CONCURRENCY` (default 1) and `PDF_QUEUE_SIZE` (default 4).
+A full PDF queue returns HTTP `503` with a `Retry-After` header. Dependency
+graphs above 500 packages return HTTP `413` instead of a partial result.
+A failed Semgrep run or malformed output returns HTTP `502`. Files Semgrep
+could not analyze (parse errors, per-file timeouts) keep the other findings but
+mark the result `complete: false` with `errors` and `errorSamples`; incomplete
+results of any scan are never cached.
+Older SAST results without a completion marker require a rescan.
+
+Scan and gate results are stored in PostgreSQL. A cache hit returns immediately
+with `_cached: true`; a cache miss runs the scan and stores its result. The
+`osa_cache_operations_total` metric tracks hits and misses by cache type.
+
+For a Compose backup, dump PostgreSQL and archive the named volumes before
+upgrades. For example:
+
+```bash
+docker compose exec -T postgres pg_dump -U "$PGUSER" "$PGDATABASE" > osa.sql
+docker run --rm -v osa-hunter_nexus-data:/data -v "$PWD":/backup alpine \
+  tar czf /backup/nexus-data.tgz -C /data .
+```
+
+## Package Proxy
+
+OSA accepts package-manager metadata and archive requests, checks the package
+name and version against OSV and `policy.yaml`, and streams allowed bytes from
+the configured upstream. It does not install or execute packages. The open
+gateway is read-only and only accepts known package paths and metadata paths.
+
+The policy is evaluated after the package name and version are resolved.
 
 ## Gate Policy
 
@@ -116,7 +235,6 @@ judged — that answer is `503 OSA gate: vulnerability data unavailable, retry`
 with a `Retry-After` header, so clients retry instead of reporting the package as
 forbidden by policy. Fail-closed verdicts are never cached.
 
----
 
 ## Nexus Gateway
 
@@ -172,158 +290,6 @@ Detailed documentation: [Russian](docs/package-gate.ru.md) · [English](docs/pac
 
 ---
 
-## ☠ Toxic Repo Detection
-
-![Toxic Repo](docs/toxic.svg)
-
-Every scanned package is checked against a curated blocklist of repositories known to contain malicious or harmful code. If a dependency traces back to one of these repos — you'll know before it reaches production.
-
-Matches use an explicit package URL/PURL or the package's source repository from
-registry metadata, including its host and owner. A repository basename or an
-unscoped package name alone is insufficient. Repository lookup supports npm,
-PyPI, Packagist, crates.io, RubyGems and GitHub-hosted Go modules; other ecosystems
-require an explicit package identity in the feed. GitHub scans compare the full
-repository identity. Metadata lookups are cached; failures in a toxic gate rule
-follow `on_gate_error`. Feed entries retain the categories assigned by its authors.
-
-| Category | Description |
-|---|---|
-| 💀 DDoS Tool | Packages designed to flood networks or amplify attacks |
-| 🦠 Malware | Trojans, ransomware, or data-stealing payloads |
-| ⚡ Hostile Actions | Code that destroys data or sabotages systems |
-| 🚫 IP Blocking | Geofencing or censorship embedded in a library |
-| 📢 Political Slogan | Activist payloads that hijack package behavior |
-
----
-
-## Built-in Scanners
-
-The gate's vulnerability data is also available as on-demand scans in the UI and
-the API — to investigate why a package was blocked, or to audit what is already
-in your stack.
-
-![Feature Cards](docs/features.svg)
-
-<br/>
-
-| | Scanner | What it checks |
-|---|---|---|
-| 📦 | **Library Scan** | Single package CVEs — OSV + CVSS + EPSS + CISA KEV + PoC |
-| 🔗 | **Dependency Scan** | Full transitive dependency tree via deps.dev |
-| 🐘 | **Composer Scan** | PHP require tree via Packagist |
-| 🐋 | **Image Scan** | Docker image OS + language packages via Trivy |
-| 🐧 | **OS Package Scan** | Single package on Ubuntu / Debian / RHEL / Alpine / SUSE |
-| 🔍 | **GitHub SAST** | Public repo static analysis via Semgrep |
-
-![Terminal Animation](docs/terminal.svg)
-
-### Scanner API
-
-All endpoints require a session cookie or `X-Api-Key` header.
-
-```bash
-# Library
-curl -X POST /api/libscan -H "X-Api-Key: osa_xxxx" \
-  -d '{"name":"lodash","ecosystem":"npm","version":"4.17.20"}'
-
-# Docker image
-curl -X POST /api/trivy/scan -d '{"image":"nginx","tag":"latest"}'
-
-# GitHub repo
-curl -X POST /api/ghscan -d '{"url":"https://github.com/owner/repo"}'
-```
-
-Full endpoint list: `libscan` · `depscan` · `composer` · `osscan` · `trivy/scan` · `ghscan` · `scans/history` · `export/pdf`
-
-Image scans accept a repository name and a separate tag. Unqualified names such
-as `nginx` use Docker Hub. `TRIVY_ALLOWED_REGISTRIES` is a comma-separated list of
-exact registry hosts, including ports where used. Defaults allow Docker Hub,
-GHCR, Quay, Kubernetes, Microsoft, Google and public ECR registries. Add private
-registries explicitly; an empty list rejects all image scans. The check runs
-before cache access and Trivy execution, including scans requested by PDF export.
-It restricts the registry named in a submitted image reference. Registry redirects,
-authentication endpoints and external layer URLs still require network-level
-egress controls when strict outbound isolation is needed.
-
-PDF rendering keeps JavaScript and external resource loading disabled. Chromium
-uses its sandbox by default in direct backend launches. Compose defaults
-`PUPPETEER_NO_SANDBOX=true` for hosts whose container policy prevents sandbox
-namespace creation; set it to `false` when the host supports sandboxing. There is
-no automatic fallback after a sandbox failure. The image includes
-`chromium-sandbox` and runs as a non-root user.
-
----
-
-## Operations
-
-### Accounts
-
-Any signed-in user changes their own password from the account menu in the top
-right: `POST /api/auth/password` with `currentPassword` and `newPassword`. The
-current password is required, the new one must be at least 8 characters, and the
-session id is rotated on success. Only a wrong current password counts against
-the rate limit, so a mistyped form cannot lock anyone out.
-
-Sign-in attempts are limited to ten per minute per IP and per trimmed,
-case-sensitive username. Unknown users still run a cost-12 bcrypt comparison
-and return the same invalid-credentials response as wrong passwords.
-
-An admin resets somebody else's password in **Manage Users**
-(`PATCH /api/auth/users/:id/password`); that path does not ask for the old one.
-
-Password changes revoke other browser sessions; an admin reset revokes all of
-that account's browser sessions. Account deletion and role changes are checked
-on every authenticated request, including `/api/auth/me`. API keys remain
-separate credentials. Only administrators can save the gateway policy.
-
-The session-version migration requires existing users to sign in again once.
-The enrichment migration discards old library, dependency, OS and gate cache
-entries because their verdicts may be incomplete; these scans will run again
-on demand.
-
-The Compose backend port 3001 is published on localhost. Forwarded client
-addresses are trusted only from the `frontend` container. For another reverse
-proxy, set `TRUSTED_PROXIES` to its addresses/CIDRs or `TRUSTED_PROXY_HOSTS` to
-its DNS names. Direct deployments ignore forwarded headers by default.
-
-### Prometheus and logs
-
-Metrics are published on a separate port bound to localhost only, not on the
-public API port:
-
-```bash
-curl http://localhost:9100/metrics
-```
-
-The backend writes one JSON object per line to stdout. Each HTTP request includes
-`timestamp`, `requestId`, `method`, `path`, `statusCode` and `durationMs` fields.
-Sensitive authorization headers and cookies are never included in request logs.
-
-`GET /api/ready` checks PostgreSQL connectivity and is used by the backend
-container healthcheck. Long-running Trivy and Grype operations are limited by
-`TRIVY_CONCURRENCY`/`GRYPE_CONCURRENCY` and their queue-size settings. External
-HTTP calls use `HTTP_TIMEOUT_MS` and `HTTP_CONCURRENCY` as shared defaults.
-
-`TRIVY_QUEUE_SIZE` and `GRYPE_QUEUE_SIZE` limit waiting scan requests. A full
-queue returns HTTP `503`; the per-client rate limits return HTTP `429`. The
-default limits are 5 Trivy requests/minute, 20 scan requests/minute, 120 API
-requests/minute and 120 gateway requests/minute.
-
-Scan and gate results are stored in PostgreSQL. A cache hit returns immediately
-with `_cached: true`; a cache miss runs the scan and stores its result. The
-`osa_cache_operations_total` metric tracks hits and misses by cache type.
-
-For a Compose backup, dump PostgreSQL and archive the named volumes before
-upgrades. For example:
-
-```bash
-docker compose exec -T postgres pg_dump -U "$PGUSER" "$PGDATABASE" > osa.sql
-docker run --rm -v osa-hunter_nexus-data:/data -v "$PWD":/backup alpine \
-  tar czf /backup/nexus-data.tgz -C /data .
-```
-
----
-
 ## Configuration
 
 ```env
@@ -351,7 +317,7 @@ CVE_CACHE_TTL_HOURS=24             # refresh enrichment data after 24 hours
 
 <div align="center">
 
-**[⭐ Star this repo](../../stargazers)** if OSA Hunter stopped something before it reached your stack
+**[⭐ Star this repo](../../stargazers)** if OSA Hunter caught something in your stack
 
 <sub>Built with ☕ and mild existential dread about open source dependencies</sub>
 
