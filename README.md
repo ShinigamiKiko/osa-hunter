@@ -63,11 +63,13 @@ follow `on_gate_error`. Feed entries retain the categories assigned by its autho
 ```bash
 git clone https://github.com/yourname/osa-hunter.git
 cd osa-hunter
-cp .env.example .env   # add NVD_API_KEY + SESSION_SECRET
+node scripts/init-env.cjs --development   # creates unique local credentials
 docker compose up --build
 ```
 
-Open **http://localhost:3000**. Set `ADMIN_PASSWORD` before the first start.
+Open **http://localhost:3000**. The initial administrator password is in the generated `.env`; it is never printed by the helper. Existing `.env` files are preserved.
+
+For production behind an external HTTPS nginx/Ingress, generate production credentials with `node scripts/init-env.cjs` and use `docker compose -f docker-compose.yml -f docker-compose.production.yml up --build -d`. See [production deployment](deploy/production/README.md).
 
 > Configure the initial administrator password before exposing the instance.
 
@@ -137,7 +139,7 @@ The enrichment migration discards old library, dependency, OS and gate cache
 entries because their verdicts may be incomplete; these scans will run again
 on demand.
 
-The Compose backend port 3001 is published on localhost. Forwarded client
+The Compose frontend and backend ports are published on localhost. Forwarded client
 addresses are trusted only from the `frontend` container. For another reverse
 proxy, set `TRUSTED_PROXIES` to its addresses/CIDRs or `TRUSTED_PROXY_HOSTS` to
 its DNS names. Direct deployments ignore forwarded headers by default.
@@ -294,11 +296,11 @@ Detailed documentation: [Russian](docs/package-gate.ru.md) · [English](docs/pac
 
 ```env
 NVD_API_KEY=your-key-here         # nvd.nist.gov/developers/request-an-api-key
-SESSION_SECRET=long-random-string # change this
+SESSION_SECRET=generated-secret   # production requires at least 32 characters
 PGPASSWORD=strong-db-password     # change this
 ADMIN_PASSWORD=strong-admin-password
-SESSION_COOKIE_SECURE=false        # set true when served over HTTPS
-HTTPS=false                       # set true when TLS terminates at the proxy
+SESSION_COOKIE_SECURE=true         # production requires secure cookies
+HTTPS=true                        # TLS terminates at the external proxy
 CVE_CACHE_TTL_HOURS=24             # refresh enrichment data after 24 hours
 ```
 
