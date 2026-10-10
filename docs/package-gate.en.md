@@ -11,7 +11,7 @@ package manager -> OSA gate -> OSV + policy -> upstream -> package manager
 
 1. The client requests metadata or an archive through `/api/gate/<repository>/...`.
 2. OSA resolves the ecosystem, package name, and version from the path.
-3. Archive requests are evaluated with OSV, enrichment data, and `policy.yaml`.
+3. Archive requests are evaluated with OSV, enrichment data, and the active policy.
 4. A `deny` decision returns HTTP `403`.
 5. An allowed archive is fetched from upstream and streamed to the client.
 
@@ -24,7 +24,9 @@ files on disk; Nexus may provide its own cache.
 - `warn` - the package may be fetched; the API decision includes a warning.
 - `deny` - the package is blocked with HTTP `403`.
 
-Gate errors fail closed: an unavailable security check never becomes an allow.
+With `defaults.on_gate_error: deny`, an unavailable required security check
+returns HTTP `503` with `Retry-After`, so clients can retry. This is distinct
+from a policy block (`403`), and unavailable checks are never cached as verdicts.
 An unavailable upstream is returned as `502`.
 
 Example `policy.yaml`:
@@ -73,7 +75,13 @@ Available policy facts include:
 - `cves`, `cveCount`, `ids`;
 - `toxic.found`.
 
-The shipped root `policy.yaml` is the source of truth for the active policy.
+The root `policy.yaml` seeds the policy on first boot. The active policy is
+stored in PostgreSQL and edited under **Rules** in the dashboard. Changing the
+seed file does not replace an existing database policy. Use **Export YAML** to
+keep a reviewed copy in Git; saving a policy invalidates earlier cached verdicts.
+
+See [Operations and API](operations.md#gate-policy) for policy endpoints and
+[production deployment](../deploy/production/README.md) for HTTPS client setup.
 
 ## Supported ecosystems
 
