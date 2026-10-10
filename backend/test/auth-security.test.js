@@ -149,3 +149,25 @@ test('forwarded addresses are accepted only from a configured immediate proxy', 
     });
   }
 });
+
+test('logging a completed proxy response tolerates a disconnected socket with no peer address', async () => {
+  const { logRequest } = require('../lib/observability/logger');
+  const instance = express();
+  instance.use(configureTrustedProxy(instance, { addresses: '127.0.0.1', hosts: '' }));
+  let loggingError, logged = false;
+  instance.get('/', (req, res) => {
+    res.once('finish', () => {
+      // Socket.remoteAddress can disappear after nginx closes its auth subrequest.
+      Object.defineProperty(req.socket, 'remoteAddress', { value: undefined, configurable: true });
+      try { logRequest(req, 200, 1); logged = true; } catch (error) { loggingError = error; }
+    });
+    res.json({ ok: true });
+  });
+  await withApp(instance, async base => {
+    const response = await fetch(base, { headers: { 'X-Forwarded-For': '203.0.113.8', Connection: 'close' } });
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), { ok: true });
+  });
+  assert.equal(loggingError, undefined);
+  assert.equal(logged, true);
+});
