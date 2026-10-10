@@ -1,0 +1,11 @@
+# HTTPS terminates at an external nginx/Ingress. The frontend's published port
+# is bound to localhost in docker-compose.yml and must not be exposed directly.
+services:
+  backend:
+    environment:
+      NODE_ENV: production
+      HTTPS: "true"
+      SESSION_COOKIE_SECURE: "true"
+  frontend:
+    volumes:
+      - ./deploy/production/nginx.conf:/etc/nginx/conf.d/default.conf:ro

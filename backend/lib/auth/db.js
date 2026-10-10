@@ -3,6 +3,7 @@
 const { Pool } = require('pg');
 const fs       = require('fs');
 const path     = require('path');
+const { validateDatabasePassword, validateAdminPassword } = require('../utils/runtimeSecurity');
 
 let _pool = null;
 
@@ -13,7 +14,8 @@ function getPool() {
       port:     parseInt(process.env.PGPORT || '5432', 10),
       database: process.env.PGDATABASE || 'osa',
       user:     process.env.PGUSER     || 'osa',
-      password: process.env.PGPASSWORD || 'osa',
+      password: process.env.NODE_ENV === 'production'
+        ? validateDatabasePassword() : (process.env.PGPASSWORD || 'osa'),
       max: 10,
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 5000,
@@ -64,20 +66,29 @@ async function runMigrations() {
 async function seedAdmin() {
   const pool = getPool();
   const { rows } = await pool.query('SELECT COUNT(*) FROM users');
-  if (parseInt(rows[0].count, 10) > 0) return;
-
   const bcrypt = require('bcryptjs');
-  const password = process.env.ADMIN_PASSWORD;
-  if (!password && process.env.NODE_ENV === 'production') {
-    throw new Error('ADMIN_PASSWORD must be set before creating the initial admin account');
+  if (parseInt(rows[0].count, 10) > 0) {
+    if (process.env.NODE_ENV === 'production') {
+      const admins = await pool.query("SELECT password FROM users WHERE role = 'admin'");
+      for (const account of admins.rows) {
+        if (await bcrypt.compare('admin', account.password)) {
+          throw new Error('An administrator still uses the development password; change it before starting production');
+        }
+      }
+    }
+    return;
   }
+  const password = process.env.NODE_ENV === 'production' ? validateAdminPassword() : process.env.ADMIN_PASSWORD;
   const hash = await bcrypt.hash(password || 'admin', 12);
   await pool.query(
     `INSERT INTO users (username, password, role) VALUES ('admin', $1, 'admin')`,
     [hash]
   );
-  console.warn('[auth] ✅ Default admin/admin account created.');
-  console.warn('[auth] ⚠️  CHANGE THIS PASSWORD IMMEDIATELY via the admin panel before exposing this instance.');
+  if (password) console.log('[auth] Initial administrator account created.');
+  else {
+    console.warn('[auth] Default admin/admin account created for development.');
+    console.warn('[auth] Change the development password before exposing this instance.');
+  }
 }
 
 module.exports = { closePool, getPool, runMigrations, seedAdmin };

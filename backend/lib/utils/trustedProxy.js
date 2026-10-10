@@ -9,7 +9,8 @@ function configureTrustedProxy(app, { addresses = process.env.TRUSTED_PROXIES ||
   const names = hosts.split(',').map(s => s.trim()).filter(Boolean);
   let resolved = new Set(), expires = 0, pending;
   const normalize = ip => ip.replace(/^::ffff:/, '');
-  app.set('trust proxy', (ip, hop) => hop === 0 && (fixed(ip) || resolved.has(normalize(ip))));
+  app.set('trust proxy', (ip, hop) => hop === 0 && typeof ip === 'string'
+    && (fixed(ip) || resolved.has(normalize(ip))));
   return async function refreshProxyAddresses(req, res, next) {
     if (names.length && Date.now() >= expires) {
       if (!pending) pending = Promise.all(names.map(async host => {

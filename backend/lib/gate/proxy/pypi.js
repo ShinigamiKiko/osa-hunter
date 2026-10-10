@@ -74,7 +74,7 @@ async function serveIndex(req, res, repoCfg, repository, artifactPath) {
   if (contentType.includes('json')) {
     const doc = await upstream.json();
     for (const file of doc.files || []) file.url = await rewrite(file.url);
-    res.json(doc);
+    res.type(contentType).json(doc);
   } else {
     const html = await upstream.text();
     const matches = [...html.matchAll(/\bhref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'<>`]+))/gi)];

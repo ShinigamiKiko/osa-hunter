@@ -81,7 +81,7 @@ test('decompressed GET streams discard compressed lengths, while HEAD preserves 
   });
 });
 
-test('PyPI HTML and JSON file URLs remain gated, including hashes, local versions and metadata sidecars', async () => {
+test('PyPI HTML and JSON indices preserve media types and gate file URLs, hashes, local versions and metadata sidecars', async () => {
   for (const format of ['html', 'json']) {
     verdict = 'deny';
     let downloads = 0;
@@ -96,6 +96,8 @@ test('PyPI HTML and JSON file URLs remain gated, including hashes, local version
     const app = express(); app.use('/api/gate', gate);
     await withApp(app, async base => {
       const response = await nativeFetch(base + '/api/gate/py/simple/demo-pkg/');
+      assert.equal(response.headers.get('content-type').split(';')[0],
+        format === 'html' ? 'text/html' : 'application/vnd.pypi.simple.v1+json');
       const url = format === 'html' ? (await response.text()).match(/href="([^"]+)"/)[1] : (await response.json()).files[0].url;
       assert.ok(url.startsWith(base + '/api/gate/py/files/')); assert.ok(url.endsWith('#sha256=abcd'));
       assert.equal((await nativeFetch(url)).status, 403); assert.equal(downloads, 0);

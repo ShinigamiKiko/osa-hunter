@@ -5,6 +5,9 @@ const path      = require('path');
 const crypto    = require('crypto');
 const session   = require('express-session');
 const pgSession = require('connect-pg-simple')(session);
+const { validateProductionConfig, useSecureCookies } = require('./lib/utils/runtimeSecurity');
+
+validateProductionConfig();
 
 const { closePool, getPool, runMigrations, seedAdmin } = require('./lib/auth/db');
 const { purgeExpired }        = require('./lib/auth/scanCache');
@@ -27,8 +30,7 @@ const sessionSecret = process.env.SESSION_SECRET || (() => {
   return generated;
 })();
 
-const cookieSecure = process.env.SESSION_COOKIE_SECURE === 'true'
-  || (process.env.NODE_ENV === 'production' && process.env.HTTPS === 'true');
+const cookieSecure = useSecureCookies();
 const cookieName = cookieSecure ? '__Host-osa.sid' : 'osa.sid';
 
 const app = express();
