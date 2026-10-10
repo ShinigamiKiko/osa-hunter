@@ -12,7 +12,7 @@ services:
     environment:
       POSTGRES_DB:       ${PGDATABASE:-osa}
       POSTGRES_USER:     ${PGUSER:-osa}
-      POSTGRES_PASSWORD: ${PGPASSWORD:-osa}
+      POSTGRES_PASSWORD: ${PGPASSWORD:?Set PGPASSWORD using scripts/init-env.cjs}
     volumes:
       - postgres-data:/var/lib/postgresql/data
     restart: unless-stopped
@@ -39,11 +39,14 @@ services:
       - PGPORT=5432
       - PGDATABASE=${PGDATABASE:-osa}
       - PGUSER=${PGUSER:-osa}
-      - PGPASSWORD=${PGPASSWORD:-osa}
-      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
+      - PGPASSWORD=${PGPASSWORD:?Set PGPASSWORD using scripts/init-env.cjs}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:?Set ADMIN_PASSWORD using scripts/init-env.cjs}
+      - SESSION_SECRET=${SESSION_SECRET:?Set SESSION_SECRET using scripts/init-env.cjs}
+      - SESSION_COOKIE_SECURE=${SESSION_COOKIE_SECURE:-true}
+      - HTTPS=${HTTPS:-true}
       - OSA_POLICY_FILE=/app/policy.yaml
       - NEXUS_UPSTREAM=${NEXUS_UPSTREAM:-http://nexus:8081}
-      - NODE_ENV=production
+      - NODE_ENV=${NODE_ENV:-production}
       - METRICS_PORT=9100
       - TRUSTED_PROXY_HOSTS=frontend
       - PUPPETEER_NO_SANDBOX=${PUPPETEER_NO_SANDBOX:-true}
@@ -90,7 +93,7 @@ services:
     networks:
       - osvguard
     ports:
-      - "3000:80"
+      - "127.0.0.1:${FRONTEND_PORT:-3000}:80"
     depends_on:
       backend:
         condition: service_healthy

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="120" height="22" viewBox="0 0 120 22" role="img" aria-label="PostgreSQL: 16">
+  <title>PostgreSQL: 16</title>
+  <clipPath id="badge"><rect width="120" height="22" rx="4"/></clipPath>
+  <g clip-path="url(#badge)">
+    <rect width="120" height="22" fill="#30363d"/>
+    <rect x="87" width="33" height="22" fill="#4169a1"/>
+  </g>
+  <g fill="#fff" font-family="Verdana,DejaVu Sans,sans-serif" font-size="11" text-anchor="middle">
+    <text x="43.5" y="15">PostgreSQL</text>
+    <text x="103.5" y="15">16</text>
+  </g>
+</svg>
