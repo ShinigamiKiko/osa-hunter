@@ -76,6 +76,7 @@ function updateLibBadge(){
 
 async function renderLibList(){
   updateLibBadge();
+  const pg=paginate('lib-list',libScans,renderLibList);
   const el=document.getElementById('libListContent');
   if(!libScans.length){
     el.innerHTML=`<div class="empty">${_emptyRadar()}<h2>No scans yet</h2><p>Add a library to check for known vulnerabilities via OSV database with EPSS enrichment</p><button class="btn-primary" onclick="openLibModal()">+ Add library</button></div>`;
@@ -88,7 +89,7 @@ async function renderLibList(){
     </div>
     <div class="tbl-wrap"><table class="tbl">
       <thead><tr><th>Package</th><th>Description</th><th>Version</th><th>Top Severity</th><th>Findings</th><th>Scanned</th><th style="width:28px"></th></tr></thead>
-      <tbody>${libScans.map((s,i)=>{
+      <tbody>${pg.rows.map(([s,i])=>{
         const cnt={};s.vulns.forEach(v=>{const sv=v._sev||v.severity||'UNKNOWN';cnt[sv]=(cnt[sv]||0)+1;});
         const pills=['CRITICAL','HIGH','MEDIUM','LOW','UNKNOWN'].filter(sv=>cnt[sv])
           .map(sv=>`<span class="sev ${sv}" style="font-size:9px;padding:2px 6px">${cnt[sv]} ${sv}</span>`).join(' ');
@@ -111,10 +112,11 @@ async function renderLibList(){
             onmouseover="this.style.color='var(--c)'" onmouseout="this.style.color='var(--muted)'">✕</button></td>
         </tr>`;
       }).join('')}</tbody>
-    </table></div>`;
+    </table></div>${pg.html}`;
 }
 
 function renderLibDetail(s){
+  const vulnPage=paginate('lib-vulns',s.vulns,()=>renderLibDetail(s),s);
   const cnt={};s.vulns.forEach(v=>{const sv=v._sev||v.severity||'UNKNOWN';cnt[sv]=(cnt[sv]||0)+1;});
   const el=document.getElementById('libDetailContent');
   el.innerHTML=`
@@ -137,7 +139,7 @@ function renderLibDetail(s){
     </div>
     ${s.vulns.length===0
       ?'<div style="text-align:center;padding:60px;color:var(--l);font-size:14px">🛡️ No vulnerabilities found — this package version is clean!</div>'
-      :`<div id="vulnCards">${s.vulns.map((v,vi)=>vulnCardHtml(s,v,vi)).join('')}</div>`}`;
+      :`<div id="vulnCards">${vulnPage.rows.map(([v,vi])=>vulnCardHtml(s,v,vi)).join('')}</div>${vulnPage.html}`}`;
   if(s.vulns.length) renderStoredEnrichment(s.vulns,'lib');
   checkActivity('activityBadge',s.pkg,s.ecoLabel);
 }

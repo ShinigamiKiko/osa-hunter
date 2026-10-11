@@ -28,7 +28,7 @@ async function openLibFromDep(ev, systemId, name, version){
       eco:eco.ecoId, ecoLabel:eco.label, ecoLogo:eco.logo, desc:'',
       _cacheKey:_ck, vulns, toxic:data.toxic, topSev:data.topSeverity||'NONE', scannedAt:data.scannedAt,
     });
-    if(libScans.length>50) libScans=libScans.slice(0,50);
+    if(libScans.length>SCAN_HISTORY_MAX) libScans=libScans.slice(0,SCAN_HISTORY_MAX);
     saveLib();
     updateLibBadge();
     navTo('lib-detail', { scan: libScans[0] });

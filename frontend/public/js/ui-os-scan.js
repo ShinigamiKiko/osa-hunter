@@ -56,7 +56,7 @@ async function doOsScan(){
       distroVer,desc,vulns:data.vulns||[],counts:data.counts||{},
       topSev:data.topSeverity||'NONE',scannedAt:data.scannedAt||new Date().toISOString(),
     });
-    if(osScans.length>30) osScans=osScans.slice(0,30);
+    if(osScans.length>SCAN_HISTORY_MAX) osScans=osScans.slice(0,SCAN_HISTORY_MAX);
     saveOs();closeOsModal();updateOsBadge();navTo('os-list');
   }catch(e){ showErr('osmerr',e.message||'Scan failed'); }
   setBtn('btnOsGo',false,'▶ Scan');
@@ -70,6 +70,7 @@ function updateOsBadge(){
 
 async function renderOsList(){
   updateOsBadge();
+  const pg=paginate('os-list',osScans,renderOsList);
   const el=document.getElementById('osListContent');
   if(!osScans.length){
     el.innerHTML=`<div class="empty">${_emptyRadar()}
@@ -86,7 +87,7 @@ async function renderOsList(){
     </div>
     <div class="tbl-wrap"><table class="tbl">
       <thead><tr><th>Package</th><th>Description</th><th>Distribution</th><th>Version</th><th>Top Severity</th><th>Findings</th><th>Scanned</th><th style="width:28px"></th></tr></thead>
-      <tbody>${osScans.map((s,i)=>{
+      <tbody>${pg.rows.map(([s,i])=>{
         const counts=s.counts||{};
         const pills=['CRITICAL','HIGH','MEDIUM','LOW','UNKNOWN'].filter(sv=>counts[sv])
           .map(sv=>`<span class="sev ${sv}" style="font-size:9px;padding:2px 6px">${counts[sv]} ${sv}</span>`).join(' ');
@@ -108,7 +109,7 @@ async function renderOsList(){
         </tr>`;
       }).join('')}
       </tbody>
-    </table></div>`;
+    </table></div>${pg.html}`;
 }
 
 function renderOsDetail(scan){
@@ -138,16 +139,19 @@ function renderOsDetail(scan){
   for(const [,g] of sorted)
     g.vulns.sort((a,b)=>(SEV_W[b.severity]||0)-(SEV_W[a.severity]||0));
 
+  const rerender=()=>keepOpenGroups(el,()=>renderOsDetail(scan));
+  const groupPage=paginate('os-groups',sorted,rerender,scan);
   let gvi=0;
-  const groupHtml=sorted.map(([pkgName,g])=>{
+  const groupHtml=groupPage.rows.map(([[pkgName,g]])=>{
     const topSevG=['CRITICAL','HIGH','MEDIUM','LOW','UNKNOWN'].find(s=>g.counts[s])||'UNKNOWN';
     const pills=['CRITICAL','HIGH','MEDIUM','LOW','UNKNOWN'].filter(sv=>g.counts[sv])
       .map(sv=>`<span class="sev ${sv}" style="font-size:9px;padding:1px 6px">${g.counts[sv]}</span>`).join('');
     const pkgVerSpan=g.vulns[0]?.pkgVersion?`<span style="color:var(--muted);font-size:11px;margin-left:6px">v${esc(g.vulns[0].pkgVersion)}</span>`:'';
     const fixedVer=g.vulns.find(v=>v.fix)?.fix;
     const fixTag=fixedVer?`<span class="fix-tag" style="font-size:10px">→ ${esc(fixedVer)}</span>`:'';
-    const cards=g.vulns.map(v=>osVulnCardHtml(v,gvi++)).join('');
-    return`<div class="pkg-group" style="margin-bottom:20px">
+    const cardPage=paginate('os-cards:'+pkgName,g.vulns,rerender,scan);
+    const cards=cardPage.rows.map(([v])=>osVulnCardHtml(v,gvi++)).join('')+cardPage.html;
+    return`<div class="pkg-group" data-group="${esc(pkgName)}" style="margin-bottom:20px">
       <div class="pkg-group-hdr" onclick="toggleOsPkgGroup(this)" style="display:flex;align-items:center;gap:10px;padding:11px 16px;background:var(--s2);border:1px solid var(--br);border-radius:11px;cursor:pointer;transition:background .13s;user-select:none;margin-bottom:0" onmouseover="this.style.background='var(--s3)'" onmouseout="this.style.background='var(--s2)'">
         <div class="vbar ${topSevG}" style="height:28px"></div>
         <div style="flex:1;min-width:0"><span style="font-size:14px;font-weight:600;color:#fff">${esc(pkgName)}</span>${pkgVerSpan}${fixTag?'<span style="margin-left:8px">'+fixTag+'</span>':''}</div>
@@ -168,7 +172,7 @@ function renderOsDetail(scan){
       <div class="detail-chips">${chips||'<span class="sev NONE">✅ CLEAN</span>'}</div>
       <div style="margin-left:auto;flex-shrink:0">${exportBtnHtml('os','__OS_SCAN__')}</div>
     </div>
-    ${vulns.length===0?'<div style="text-align:center;padding:60px;color:var(--l);font-size:14px">🛡️ No vulnerabilities found — this package is clean!</div>':groupHtml}`;
+    ${vulns.length===0?'<div style="text-align:center;padding:60px;color:var(--l);font-size:14px">🛡️ No vulnerabilities found — this package is clean!</div>':groupHtml+groupPage.html}`;
 
   const fb=el.querySelector('.pkg-group-body'),fc=el.querySelector('.pkg-chev');
   if(fb){fb.style.display='block';if(fc)fc.style.transform='rotate(180deg)';}

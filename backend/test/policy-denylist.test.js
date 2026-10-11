@@ -61,3 +61,9 @@ test('denylist is a hard block decided before any scan', async () => {
   assert.match(verdict.reasons[0].detail, /blocked by name: curl/);
   assert.equal(verdict.findings.total, 0, 'no scan should have run');
 });
+
+test('a name verdict carries the pattern that matched, so Proxy can name the rule', () => {
+  const r = decide(['crossenv*'], { ecosystem: 'npm', name: 'crossenv-x', version: '1.0' });
+  assert.equal(r.decision, 'deny');
+  assert.equal(r.reasons[0].entry, 'crossenv*');
+});

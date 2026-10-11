@@ -134,7 +134,10 @@ function renderDepDetail(scan){
         </span>
       </div>
       <div id="depsec-body-${key}" style="display:block;margin-top:8px">
-        ${deps.length ? deps.map(d=>depPkgCard(d,allDeps.indexOf(d))).join('') : emptyBody}
+        ${deps.length ? (()=>{
+          const page=paginate('dep-section:'+key,deps,()=>renderDepDetail(scan),scan);
+          return page.rows.map(([d])=>depPkgCard(d,allDeps.indexOf(d))).join('')+page.html;
+        })() : emptyBody}
       </div>
     </div>`;
   }

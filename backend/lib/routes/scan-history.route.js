@@ -20,7 +20,7 @@ router.get('/scans/history', async (req, res) => {
        WHERE type = $1
          AND scanned_at > NOW() - INTERVAL '24 hours'
        ORDER BY scanned_at DESC
-       LIMIT 100`,
+       LIMIT 150`,
       [type]
     );
 

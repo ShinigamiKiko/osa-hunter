@@ -64,12 +64,12 @@
   };
 
   const META = {
-    lib     :{lsKey:'es_lib',get:()=>libScans,max:50},
-    dep     :{lsKey:'es_dep',get:()=>depScans,max:20},
-    composer:{lsKey:'es_dep',get:()=>depScans,max:20},
-    os      :{lsKey:'es_os', get:()=>osScans, max:30},
-    img     :{lsKey:'es_img',get:()=>imgScans,max:20},
-    sast    :{lsKey:'es_gh', get:()=>ghScans, max:20},
+    lib     :{lsKey:'es_lib',get:()=>libScans,max:SCAN_HISTORY_MAX},
+    dep     :{lsKey:'es_dep',get:()=>depScans,max:SCAN_HISTORY_MAX},
+    composer:{lsKey:'es_dep',get:()=>depScans,max:SCAN_HISTORY_MAX},
+    os      :{lsKey:'es_os', get:()=>osScans, max:SCAN_HISTORY_MAX},
+    img     :{lsKey:'es_img',get:()=>imgScans,max:SCAN_HISTORY_MAX},
+    sast    :{lsKey:'es_gh', get:()=>ghScans, max:SCAN_HISTORY_MAX},
   };
 
   const PAGE_TYPES = {

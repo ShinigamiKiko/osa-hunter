@@ -171,7 +171,10 @@ router.all('/*', async (req, res) => {
       const verdict = await cachedGate(artifact);
       if (verdict.decision === 'deny') {
         const why = (verdict.reasons || []).map(r => `${r.rule}: ${r.detail}`).join('; ') || 'policy';
-        const rules = (verdict.reasons || []).map(r => r.rule).join(',') || 'policy';
+        // A name rule is identified by the pattern it matched (its name in the
+        // Rules view), not by the generic denylist id shared by all of them.
+        const rules = (verdict.reasons || [])
+          .map(r => (r.entry ? `${r.rule}=${encodeURIComponent(r.entry)}` : r.rule)).join(',') || 'policy';
         // Fail-closed, but say why: the package is not being judged, the data
         // to judge it is missing. 503 also makes clients retry rather than
         // report the package as forbidden. It still is not served - and it is

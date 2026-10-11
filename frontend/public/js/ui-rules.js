@@ -160,14 +160,28 @@ function _rulesMatches(label) {
 }
 
 function _rulesListHtml(names, rules) {
-  const shownNames = names.filter(n => _rulesMatches(n.pattern));
-  const shownRules = rules.map((r, i) => [r, i]).filter(([r]) => _rulesMatches(r.id));
-  const html = shownNames.map(_nameCard).join('')
-    + shownRules.map(([r, i]) => _ruleCard(r, i)).join('');
-  if (html) return html;
+  const shown = [
+    ...names.filter(n => _rulesMatches(n.pattern)).map(n => ({ key: `name:${n.pattern}`, html: () => _nameCard(n) })),
+    ...rules.map((r, i) => [r, i]).filter(([r]) => _rulesMatches(r.id))
+      .map(([r, i]) => ({ key: `rule:${r.id || ''}`, html: () => _ruleCard(r, i) })),
+  ];
+  // A new search starts on page one; a rule opened from Proxy activity opens
+  // the page that holds it.
+  pageState('rules', _rulesQuery.trim());
+  if (_rulesFocus) pageReveal('rules', shown.findIndex(item => item.key === _rulesFocus));
+  const page = paginate('rules', shown, _rulesRepaintList, _rulesQuery.trim());
+  const html = page.rows.map(([item]) => item.html()).join('');
+  if (html) return html + page.html;
   return _rulesQuery.trim()
     ? `<div class="rules-empty">Nothing matches “${esc(_rulesQuery)}”.</div>`
     : '<div class="rules-empty">No rules yet — everything falls through to the default.</div>';
+}
+
+function _rulesRepaintList() {
+  const list = document.getElementById('rulesList');
+  if (!list) return;
+  list.innerHTML = _rulesListHtml(_nameEntries(_rulesState.body), _rulesState.body.rules || []);
+  rulesBindList();
 }
 
 // Scroll the rule a Proxy verdict pointed at into view and mark it, so the

@@ -1,0 +1,69 @@
+// ── Pager: 50 / 100 / 150 rows under every long list ─────────
+// Shared by scan lists, detail groups, rules, admin tables and Proxy activity.
+.pager {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  padding: 12px 4px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--muted2);
+  font-variant-numeric: tabular-nums;
+}
+
+.pager-size {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+
+  select {
+    background: var(--s2);
+    color: var(--text);
+    border: 1px solid var(--br2);
+    border-radius: 6px;
+    padding: 5px 8px;
+    font: inherit;
+    cursor: pointer;
+
+    &:hover { border-color: var(--muted); }
+    &:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  }
+}
+
+.pager-pages {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.pager-btn {
+  min-width: 32px;
+  height: 32px;
+  padding: 0 9px;
+  border: 1px solid var(--br);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted2);
+  font: inherit;
+  cursor: pointer;
+  transition: border-color .15s, color .15s, background-color .15s;
+
+  &:hover:not(:disabled) { border-color: var(--br2); color: var(--text); }
+  &.current { border-color: var(--accent); color: var(--text); background: rgba(94,240,200,.1); }
+  &:disabled { opacity: .4; cursor: default; }
+  &:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+}
+
+.pager-gap { color: var(--muted); padding: 0 2px; }
+
+// Inside an open package / finding group the pager sits in the group's padding.
+.pkg-group-body > .pager { padding: 10px 16px; }
+// Proxy and admin tables run edge to edge; line the pager up with their cells.
+.proxy-table + .pager, #usersTableWrap .pager, #apiKeysSection .pager { padding: 12px 20px; }
+
+@media (max-width: 600px) {
+  .pager-pages { margin-left: 0; width: 100%; }
+}

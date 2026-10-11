@@ -33,7 +33,10 @@ function renderDepPkg(dep, scan){
     :'<div style="text-align:center;padding:60px;color:var(--l);font-size:15px">&#x1F6E1;&#xFE0F; No vulnerabilities found for this dependency!</div>';
   const vulnsHtml=dep.vulns?.length===0
     ?emptyMsg
-    :`<div id="depPkgVulnCards">${(dep.vulns||[]).map((v,vi)=>depVulnCardHtml(dep,v,vi)).join('')}</div>`;
+    :(()=>{
+      const page=paginate('dep-pkg-vulns',dep.vulns||[],()=>renderDepPkg(dep,scan),dep);
+      return `<div id="depPkgVulnCards">${page.rows.map(([v,vi])=>depVulnCardHtml(dep,v,vi)).join('')}</div>${page.html}`;
+    })();
 
   el.innerHTML=`
     <div class="detail-header">
