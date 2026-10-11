@@ -16,6 +16,7 @@
 //   _login        — login page card, form, radar wrapper
 //   _proxy        — proxy activity tabs, table, pager
 //   _rules        — gate policy editor: rule cards, exceptions, revisions
+//   _pager        — 50/100/150 row pager shared by every long list
 
 @use 'partials/base';
 @use 'partials/sidebar';
@@ -30,3 +31,4 @@
 @use 'partials/login';
 @use 'partials/proxy';
 @use 'partials/rules';
+@use 'partials/pager';

@@ -90,7 +90,7 @@ async function doDepScan(){
     if (ckIdx !== -1) depScans.splice(ckIdx, 1);
     const scan={...data,desc,id:Date.now(),_cacheKey:_ck};
     depScans.unshift(scan);
-    if(depScans.length>20) depScans=depScans.slice(0,20);
+    if(depScans.length>SCAN_HISTORY_MAX) depScans=depScans.slice(0,SCAN_HISTORY_MAX);
     saveDep(); closeDepModal(); updateDepBadge();
     navTo('dep-detail',{scan});
   }catch(e){ showErr('dmerr',e.message||'Scan failed'); }

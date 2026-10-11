@@ -45,7 +45,7 @@ async function doGhScan(){
       errorSamples: Array.isArray(data.errorSamples) ? data.errorSamples : [],
       scannedAt: data.scannedAt || new Date().toISOString(),
     });
-    if(ghScans.length > 20) ghScans = ghScans.slice(0,20);
+    if(ghScans.length > SCAN_HISTORY_MAX) ghScans = ghScans.slice(0,SCAN_HISTORY_MAX);
     saveGh(); updateGhBadge(); navTo('gh-list');
   } catch(e) { showErr('ghErr', e.message || 'Scan failed'); }
   setBtn('btnGhScan', false, 'Scan Repository');
@@ -62,7 +62,9 @@ async function renderGhList(){
       '</div>';
     _initEmptyRadar(); return;
   }
-  var rows = ghScans.map(function(s,i){
+  var pg = paginate('gh-list', ghScans, renderGhList);
+  var rows = pg.rows.map(function(pair){
+    var s = pair[0], i = pair[1];
     var counts = s.counts||{};
     var pills = ['CRITICAL','HIGH','MEDIUM','LOW','UNKNOWN'].filter(function(sv){return counts[sv];})
       .map(function(sv){return '<span class="sev '+sv+'" style="font-size:9px;padding:2px 6px">'+counts[sv]+' '+sv+'</span>';}).join(' ');
@@ -86,7 +88,7 @@ async function renderGhList(){
     '<button class="btn-secondary" onclick="if(confirm(\'Clear all GitHub scans?\')){ghScans=[];saveGh();updateGhBadge();renderGhList()}">Clear all</button></div>' +
     '<div class="tbl-wrap"><table class="tbl"><thead><tr>' +
     '<th>Repository</th><th>Description</th><th>Top Severity</th><th>Findings</th><th>Scanned</th><th style="width:28px"></th>' +
-    '</tr></thead><tbody>'+rows+'</tbody></table></div>';
+    '</tr></thead><tbody>'+rows+'</tbody></table></div>'+pg.html;
 }
 
 function parseCweId(cweArr) {
@@ -194,8 +196,11 @@ function renderGhDetail(scan){
     return topB - topA;
   });
 
+  var rerender = function(){ keepOpenGroups(el, function(){ renderGhDetail(scan); }); };
+  var groupPage = paginate('gh-groups', sortedGroups, rerender, scan);
   var gvi = 0;
-  var groupHtml = sortedGroups.map(function(group){
+  var groupHtml = groupPage.rows.map(function(pair){
+    var group = pair[0];
     var vtype = group.vtype;
     var items = group.items;
     items.sort(function(a,b){
@@ -209,7 +214,9 @@ function renderGhDetail(scan){
     var pills = ['CRITICAL','HIGH','MEDIUM','LOW','UNKNOWN'].filter(function(sv){return sevCounts[sv];})
       .map(function(sv){return '<span class="sev '+sv+'" style="font-size:9px;padding:1px 6px">'+sevCounts[sv]+'</span>';}).join('');
 
-    var fileRows = items.map(function(f){
+    var filePage = paginate('gh-files:'+vtype.label, items, rerender, scan);
+    var fileRows = filePage.rows.map(function(filePair){
+      var f = filePair[0];
       var vi = gvi++;
       var sev = (f.severity||'UNKNOWN').toUpperCase();
       var fname = f.path ? (f.path.length > 70 ? '…'+f.path.slice(-67) : f.path) : 'unknown';
@@ -226,7 +233,7 @@ function renderGhDetail(scan){
         '</div>';
     }).join('');
 
-    return '<div class="pkg-group" style="margin-bottom:20px">' +
+    return '<div class="pkg-group" data-group="'+esc(vtype.label)+'" style="margin-bottom:20px">' +
       '<div class="pkg-group-hdr" onclick="toggleGhGroup(this)" style="display:flex;align-items:center;gap:10px;padding:11px 16px;background:var(--s2);border:1px solid var(--br);border-radius:11px 11px 0 0;cursor:pointer;transition:background .13s;user-select:none" onmouseover="this.style.background=\'var(--s3)\'" onmouseout="this.style.background=\'var(--s2)\'">' +
       '<div class="vbar '+topSev+'" style="height:28px"></div>' +
       '<span style="font-size:16px;line-height:1">'+vtype.icon+'</span>' +
@@ -235,7 +242,7 @@ function renderGhDetail(scan){
       '<span style="font-size:11px;color:var(--muted);margin-left:4px">'+items.length+' finding'+(items.length>1?'s':'')+'</span>' +
       '<span class="pkg-chev" style="color:var(--muted);font-size:10px;transition:transform .18s;margin-left:4px">▼</span>' +
       '</div></div>' +
-      '<div class="pkg-group-body" style="display:none;background:var(--s1);border:1px solid var(--br);border-top:none;border-radius:0 0 11px 11px;overflow:hidden">'+fileRows+'</div>' +
+      '<div class="pkg-group-body" style="display:none;background:var(--s1);border:1px solid var(--br);border-top:none;border-radius:0 0 11px 11px;overflow:hidden">'+fileRows+filePage.html+'</div>' +
       '</div>';
   }).join('');
 
@@ -254,7 +261,7 @@ function renderGhDetail(scan){
     '<div style="margin-left:auto;flex-shrink:0">'+exportBtnHtml('sast','__SAST_SCAN__')+'</div>' +
     '</div>' +
     _ghCompletenessHtml(scan) +
-    (findings.length===0 ? (scan.complete === true ? '<div style="text-align:center;padding:60px;color:var(--l);font-size:14px">✅ No findings — this repository looks clean!</div>' : '') : groupHtml);
+    (findings.length===0 ? (scan.complete === true ? '<div style="text-align:center;padding:60px;color:var(--l);font-size:14px">✅ No findings — this repository looks clean!</div>' : '') : groupHtml + groupPage.html);
 
   var fb=el.querySelector('.pkg-group-body'),fc=el.querySelector('.pkg-chev');
   if(fb){fb.style.display='block';if(fc)fc.style.transform='rotate(180deg)';}

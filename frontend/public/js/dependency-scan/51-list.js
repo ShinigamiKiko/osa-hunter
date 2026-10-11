@@ -1,6 +1,7 @@
 
 async function renderDepList(){
   updateDepBadge();
+  const pg=paginate('dep-list',depScans,renderDepList);
   const el=document.getElementById('depListContent');
   if(!depScans.length){
     el.innerHTML=`<div class="empty">
@@ -23,7 +24,7 @@ async function renderDepList(){
         <th>Version</th><th>Deps</th><th>Vulnerabilities</th><th>Toxic</th><th>Scanned</th><th style="width:28px"></th>
       </tr></thead>
       <tbody>
-        ${depScans.map((s,i)=>{
+        ${pg.rows.map(([s,i])=>{
           markDependencyCompleteness(s);
           const sysInfo=DEP_SYSTEMS.find(x=>x.id===s.system)||{logo:'📦',label:s.system};
           const _sum={ ...s.summary };
@@ -65,7 +66,7 @@ async function renderDepList(){
           </tr>`;
         }).join('')}
       </tbody>
-    </table></div>`;
+    </table></div>${pg.html}`;
 }
 
 function toggleDepSection(key){

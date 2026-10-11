@@ -15,7 +15,16 @@ function fmtDate(iso){ if(!iso)return'—'; const d=new Date(iso); return d.toLo
 function showErr(id,msg){ const e=document.getElementById(id); if(e){ e.textContent=msg; e.style.display='block'; } }
 function setBtn(id,loading,label){ const b=document.getElementById(id); if(!b)return; b.disabled=loading; if(label)b.textContent=loading?'⏳ Scanning…':label; }
 function safeLoad(key,def){ try{ const v=localStorage.getItem(key); return v?JSON.parse(v):def; }catch{ return def; } }
-function safeSave(key,val){ try{ localStorage.setItem(key,JSON.stringify(val)); }catch{} }
+// Scan lists keep up to 150 entries. When the browser's storage quota is full,
+// keep the newest entries that fit instead of silently saving nothing.
+function safeSave(key,val){
+  let list=val;
+  for(;;){
+    try{ localStorage.setItem(key,JSON.stringify(list)); return; }
+    catch{ if(!Array.isArray(list)||list.length<=1) return; list=list.slice(0,Math.floor(list.length/2)); }
+  }
+}
+const SCAN_HISTORY_MAX=150;
 function pruneLocalScans(list){
   const cutoff=Date.now()-24*60*60*1000;
   return Array.isArray(list)?list.filter(s=>{
@@ -49,3 +58,106 @@ function _toxicBadgeHtml(toxic){
     ?`<button onclick="this.parentElement.querySelector('.toxic-full').style.display='inline';this.remove()" style="background:none;border:none;color:inherit;opacity:.75;cursor:pointer;font-size:10px;padding:0;text-decoration:underline;margin-left:2px">…</button><span class="toxic-full" style="display:none">${esc(full.slice(60))}</span>`:'';
   return `<span style="display:inline-flex;align-items:center;flex-wrap:wrap;gap:4px;font-size:10px;background:rgba(255,59,48,.12);color:#ff3b30;border:1px solid rgba(255,59,48,.35);padding:3px 10px;border-radius:12px">☠ <strong>Toxic: ${esc(label)}</strong>${full?' — '+esc(preview)+more:''}</span>`;
 }
+
+// ── Pagination ───────────────────────────────────────────────────────────────
+// Every long list shows 50, 100 or 150 rows at a time. The chosen size is kept
+// per list; the page resets when the list's owner (e.g. the open scan) changes.
+const PAGE_SIZES=[50,100,150];
+const _pagers=new Map();
+
+function pageState(key,owner){
+  let st=_pagers.get(key);
+  if(!st){
+    let size=PAGE_SIZES[0];
+    try{ const saved=Number(localStorage.getItem('osa.pageSize.'+key)); if(PAGE_SIZES.includes(saved)) size=saved; }catch{}
+    st={page:1,size,owner,rerender:null};
+    _pagers.set(key,st);
+  }
+  if(owner!==undefined&&st.owner!==owner){ st.owner=owner; st.page=1; }
+  return st;
+}
+
+// Show the page that holds row `index` (e.g. a rule opened from Proxy activity).
+function pageReveal(key,index){
+  const st=pageState(key);
+  if(index>=0) st.page=Math.floor(index/st.size)+1;
+}
+
+// The visible slice as [item, absoluteIndex] pairs, so row handlers keep
+// addressing the full list, plus the pager markup for below the list.
+function paginate(key,items,rerender,owner){
+  const st=pageState(key,owner);
+  st.rerender=rerender;
+  const total=items.length;
+  const pages=Math.max(1,Math.ceil(total/st.size));
+  st.page=Math.min(Math.max(1,st.page),pages);
+  const from=(st.page-1)*st.size;
+  const rows=items.slice(from,from+st.size).map((item,i)=>[item,from+i]);
+  return {rows,html:pagerHtml(key,{page:st.page,pages,total,size:st.size})};
+}
+
+function pagerHtml(key,{page,pages,total,size}){
+  // Everything fits at the smallest size: no controls to read past.
+  if(total<=PAGE_SIZES[0]) return '';
+  const from=(page-1)*size+1, to=Math.min(page*size,total);
+  const btn=(n,label,{current=false,disabled=false,aria=''}={})=>
+    `<button type="button" class="pager-btn${current?' current':''}" data-pager-page="${n}"${disabled?' disabled':''}${current?' aria-current="page"':''}${aria?` aria-label="${aria}"`:''}>${label}</button>`;
+  const nums=[];
+  const lo=Math.max(1,page-2), hi=Math.min(pages,page+2);
+  if(lo>1){ nums.push(btn(1,'1')); if(lo>2) nums.push('<span class="pager-gap" aria-hidden="true">…</span>'); }
+  for(let i=lo;i<=hi;i++) nums.push(btn(i,String(i),{current:i===page,aria:`Page ${i}`}));
+  if(hi<pages){ if(hi<pages-1) nums.push('<span class="pager-gap" aria-hidden="true">…</span>'); nums.push(btn(pages,String(pages),{aria:`Page ${pages}`})); }
+  return `<nav class="pager" data-pager="${esc(key)}" aria-label="Pages">
+    <label class="pager-size">Rows
+      <select data-pager-size>${PAGE_SIZES.map(n=>`<option value="${n}"${n===size?' selected':''}>${n}</option>`).join('')}</select>
+    </label>
+    <span class="pager-range">${from}–${to} of ${total}</span>
+    ${pages>1?`<div class="pager-pages">${btn(page-1,'‹',{disabled:page<=1,aria:'Previous page'})}${nums.join('')}${btn(page+1,'›',{disabled:page>=pages,aria:'Next page'})}</div>`:''}
+  </nav>`;
+}
+
+function _pagerRerender(key){
+  const st=_pagers.get(key);
+  if(!st?.rerender) return;
+  st.rerender();
+  // Land on the first row of the new page, not on the pager at the bottom.
+  const nav=document.querySelector(`[data-pager="${CSS.escape(key)}"]`);
+  const top=nav?.parentElement;
+  if(top&&top.getBoundingClientRect().top<0) top.scrollIntoView({block:'start'});
+}
+
+// Paging a grouped detail view re-renders it; keep the groups the reader
+// opened open instead of folding everything back to the first group.
+function keepOpenGroups(container,render){
+  const open=new Set(container?[...container.querySelectorAll('.pkg-group[data-group]')]
+    .filter(g=>g.querySelector('.pkg-group-body')?.style.display==='block')
+    .map(g=>g.dataset.group):[]);
+  render();
+  if(!container) return;
+  container.querySelectorAll('.pkg-group[data-group]').forEach(g=>{
+    if(!open.has(g.dataset.group)) return;
+    const body=g.querySelector('.pkg-group-body'), chev=g.querySelector('.pkg-chev');
+    if(body) body.style.display='block';
+    if(chev) chev.style.transform='rotate(180deg)';
+  });
+}
+
+document.addEventListener('click',event=>{
+  const button=event.target.closest?.('[data-pager-page]');
+  const nav=button?.closest('[data-pager]');
+  if(!nav||button.disabled) return;
+  event.stopPropagation();
+  pageState(nav.dataset.pager).page=Number(button.dataset.pagerPage);
+  _pagerRerender(nav.dataset.pager);
+});
+document.addEventListener('change',event=>{
+  const select=event.target.closest?.('[data-pager-size]');
+  const nav=select?.closest('[data-pager]');
+  if(!nav) return;
+  const key=nav.dataset.pager, st=pageState(key);
+  const first=(st.page-1)*st.size;
+  st.size=Number(select.value);
+  st.page=Math.floor(first/st.size)+1;  // keep the first visible row on screen
+  try{ localStorage.setItem('osa.pageSize.'+key,String(st.size)); }catch{}
+  _pagerRerender(key);
+});
