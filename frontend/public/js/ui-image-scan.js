@@ -44,7 +44,7 @@ async function doImageScan(){
     if (ckIdx !== -1) imgScans.splice(ckIdx, 1);
     const scan=normalizeImageScan(data, { id:Date.now(), _cacheKey:_ck, image,tag,desc });
     imgScans.unshift(scan);
-    if(imgScans.length>20) imgScans=imgScans.slice(0,20);
+    if(imgScans.length>SCAN_HISTORY_MAX) imgScans=imgScans.slice(0,SCAN_HISTORY_MAX);
     saveImg(); navTo('img-list');
   }catch(e){ showErr('imgErr',e.message||'Scan failed. Is Trivy running?'); }
   setBtn('btnImgScan',false,'Scan Image');
@@ -52,6 +52,7 @@ async function doImageScan(){
 
 async function renderImgList(){
   const el=document.getElementById('imgListContent');
+  const pg=paginate('img-list',imgScans,renderImgList);
   if(!imgScans.length){
     el.innerHTML=`<div class="empty">
       <div class="empty-rings"><div class="ering"></div><div class="ering"></div><div class="ering"></div><div class="ering-c">🐋</div></div>
@@ -72,7 +73,7 @@ async function renderImgList(){
           <th>Top Severity</th><th>Findings</th><th>Scanned</th><th style="width:28px"></th>
         </tr></thead>
         <tbody>
-          ${imgScans.map((s,i)=>{
+          ${pg.rows.map(([s,i])=>{
             const _c=s.counts||{}; const _v=s.vulns||[];
             const topS=['CRITICAL','HIGH','MEDIUM','LOW','UNKNOWN'].find(sv=>_c[sv])||'NONE';
             const pills=['CRITICAL','HIGH','MEDIUM','LOW','UNKNOWN'].filter(sv=>_c[sv])
@@ -96,7 +97,7 @@ async function renderImgList(){
           }).join('')}
         </tbody>
       </table>
-    </div>`;
+    </div>${pg.html}`;
 }
 
 function renderImgDetail(s){
@@ -125,8 +126,10 @@ function renderImgDetail(s){
   for(const [,g] of sorted)
     g.vulns.sort((a,b)=>(SEV_W[(b.Severity||'UNKNOWN').toUpperCase()]||0) - (SEV_W[(a.Severity||'UNKNOWN').toUpperCase()]||0));
 
+  const rerender = () => keepOpenGroups(el, () => renderImgDetail(s));
+  const groupPage = paginate('img-groups', sorted, rerender, s);
   let globalVi = 0;
-  const groupHtml = sorted.map(([pkgName, g])=>{
+  const groupHtml = groupPage.rows.map(([[pkgName, g]])=>{
     const topSev = ['CRITICAL','HIGH','MEDIUM','LOW','UNKNOWN'].find(s=>g.counts[s])||'UNKNOWN';
     const pills = ['CRITICAL','HIGH','MEDIUM','LOW','UNKNOWN'].filter(sv=>g.counts[sv])
       .map(sv=>`<span class="sev ${sv}" style="font-size:9px;padding:1px 6px">${g.counts[sv]}</span>`).join('');
@@ -136,12 +139,13 @@ function renderImgDetail(s){
     const _pt = (g.vulns[0]?._pkgType||'').toLowerCase();
     const debTag = OS_PKG_TYPES.has(_pt) ? `<span style="font-size:9px;font-weight:600;color:#f5c518;background:rgba(245,197,24,.12);border:1px solid rgba(245,197,24,.35);border-radius:4px;padding:1px 5px;margin-left:7px;letter-spacing:.3px">${_pt==='debian'||_pt==='ubuntu'?'deb':_pt}</span>` : '';
 
-    const cardsHtml = g.vulns.map(v=>{
+    const cardPage = paginate('img-cards:'+pkgName, g.vulns, rerender, s);
+    const cardsHtml = cardPage.rows.map(([v])=>{
       const vi = globalVi++;
       return imgVulnCardHtml(v, vi);
-    }).join('');
+    }).join('') + cardPage.html;
 
-    return `<div class="pkg-group" style="margin-bottom:20px">
+    return `<div class="pkg-group" data-group="${esc(pkgName)}" style="margin-bottom:20px">
       <div class="pkg-group-hdr" onclick="togglePkgGroup(this)" style="
         display:flex;align-items:center;gap:10px;
         padding:11px 16px;
@@ -181,7 +185,7 @@ function renderImgDetail(s){
     </div>
     ${s.vulns.length===0
       ?'<div style="text-align:center;padding:60px;color:var(--l);font-size:14px">🐳 No vulnerabilities found — this image is clean!</div>'
-      :groupHtml}`;
+      :groupHtml + groupPage.html}`;
 
   const firstBody = el.querySelector('.pkg-group-body');
   const firstChev = el.querySelector('.pkg-chev');

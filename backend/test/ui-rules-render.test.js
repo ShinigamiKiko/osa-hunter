@@ -24,6 +24,8 @@ function load() {
     console, setTimeout, CSS: { escape: s => s },
   };
   vm.createContext(ctx);
+  // utils.js provides the shared pager the rule list pages through.
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '../../frontend/public/js/utils.js'), 'utf8'), ctx);
   vm.runInContext(fs.readFileSync(SRC, 'utf8'), ctx);
   // let/const at the top of the script are not context properties, so state is
   // reached through expressions evaluated inside it.

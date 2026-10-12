@@ -83,6 +83,7 @@ async function loadUsers() {
   try {
     const r = await fetch('/api/auth/users', { credentials: 'same-origin' });
     const { users } = await readJson(r);
+    const page = paginate('admin-users', users, loadUsers);
     if (!users.length) {
       wrap.innerHTML = '<div style="text-align:center;padding:40px;color:#a6b4c4;font-size:13px">No users yet</div>';
       return;
@@ -101,7 +102,7 @@ async function loadUsers() {
           </tr>
         </thead>
         <tbody>
-          ${users.map(u => `
+          ${page.rows.map(([u]) => `
             <tr style="border-top:1px solid #111820" id="urow-${u.id}">
               <td style="padding:12px 16px">
                 <div style="display:flex;align-items:center;gap:9px">
@@ -137,7 +138,7 @@ async function loadUsers() {
             </tr>
           `).join('')}
         </tbody>
-      </table>
+      </table>${page.html}
     `;
   } catch (e) {
     wrap.innerHTML = `<div style="text-align:center;padding:40px;color:#ff6b6b;font-size:13px">Failed to load users</div>`;
@@ -198,6 +199,7 @@ async function renderApiKeys() {
     el.innerHTML = `<div style="text-align:center;padding:24px;color:#ff6b6b;font-size:13px">Failed to load API keys: ${esc(e.message)}</div>`;
     return;
   }
+  const keyPage = paginate('api-keys', keys || [], renderApiKeys);
 
   el.innerHTML = `
     <div style="background:#0b0f18;border:1px solid #1a2030;border-radius:12px;overflow:hidden;margin-top:24px">
@@ -252,7 +254,7 @@ async function renderApiKeys() {
             </tr>
           </thead>
           <tbody>
-            ${keys.map(k => `
+            ${keyPage.rows.map(([k]) => `
               <tr style="border-top:1px solid #111820" id="krow-${k.id}">
                 <td style="padding:12px 16px;font-size:13px;font-weight:600;color:#e5e7eb">${esc(k.name)}</td>
                 <td style="padding:12px 16px">
@@ -276,7 +278,7 @@ async function renderApiKeys() {
                 </td>
               </tr>`).join('')}
           </tbody>
-        </table>`
+        </table>${keyPage.html}`
       }
     </div>
   `;
