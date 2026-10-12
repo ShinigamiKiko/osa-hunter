@@ -8,7 +8,7 @@ const vm = require('node:vm');
 test('history retries after failure, accesses reassigned lexical arrays and normalizes Composer like live scans', async () => {
   const calls = {}, storage = {};
   const ctx = { console: { log() {}, warn() {} }, Date, Set, Promise,
-    localStorage: { setItem: (key,value) => { storage[key] = value; } }, navTo() {},
+    localStorage: { setItem: (key,value) => { storage[key] = value; } }, navTo() {}, document: { addEventListener() {} },
     fetch: async url => {
       const type = url.split('=').pop(); calls[type] = (calls[type] || 0) + 1;
       if (calls[type] === 1) return { ok: false };
@@ -22,7 +22,7 @@ test('history retries after failure, accesses reassigned lexical arrays and norm
   };
   ctx.window = ctx; vm.createContext(ctx);
   vm.runInContext('let libScans=[], depScans=[], osScans=[], imgScans=[], ghScans=[];', ctx);
-  for (const file of ['dependency-scan/30-scan.js','ui-scan-history.js']) vm.runInContext(fs.readFileSync(path.join(__dirname,'../../frontend/public/js',file),'utf8'),ctx);
+  for (const file of ['utils.js','dependency-scan/30-scan.js','ui-scan-history.js']) vm.runInContext(fs.readFileSync(path.join(__dirname,'../../frontend/public/js',file),'utf8'),ctx);
   await ctx.navTo('dep-list'); assert.equal(vm.runInContext('depScans.length',ctx),0);
   vm.runInContext('depScans = [{id:"local",scannedAt:new Date().toISOString()}];', ctx);
   await ctx.navTo('dep-list');

@@ -96,9 +96,9 @@ function nameDetail(policy, kind, entry) {
 
 function resolveDecision(policy, hits, { ecosystem, name, version }) {
   const denied = matchList(policy.deny, ecosystem, name, version);
-  if (denied) return { decision: 'deny', reasons: [{ rule: 'denylist', detail: nameDetail(policy, 'deny', denied) }] };
+  if (denied) return { decision: 'deny', reasons: [{ rule: 'denylist', entry: denied, detail: nameDetail(policy, 'deny', denied) }] };
   const allowed = matchList(policy.allow, ecosystem, name, version);
-  if (allowed) return { decision: 'allow', reasons: [{ rule: 'allowlist', detail: nameDetail(policy, 'allow', allowed) }] };
+  if (allowed) return { decision: 'allow', reasons: [{ rule: 'allowlist', entry: allowed, detail: nameDetail(policy, 'allow', allowed) }] };
 
   const denies = hits.filter(h => h.action === 'deny');
   const warns  = hits.filter(h => h.action === 'warn');
@@ -181,7 +181,7 @@ async function gateDecide({ name, ecosystem, version, includeDeps = false }, pol
   if (denied) {
     return {
       decision: 'deny',
-      reasons: [{ rule: 'denylist', detail: nameDetail(policy, 'deny', denied) }],
+      reasons: [{ rule: 'denylist', entry: denied, detail: nameDetail(policy, 'deny', denied) }],
       package: { ecosystem: eco, name: pkg, version: ver },
       findings: { total: 0, counts: emptyCounts(), topSeverity: 'NONE', kev: 0, epssMax: 0, pocCount: 0, cveCount: 0, toxic: { found: false } },
       transitive: null, policy: policy.version || 'default', scannedAt: new Date().toISOString(),
@@ -191,7 +191,7 @@ async function gateDecide({ name, ecosystem, version, includeDeps = false }, pol
   if (allowedByName) {
     return {
       decision: 'allow',
-      reasons: [{ rule: 'allowlist', detail: nameDetail(policy, 'allow', allowedByName) }],
+      reasons: [{ rule: 'allowlist', entry: allowedByName, detail: nameDetail(policy, 'allow', allowedByName) }],
       package: { ecosystem: eco, name: pkg, version: ver },
       findings: { total: 0, counts: emptyCounts(), topSeverity: 'NONE', kev: 0, epssMax: 0, pocCount: 0, cveCount: 0, toxic: { found: false } },
       transitive: null, policy: policy.version || 'default', scannedAt: new Date().toISOString(),

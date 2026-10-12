@@ -7,10 +7,12 @@ const router = require('../utils/router')();
 const { getPool } = require('../auth/db');
 const { requireAdmin } = require('../auth/middleware');
 
-// GET /api/proxy/events?ecosystem=&decision=&q=&page=  (50 per page)
-const PAGE_SIZE = 50;
+// GET /api/proxy/events?ecosystem=&decision=&q=&page=&pageSize=  (50, 100 or 150 per page)
+const PAGE_SIZES = [50, 100, 150];
 router.get('/proxy/events', requireAdmin, async (req, res) => {
   const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+  const requested = parseInt(req.query.pageSize, 10);
+  const PAGE_SIZE = PAGE_SIZES.includes(requested) ? requested : PAGE_SIZES[0];
   const where = [];
   const args = [];
   if (req.query.ecosystem) { args.push(req.query.ecosystem); where.push(`ecosystem = $${args.length}`); }
@@ -24,8 +26,8 @@ router.get('/proxy/events', requireAdmin, async (req, res) => {
     const cur = Math.min(page, pages);
     const { rows } = await getPool().query(
       `SELECT id, at, ecosystem, package_name AS name, version, repository, decision, reasons, client_ip
-       FROM proxy_events ${clause} ORDER BY at DESC LIMIT ${PAGE_SIZE} OFFSET $${args.length + 1}`,
-      [...args, (cur - 1) * PAGE_SIZE]
+       FROM proxy_events ${clause} ORDER BY at DESC LIMIT $${args.length + 1} OFFSET $${args.length + 2}`,
+      [...args, PAGE_SIZE, (cur - 1) * PAGE_SIZE]
     );
     res.json({ total, page: cur, pages, pageSize: PAGE_SIZE, events: rows });
   } catch (e) {
