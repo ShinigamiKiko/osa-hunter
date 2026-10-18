@@ -4,11 +4,13 @@ const router = require('../utils/router')();
 const { execFile } = require('child_process');
 const { EPSS_URL } = require('../shared');
 const { getPool } = require('../auth/db');
+const { version: appVersion } = require('../../package.json');
 
 router.get('/health', (req, res) => {
   execFile('trivy', ['--version'], { timeout: 5000 }, (err, stdout) => {
     res.json({
       status : 'ok',
+      appVersion,
       trivy  : !err,
       version: err ? null : (stdout.split('\n')[0] || '').trim(),
     });

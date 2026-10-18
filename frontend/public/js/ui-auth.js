@@ -39,10 +39,12 @@
           <div class="user-menu-item danger" onclick="doLogout()">
             ${icon('log-out')} Sign Out
           </div>
+          <div class="user-menu-version app-version" hidden></div>
         </div>
       `;
 
       ta.appendChild(chip);
+      showAppVersion();
 
       document.addEventListener('click', e => {
         if (!document.getElementById('authChip')?.contains(e.target)) {

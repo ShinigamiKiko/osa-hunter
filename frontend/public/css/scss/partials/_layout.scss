@@ -216,3 +216,11 @@
 
   &.danger { color: #ff6b6b; &:hover { background: #1a0808; } }
 }
+
+.user-menu-version {
+  padding: 8px 14px;
+  font-size: 11px;
+  color: #5a6478;
+  border-top: 1px solid #1a2030;
+  cursor: default;
+}

@@ -2,9 +2,17 @@ async function checkHealth(){
   try{
     const r=await fetch('/api/health'); const d=await readJson(r);
     document.getElementById('trivyDot').className='sdot '+(d.trivy?'ok':'err');
+    showAppVersion(d.appVersion);
   }catch{ document.getElementById('trivyDot').className='sdot err'; }
 }
 checkHealth(); setInterval(checkHealth,20000);
+
+// The backend's version, under the service status and in the user menu.
+function showAppVersion(version){
+  if(version) window.appVersion=version;
+  if(!window.appVersion) return;
+  document.querySelectorAll('.app-version').forEach(el=>{ el.textContent='OSA Hunter '+window.appVersion; el.hidden=false; });
+}
 
 function _emptyRadar(){
   return`
