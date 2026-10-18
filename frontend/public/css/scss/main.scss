@@ -3,6 +3,7 @@
 //   sass css/scss/main.scss css/main.css --style=compressed
 //
 // Partials overview:
+//   _fonts        — self-hosted DM Mono and Syne
 //   _base         — CSS variables, reset, html/body
 //   _sidebar      — sidebar shell, logo, nav, status dots
 //   _layout       — main area, topbar, breadcrumb, pages, buttons, sev badges
@@ -21,6 +22,7 @@
 //   _scan-pages   — list rows, detail header pieces, finding groups, dependency sections
 //   _admin        — user accounts and API keys
 
+@use 'partials/fonts';
 @use 'partials/base';
 @use 'partials/sidebar';
 @use 'partials/layout';
