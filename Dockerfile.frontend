@@ -1,4 +1,4 @@
-# ── Stage 1: compile SCSS ──────────────────────────────────────
+# Stage 1: compile SCSS
 FROM node:22-slim AS scss-build
 
 WORKDIR /scss
@@ -14,7 +14,7 @@ COPY frontend/public/css ./css
 # Compile SCSS → main.css (compressed, no source maps in prod)
 RUN npx sass css/scss/main.scss css/main.css --style=compressed --no-source-map
 
-# ── Stage 2: serve with nginx ──────────────────────────────────
+# Stage 2: serve with nginx
 FROM nginx:alpine
 
 # Copy everything else (html, js, assets)

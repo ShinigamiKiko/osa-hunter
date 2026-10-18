@@ -1,4 +1,4 @@
-// ── Gate policy editor (Rules tab) ───────────────────────────
+// Gate policy editor (Rules tab)
 #rulesContent {
   padding: 20px 24px 40px;
 
@@ -106,7 +106,7 @@
   &:focus { outline: none; border-color: rgba(120, 170, 255, .5); }
 }
 
-// ── one rule ─────────────────────────────────────────────────
+// one rule
 .rule-card {
   border: 1px solid rgba(255, 255, 255, .09);
   background: rgba(255, 255, 255, .02);
@@ -218,7 +218,7 @@
 
 .rule-detail { width: 100%; }
 
-// ── modal ────────────────────────────────────────────────────
+// modal
 .rules-empty {
   padding: 18px;
   color: var(--muted);
@@ -294,7 +294,7 @@
   code { background: rgba(255, 255, 255, .06); padding: 1px 5px; border-radius: 4px; }
 }
 
-// ── New rule dialog ──────────────────────────────────────────
+// New rule dialog
 // Four numbered steps: name it, match on something, decide, explain.
 .draft-step {
   display: flex;
@@ -379,7 +379,7 @@
   padding: 8px 11px;
 }
 
-// ── shared button states ─────────────────────────────────────
+// shared button states
 // Clicking used to leave the hover background stuck on the button plus the
 // browser's default focus ring. Keep the pressed state brief and explicit,
 // and show a ring only for keyboard focus.
@@ -425,7 +425,7 @@
   &:active { transform: translateY(1px); }
 }
 
-// ── reason line on a rule card ───────────────────────────────
+// reason line on a rule card
 // Labelled, so it does not read as a second name for the rule.
 .rule-detail-row {
   display: flex;
@@ -436,7 +436,7 @@
 
 .rule-detail { flex: 1; width: auto; }
 
-// ── name rules ───────────────────────────────────────────────
+// name rules
 // Same card as a scan rule, so the two read as one list.
 .rule-lead,
 .rule-detail-lead {
@@ -479,7 +479,7 @@
   font-size: 10px;
 }
 
-// ── dialog condition rows ────────────────────────────────────
+// dialog condition rows
 // The dialog is wider than a card is deep, so give the fact select room and
 // keep operator and value on the same line instead of wrapping the value away.
 .draft-field .cond-row {
@@ -507,7 +507,7 @@
   box-shadow: 0 0 0 3px rgba(80, 200, 130, .12);
 }
 
-// ── search, folding, focus ───────────────────────────────────
+// search, folding, focus
 .rules-search {
   background: rgba(0, 0, 0, .3);
   border: 1px solid rgba(255, 255, 255, .12);

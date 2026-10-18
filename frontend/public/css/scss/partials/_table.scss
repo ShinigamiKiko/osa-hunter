@@ -1,4 +1,4 @@
-// ── Table wrapper ────────────────────────────────────────────
+// Table wrapper
 .tbl-wrap {
   background: var(--s1);
   border: 1px solid var(--br);
@@ -40,7 +40,7 @@
   }
 }
 
-// ── Row cells ────────────────────────────────────────────────
+// Row cells
 .row-name { color: #fff;          font-weight: 500; font-size: 17px; transition: color .13s; }
 .row-eco  { font-size: 13px;      color: var(--accent); letter-spacing: .05em; margin-top: 2px; }
 .row-desc { color: var(--muted);  font-size: 15px; max-width: 240px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

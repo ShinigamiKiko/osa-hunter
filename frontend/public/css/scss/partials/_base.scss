@@ -1,7 +1,7 @@
-// ── Reset ────────────────────────────────────────────────────
+// Reset
 *,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-// ── CSS Variables ────────────────────────────────────────────
+// CSS Variables
 :root {
   // Backgrounds
   --bg:  #07090f;
@@ -58,7 +58,7 @@
   --rc3: rgba(0,220,255,0.18);
 }
 
-// ── Base ─────────────────────────────────────────────────────
+// Base
 html, body {
   height: 100%;
   background: var(--bg);

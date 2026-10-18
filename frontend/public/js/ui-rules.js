@@ -22,7 +22,7 @@ function _factMeta(key) {
   return _rulesFacts.find(f => f.key === key) || { key, label: key, type: 'pattern' };
 }
 
-// ── model <-> form ────────────────────────────────────────────
+// model <-> form
 // A rule's `when` is either {fact: expr}, {all:[…]} or {any:[…]}. Flatten the
 // simple shapes into rows the form can render; flag the rest as advanced.
 function _whenToRows(when) {
@@ -67,7 +67,7 @@ function _rowsToWhen(match, rows) {
   return { [match]: pairs };
 }
 
-// ── loading ───────────────────────────────────────────────────
+// loading
 async function renderRules() {
   const host = document.getElementById('rulesContent');
   if (!host) return;
@@ -310,7 +310,7 @@ function _conditionRow(row, ruleIndex, condIndex) {
     <button class="cond-del" data-rule="${ruleIndex}" data-del-cond="${condIndex}">✕</button></div>`;
 }
 
-// ── editing ───────────────────────────────────────────────────
+// editing
 // Everything on this screen is a draft until Save: the policy the gate enforces
 // only changes on PUT /api/policy. Leaving with an unsaved draft used to lose it
 // silently, so both the tab switch and the browser ask first.
@@ -469,7 +469,7 @@ function rulesSyncConditions(ruleIndex) {
   rulesPaint();
 }
 
-// ── new rule dialog ───────────────────────────────────────────
+// new rule dialog
 // A new rule is filled in a dialog and only joins the policy once it is
 // complete, so the list never holds a half-written placeholder rule.
 function rulesNewRule() {
@@ -653,7 +653,7 @@ function draftCommit() {
   rulesPaint();
 }
 
-// ── server actions ────────────────────────────────────────────
+// server actions
 async function rulesSave() {
   if (!confirm('Save this policy? It starts being enforced immediately.')) return;
   try {
@@ -712,7 +712,7 @@ function rulesImport() {
   });
 }
 
-// ── modal ─────────────────────────────────────────────────────
+// modal
 function _rulesModal(title, html) {
   _rulesCloseModal();
   const ov = document.createElement('div');

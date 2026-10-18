@@ -1,4 +1,3 @@
--- ── 002_api_keys.sql ──────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS api_keys (
   id          SERIAL PRIMARY KEY,
   user_id     INTEGER      NOT NULL REFERENCES users(id) ON DELETE CASCADE,

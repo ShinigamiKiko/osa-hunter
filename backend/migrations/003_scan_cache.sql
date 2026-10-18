@@ -1,4 +1,3 @@
--- ── 003_scan_cache.sql ───────────────────────────────────────
 CREATE TABLE IF NOT EXISTS scan_cache (
   id          SERIAL PRIMARY KEY,
   cache_key   VARCHAR(512) NOT NULL UNIQUE,   -- deterministic key: "lib:npm:lodash:4.17.20"

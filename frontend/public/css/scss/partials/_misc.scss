@@ -1,10 +1,10 @@
-// ── Scrollbar ────────────────────────────────────────────────
+// Scrollbar
 ::-webkit-scrollbar       { width: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(255,255,255,.1); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.18); }
 
-// ── Export button ─────────────────────────────────────────────
+// Export button
 .btn-export {
   display: inline-flex; align-items: center; gap: 6px;
   padding: 8px 15px;
@@ -25,7 +25,7 @@
   &:disabled { opacity: .5; cursor: not-allowed; }
 }
 
-// ── Package groups (dep scan card body) ───────────────────────
+// Package groups (dep scan card body)
 .pkg-group-body {
   .vi { border-radius: 0; border-left: none; border-right: none; border-top: none; }
   .vi:first-child { border-top: 1px solid var(--br); }
@@ -34,7 +34,7 @@
   .vi:last-child  { border-left: 1px solid var(--br); border-right: 1px solid var(--br); }
 }
 
-// ── Dep scan badges ───────────────────────────────────────────
+// Dep scan badges
 .dep-badge-toxic  { display: inline-flex; align-items: center; gap: 4px; background: rgba(255,59,48,.15); border: 1px solid rgba(255,59,48,.4); color: #ff3b30; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 4px; }
 .dep-rel-direct   { color: var(--purple); font-size: 12px; font-weight: 600; }
 .dep-rel-indirect { color: var(--muted);  font-size: 12px; }

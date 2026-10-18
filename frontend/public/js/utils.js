@@ -59,7 +59,7 @@ function _toxicBadgeHtml(toxic){
   return `<span style="display:inline-flex;align-items:center;flex-wrap:wrap;gap:4px;font-size:10px;background:rgba(255,59,48,.12);color:#ff3b30;border:1px solid rgba(255,59,48,.35);padding:3px 10px;border-radius:12px">☠ <strong>Toxic: ${esc(label)}</strong>${full?' — '+esc(preview)+more:''}</span>`;
 }
 
-// ── Pagination ───────────────────────────────────────────────────────────────
+// Pagination
 // Every long list shows 50, 100 or 150 rows at a time. The chosen size is kept
 // per list; the page resets when the list's owner (e.g. the open scan) changes.
 const PAGE_SIZES=[50,100,150];

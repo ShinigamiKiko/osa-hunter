@@ -1,4 +1,4 @@
-# ── Stage 1: deps ─────────────────────────────────────────────
+# Stage 1: deps
 FROM node:22-slim AS deps
 WORKDIR /app
 COPY backend/package.json backend/package-lock.json ./
@@ -15,7 +15,7 @@ COPY policy.yaml ./policy.yaml
 COPY frontend/public/assets/osa.png ./frontend/public/assets/osa.png
 RUN mkdir -p /app/.trivy-cache
 
-# ── Stage 2: runtime ──────────────────────────────────────────
+# Stage 2: runtime
 FROM node:22-slim
 ARG SEMGREP_VERSION=1.180.0
 ARG TRIVY_VERSION=0.69.3

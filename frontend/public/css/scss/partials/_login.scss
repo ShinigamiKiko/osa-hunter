@@ -1,4 +1,4 @@
-// ── Login page ────────────────────────────────────────────────
+// Login page
 
 .login-page {
   display: flex;
@@ -22,12 +22,12 @@
   align-items: center;
 }
 
-// ── Radar container ───────────────────────────────────────────
+// Radar container
 .login-radar {
   margin-bottom: 8px;
 }
 
-// ── Brand ─────────────────────────────────────────────────────
+// Brand
 .login-brand {
   display: flex;
   flex-direction: column;
@@ -49,7 +49,7 @@
   color: var(--muted);
 }
 
-// ── Form ──────────────────────────────────────────────────────
+// Form
 .login-form {
   width: 100%;
   max-width: 480px;

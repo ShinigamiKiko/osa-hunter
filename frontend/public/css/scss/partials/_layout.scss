@@ -1,4 +1,4 @@
-// ── Main shell ───────────────────────────────────────────────
+// Main shell
 .main {
   flex: 1;
   display: flex;
@@ -7,7 +7,7 @@
   min-width: 0;
 }
 
-// ── Topbar ───────────────────────────────────────────────────
+// Topbar
 .topbar {
   padding: 16px 30px;
   border-bottom: 1px solid var(--br);
@@ -23,7 +23,7 @@
 .topbar-left  { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .topbar-actions { display: flex; gap: 8px; flex-shrink: 0; }
 
-// ── Breadcrumb ───────────────────────────────────────────────
+// Breadcrumb
 .back-btn {
   display: flex;
   align-items: center;
@@ -56,7 +56,7 @@
 .bc-sep     { color: var(--muted); flex-shrink: 0; opacity: .5; }
 .bc-current { color: #fff; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-// ── Pages ────────────────────────────────────────────────────
+// Pages
 .page {
   flex: 1;
   overflow-y: auto;
@@ -67,7 +67,7 @@
   &.active { display: block; }
 }
 
-// ── Buttons ──────────────────────────────────────────────────
+// Buttons
 .btn-primary {
   display: inline-flex;
   align-items: center;
@@ -118,7 +118,7 @@
   }
 }
 
-// ── Severity badges ──────────────────────────────────────────
+// Severity badges
 .sev {
   display: inline-flex;
   align-items: center;

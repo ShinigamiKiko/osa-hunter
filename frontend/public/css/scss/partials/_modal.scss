@@ -1,4 +1,4 @@
-// ── Overlay ──────────────────────────────────────────────────
+// Overlay
 .ov {
   position: fixed; inset: 0;
   background: rgba(7,9,15,.88);
@@ -35,7 +35,7 @@
   &:hover { color: #fff; border-color: var(--br2); }
 }
 
-// ── Ecosystem / distro grid ───────────────────────────────────
+// Ecosystem / distro grid
 .eco-lbl {
   font-size: 13px; letter-spacing: .09em; color: var(--muted);
   text-transform: uppercase; margin-bottom: 10px; font-weight: 500;
@@ -72,7 +72,7 @@
 
 .eco-name { font-size: 13px; letter-spacing: .03em; }
 
-// ── Modal form fields ─────────────────────────────────────────
+// Modal form fields
 .mfld {
   margin-bottom: 15px;
 
@@ -116,7 +116,7 @@
   &:disabled { opacity: .4; cursor: not-allowed; }
 }
 
-// ── Misc form elements ────────────────────────────────────────
+// Misc form elements
 .fld {
   margin-bottom: 15px;
 
@@ -150,7 +150,7 @@
   display: inline-block;
 }
 
-// ── Change password ──────────────────────────────────────────
+// Change password
 .pw-modal { width: min(420px, 92vw); }
 
 .pw-body {

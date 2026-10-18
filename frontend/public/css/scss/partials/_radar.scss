@@ -1,5 +1,4 @@
-// ── Radar empty state (lib + dep scan) ──────────────────────
-// Exact port of osa_hunter_no_text.html, scaled ~0.42× (520→300px)
+// Radar empty state (lib + dep scan)
 
 .er-stage {
   position: relative;
@@ -86,7 +85,7 @@
   }
 }
 
-// ── Blips ────────────────────────────────────────────────────
+// Blips
 .er-blip {
   position: absolute;
   width: 7px; height: 7px; border-radius: 999px;
@@ -115,7 +114,7 @@
 .er-b2 { left: 28%; top: 68%; }
 .er-b3 { left: 62%; top: 78%; }
 
-// ── Wasp mascot ──────────────────────────────────────────────
+// Wasp mascot
 .er-wasp-wrap {
   position: relative; z-index: 3;
   animation: erFloat 4s ease-in-out infinite;
