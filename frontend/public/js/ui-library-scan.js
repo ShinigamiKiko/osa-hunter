@@ -98,13 +98,13 @@ async function renderLibList(){
           <td>
             <div class="row-name" style="font-size:17px">${esc(s.pkg)}</div>
             <div style="display:flex;align-items:center;gap:5px;margin-top:2px">
-              <div class="row-eco">${s.ecoLogo} ${s.ecoLabel}</div>
+              <div class="row-eco">${esc(s.ecoLogo)} ${esc(s.ecoLabel)}</div>
               ${isToxic?`<span style="background:rgba(255,59,48,.15);border:1px solid rgba(255,59,48,.4);color:#ff3b30;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px">☠ TOXIC</span>`:''}
             </div>
           </td>
           <td><div class="row-desc">${esc(s.desc||'—')}</div></td>
           <td><span class="row-ver">${s.ver?'v'+esc(s.ver):'any'}</span></td>
-          <td><span class="sev ${s.topSev}">${s.topSev}</span></td>
+          <td><span class="sev ${esc(s.topSev)}">${esc(s.topSev)}</span></td>
           <td>${s.vulns.length===0?'<span style="color:var(--l);font-size:11px">✓ clean</span>':(pills||`<span style="color:var(--muted)">${s.vulns.length}</span>`)}</td>
           <td style="color:var(--muted);font-size:10px;white-space:nowrap">${fmtDate(s.scannedAt)}</td>
           <td><button onclick="event.stopPropagation();libScans.splice(${i},1);saveLib();updateLibBadge();renderLibList()"
@@ -121,7 +121,7 @@ function renderLibDetail(s){
   const el=document.getElementById('libDetailContent');
   el.innerHTML=`
     <div class="detail-header">
-      <div class="detail-icon green" style="font-size:22px">${s.ecoLogo}</div>
+      <div class="detail-icon green" style="font-size:22px">${esc(s.ecoLogo)}</div>
       <div class="detail-info">
         <div class="detail-name" style="font-size:27px">${esc(s.pkg)}${s.ver?` <span style="color:var(--muted);font-size:20px;font-weight:400">${s.ver.startsWith('v') ? esc(s.ver) : 'v'+esc(s.ver)}</span>`:''}</div>
         <div class="detail-sub">${esc(s.ecoLabel)} · ${esc(s.desc||'No description')} · scanned ${fmtDate(s.scannedAt)}</div>

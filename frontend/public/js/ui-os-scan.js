@@ -94,13 +94,13 @@ async function renderOsList(){
         const vulnLen=(s.vulns||[]).length;
         return`<tr class="row" onclick="navTo('os-detail',{scan:osScans[${i}]})">
           <td><div style="display:flex;align-items:center;gap:9px">
-            <div style="flex-shrink:0;font-size:20px;line-height:1">${s.distroLogo}</div>
+            <div style="flex-shrink:0;font-size:20px;line-height:1">${esc(s.distroLogo)}</div>
             <div class="row-name">${esc(s.pkg)}</div>
           </div></td>
           <td><div class="row-desc">${esc(s.desc||'—')}</div></td>
           <td><span style="font-size:13px;color:var(--muted2)">${esc(s.distroLabel)}${s.distroVer?' <span style="color:var(--muted)">'+esc(s.distroVer)+'</span>':''}</span></td>
           <td><span class="row-ver">${s.pkgVer?'v'+esc(s.pkgVer):'any'}</span></td>
-          <td><span class="sev ${s.topSev}">${s.topSev}</span></td>
+          <td><span class="sev ${esc(s.topSev)}">${esc(s.topSev)}</span></td>
           <td>${vulnLen===0?'<span style="color:var(--l);font-size:11px">✓ clean</span>':(pills||`<span style="color:var(--muted)">${vulnLen}</span>`)}</td>
           <td style="color:var(--muted);font-size:10px;white-space:nowrap">${fmtDate(s.scannedAt)}</td>
           <td><button onclick="event.stopPropagation();osScans.splice(${i},1);saveOs();updateOsBadge();renderOsList()"
@@ -164,7 +164,7 @@ function renderOsDetail(scan){
   window._lastOsScan = scan;
   el.innerHTML=`
     <div class="detail-header">
-      <div class="detail-icon" style="background:rgba(249,115,22,.1);border:1px solid rgba(249,115,22,.25);font-size:22px;display:flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:14px;flex-shrink:0">${distroInfo.logo}</div>
+      <div class="detail-icon" style="background:rgba(249,115,22,.1);border:1px solid rgba(249,115,22,.25);font-size:22px;display:flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:14px;flex-shrink:0">${esc(distroInfo.logo)}</div>
       <div class="detail-info">
         <div class="detail-name">${esc(scan.pkg)}${scan.pkgVer?` <span style="color:var(--muted);font-size:15px;font-weight:400">v${esc(scan.pkgVer)}</span>`:''}</div>
         <div class="detail-sub">${esc(distroInfo.label)}${scan.distroVer?' '+esc(scan.distroVer):''}${scan.desc?' · '+esc(scan.desc):''} · ${vulns.length} vulnerabilit${vulns.length===1?'y':'ies'} across ${sorted.length} package${sorted.length!==1?'s':''} · scanned ${fmtDate(scan.scannedAt)}</div>

@@ -49,11 +49,11 @@ async function renderDepList(){
           const toxicBadge= s.toxic?.found ? '<span style="background:rgba(255,59,48,.15);border:1px solid rgba(255,59,48,.4);color:#ff3b30;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-top:2px;display:inline-block">&#9760; TOXIC</span>' : '';
           return `<tr class="row" onclick="currentDepScan=depScans[${i}];navTo('dep-detail',{scan:depScans[${i}]})">
             <td><div style="display:flex;align-items:center;gap:8px">
-              <span style="font-size:18px">${sysInfo.logo}</span>
+              <span style="font-size:18px">${esc(sysInfo.logo)}</span>
               <div><div class="row-name" style="font-size:17px">${esc(s.package)}</div>${toxicBadge}</div>
             </div></td>
             <td><div class="row-desc">${esc(s.desc||'—')}</div></td>
-            <td><span style="font-size:10px;color:var(--muted2)">${sysInfo.label}</span></td>
+            <td><span style="font-size:10px;color:var(--muted2)">${esc(sysInfo.label)}</span></td>
             <td><span class="row-ver">${esc(s.resolvedVersion||'—')}</span></td>
             <td><span style="font-size:12px;color:var(--text)">${_sum.totalDeps||'?'}</span>
                 <span style="font-size:10px;color:var(--muted)"> (${_sum.directDeps||'?'} direct)</span></td>

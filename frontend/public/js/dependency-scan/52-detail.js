@@ -205,7 +205,7 @@ function renderDepDetail(scan){
       onclick="openDepPkg(-1)"
       onmouseover="this.style.borderColor='rgba(167,139,250,.5)'"
       onmouseout="this.style.borderColor='var(--br)'">
-      <div class="detail-icon green" style="font-size:22px">${sysInfo.logo}</div>
+      <div class="detail-icon green" style="font-size:22px">${esc(sysInfo.logo)}</div>
       <div class="detail-info" style="flex:1">
         <div class="detail-name" style="font-size:27px">
           ${esc(scan.package)} <span style="color:var(--muted);font-size:15px;font-weight:400">${esc(scan.resolvedVersion)}</span>

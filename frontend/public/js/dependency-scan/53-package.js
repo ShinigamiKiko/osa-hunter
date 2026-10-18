@@ -40,10 +40,10 @@ function renderDepPkg(dep, scan){
 
   el.innerHTML=`
     <div class="detail-header">
-      <div class="detail-icon" style="background:rgba(167,139,250,.1);border:1px solid rgba(167,139,250,.25);font-size:22px;display:flex;align-items:center;justify-content:center">${sysInfo.logo}</div>
+      <div class="detail-icon" style="background:rgba(167,139,250,.1);border:1px solid rgba(167,139,250,.25);font-size:22px;display:flex;align-items:center;justify-content:center">${esc(sysInfo.logo)}</div>
       <div class="detail-info">
         <div class="detail-name" style="font-size:24px">${esc(dep.name)} <span style="color:var(--muted);font-size:15px;font-weight:400">${dep.version.startsWith('v') ? esc(dep.version) : 'v'+esc(dep.version)}</span></div>
-        <div class="detail-sub">${sysInfo.label}${relationHtml}</div>
+        <div class="detail-sub">${esc(sysInfo.label)}${relationHtml}</div>
         <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:6px">
           <div>${toxicBadgeHtml(dep.toxic)}</div>
           <div id="depPkgActivityBadge"><span style="font-size:11px;color:var(--muted)">&#9203; Checking activity&#8230;</span></div>

@@ -8,6 +8,9 @@ const {
   osvQuery, bulkEnrich, enrichVulns, extractCVEs,
 } = require('../shared');
 
+// OSV ecosystem names: "npm", "crates.io", "Debian:12", "Rocky Linux", ...
+const OSV_ECOSYSTEM = /^[A-Za-z0-9][A-Za-z0-9.:+ _-]{0,63}$/;
+
 router.post('/libscan', rateLimit(scanLimiter), async (req, res) => {
   const { name, ecosystem, version } = req.body || {};
   if (!name || typeof name !== 'string' || !name.trim())
@@ -17,6 +20,9 @@ router.post('/libscan', rateLimit(scanLimiter), async (req, res) => {
 
   const pkg = name.trim();
   const eco = ecosystem.trim();
+  // The result is shared with every user through the scan history.
+  if (!OSV_ECOSYSTEM.test(eco))
+    return res.status(400).json({ error: '"ecosystem" must be an OSV ecosystem name such as npm, PyPI or crates.io' });
   const ver = (version || '').trim() || null;
   const _cacheKey = `lib:${eco}:${pkg}:${ver||'latest'}`;
 
