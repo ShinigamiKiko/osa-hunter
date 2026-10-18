@@ -24,13 +24,13 @@ function pickOsDistro(id){ selOsDistro=id; renderOsDistros(); }
 function openOsModal(){
   selOsDistro=null;
   ['osDesc','osPkg','osPkgVer','osDistroVer'].forEach(id=>document.getElementById(id).value='');
-  document.getElementById('osmerr').style.display='none';
+  document.getElementById('osmerr').hidden=true;
   setBtn('btnOsGo',false,'▶ Scan');
   renderOsDistros();
-  document.getElementById('osModal').style.display='flex';
+  document.getElementById('osModal').hidden=false;
   setTimeout(()=>document.getElementById('osPkg').focus(),160);
 }
-function closeOsModal(){ document.getElementById('osModal').style.display='none'; }
+function closeOsModal(){ document.getElementById('osModal').hidden=true; }
 
 async function doOsScan(){
   const distro    = OS_DISTROS.find(d=>d.id===selOsDistro);
@@ -38,7 +38,7 @@ async function doOsScan(){
   const pkgVer    = document.getElementById('osPkgVer').value.trim();
   const distroVer = document.getElementById('osDistroVer').value.trim();
   const desc      = document.getElementById('osDesc').value.trim();
-  document.getElementById('osmerr').style.display='none';
+  document.getElementById('osmerr').hidden=true;
   if(!distro) return showErr('osmerr','Select a distribution');
   if(!pkg)    return showErr('osmerr','Enter a package name');
   setBtn('btnOsGo',true);
@@ -64,8 +64,8 @@ async function doOsScan(){
 
 function updateOsBadge(){
   const b=document.getElementById('osBadge');
-  if(osScans.length){b.style.display='';b.textContent=osScans.length;}
-  else b.style.display='none';
+  if(osScans.length){b.hidden=false;b.textContent=osScans.length;}
+  else b.hidden=true;
 }
 
 async function renderOsList(){
@@ -76,36 +76,34 @@ async function renderOsList(){
     el.innerHTML=`<div class="empty">${_emptyRadar()}
       <h2>No OS scans yet</h2>
       <p>Scan an OS package for known vulnerabilities across Ubuntu, Debian, RHEL, Alpine and SUSE — powered by Grype</p>
-      <button class="btn-primary" style="background:#f97316" onclick="openOsModal()">+ Add scan</button>
+      <button class="btn-primary orange" onclick="openOsModal()">+ Add scan</button>
     </div>`;
     _initEmptyRadar();return;
   }
   el.innerHTML=`
-    <div style="display:flex;justify-content:flex-end;margin-bottom:14px">
+    <div class="list-toolbar">
       <button class="btn-secondary" onclick="openOsModal()">+ Add scan</button>
       <button class="btn-secondary" onclick="if(confirm('Clear all OS scans?')){osScans=[];saveOs();updateOsBadge();renderOsList()}">Clear all</button>
     </div>
     <div class="tbl-wrap"><table class="tbl">
-      <thead><tr><th>Package</th><th>Description</th><th>Distribution</th><th>Version</th><th>Top Severity</th><th>Findings</th><th>Scanned</th><th style="width:28px"></th></tr></thead>
+      <thead><tr><th>Package</th><th>Description</th><th>Distribution</th><th>Version</th><th>Top Severity</th><th>Findings</th><th>Scanned</th><th class="col-del"></th></tr></thead>
       <tbody>${pg.rows.map(([s,i])=>{
         const counts=s.counts||{};
         const pills=['CRITICAL','HIGH','MEDIUM','LOW','UNKNOWN'].filter(sv=>counts[sv])
-          .map(sv=>`<span class="sev ${sv}" style="font-size:9px;padding:2px 6px">${counts[sv]} ${sv}</span>`).join(' ');
+          .map(sv=>`<span class="sev sm ${sv}">${counts[sv]} ${sv}</span>`).join(' ');
         const vulnLen=(s.vulns||[]).length;
         return`<tr class="row" onclick="navTo('os-detail',{scan:osScans[${i}]})">
-          <td><div style="display:flex;align-items:center;gap:9px">
-            <div style="flex-shrink:0;font-size:20px;line-height:1">${esc(s.distroLogo)}</div>
+          <td><div class="row-main">
+            <span class="row-icon">${esc(s.distroLogo)}</span>
             <div class="row-name">${esc(s.pkg)}</div>
           </div></td>
           <td><div class="row-desc">${esc(s.desc||'—')}</div></td>
-          <td><span style="font-size:13px;color:var(--muted2)">${esc(s.distroLabel)}${s.distroVer?' <span style="color:var(--muted)">'+esc(s.distroVer)+'</span>':''}</span></td>
+          <td><span class="row-distro">${esc(s.distroLabel)}${s.distroVer?' <span>'+esc(s.distroVer)+'</span>':''}</span></td>
           <td><span class="row-ver">${s.pkgVer?'v'+esc(s.pkgVer):'any'}</span></td>
           <td><span class="sev ${esc(s.topSev)}">${esc(s.topSev)}</span></td>
-          <td>${vulnLen===0?'<span style="color:var(--l);font-size:11px">✓ clean</span>':(pills||`<span style="color:var(--muted)">${vulnLen}</span>`)}</td>
-          <td style="color:var(--muted);font-size:10px;white-space:nowrap">${fmtDate(s.scannedAt)}</td>
-          <td><button onclick="event.stopPropagation();osScans.splice(${i},1);saveOs();updateOsBadge();renderOsList()"
-            style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;padding:3px 5px;border-radius:4px"
-            onmouseover="this.style.color='var(--c)'" onmouseout="this.style.color='var(--muted)'">✕</button></td>
+          <td>${vulnLen===0?'<span class="row-clean">✓ clean</span>':(pills||`<span class="row-count">${vulnLen}</span>`)}</td>
+          <td class="row-date">${fmtDate(s.scannedAt)}</td>
+          <td><button class="row-del" onclick="event.stopPropagation();osScans.splice(${i},1);saveOs();updateOsBadge();renderOsList()">✕</button></td>
         </tr>`;
       }).join('')}
       </tbody>
@@ -145,38 +143,36 @@ function renderOsDetail(scan){
   const groupHtml=groupPage.rows.map(([[pkgName,g]])=>{
     const topSevG=['CRITICAL','HIGH','MEDIUM','LOW','UNKNOWN'].find(s=>g.counts[s])||'UNKNOWN';
     const pills=['CRITICAL','HIGH','MEDIUM','LOW','UNKNOWN'].filter(sv=>g.counts[sv])
-      .map(sv=>`<span class="sev ${sv}" style="font-size:9px;padding:1px 6px">${g.counts[sv]}</span>`).join('');
-    const pkgVerSpan=g.vulns[0]?.pkgVersion?`<span style="color:var(--muted);font-size:11px;margin-left:6px">v${esc(g.vulns[0].pkgVersion)}</span>`:'';
+      .map(sv=>`<span class="sev xs ${sv}">${g.counts[sv]}</span>`).join('');
+    const pkgVerSpan=g.vulns[0]?.pkgVersion?`<span class="pkg-group-ver">v${esc(g.vulns[0].pkgVersion)}</span>`:'';
     const fixedVer=g.vulns.find(v=>v.fix)?.fix;
-    const fixTag=fixedVer?`<span class="fix-tag" style="font-size:10px">→ ${esc(fixedVer)}</span>`:'';
+    const fixTag=fixedVer?`<span class="fix-tag">→ ${esc(fixedVer)}</span>`:'';
     const cardPage=paginate('os-cards:'+pkgName,g.vulns,rerender,scan);
     const cards=cardPage.rows.map(([v])=>osVulnCardHtml(v,gvi++)).join('')+cardPage.html;
-    return`<div class="pkg-group" data-group="${esc(pkgName)}" style="margin-bottom:20px">
-      <div class="pkg-group-hdr" onclick="toggleOsPkgGroup(this)" style="display:flex;align-items:center;gap:10px;padding:11px 16px;background:var(--s2);border:1px solid var(--br);border-radius:11px;cursor:pointer;transition:background .13s;user-select:none;margin-bottom:0" onmouseover="this.style.background='var(--s3)'" onmouseout="this.style.background='var(--s2)'">
-        <div class="vbar ${topSevG}" style="height:28px"></div>
-        <div style="flex:1;min-width:0"><span style="font-size:14px;font-weight:600;color:#fff">${esc(pkgName)}</span>${pkgVerSpan}${fixTag?'<span style="margin-left:8px">'+fixTag+'</span>':''}</div>
-        <div style="display:flex;align-items:center;gap:6px">${pills}<span style="font-size:11px;color:var(--muted);margin-left:4px">${g.vulns.length} CVE${g.vulns.length>1?'s':''}</span><span class="pkg-chev" style="color:var(--muted);font-size:10px;transition:transform .18s;margin-left:4px">▼</span></div>
+    return`<div class="pkg-group" data-group="${esc(pkgName)}">
+      <div class="pkg-group-hdr" onclick="togglePkgGroup(this)">
+        <div class="vbar ${topSevG}"></div>
+        <div class="pkg-group-title"><span class="pkg-group-name">${esc(pkgName)}</span>${pkgVerSpan}${fixTag}</div>
+        <div class="pkg-group-stats">${pills}<span class="pkg-group-count">${g.vulns.length} CVE${g.vulns.length>1?'s':''}</span><span class="pkg-chev">▼</span></div>
       </div>
-      <div class="pkg-group-body" style="display:none;margin-top:2px">${cards}</div>
+      <div class="pkg-group-body">${cards}</div>
     </div>`;
   }).join('');
 
   window._lastOsScan = scan;
   el.innerHTML=`
     <div class="detail-header">
-      <div class="detail-icon" style="background:rgba(249,115,22,.1);border:1px solid rgba(249,115,22,.25);font-size:22px;display:flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:14px;flex-shrink:0">${esc(distroInfo.logo)}</div>
+      <div class="detail-icon orange">${esc(distroInfo.logo)}</div>
       <div class="detail-info">
-        <div class="detail-name">${esc(scan.pkg)}${scan.pkgVer?` <span style="color:var(--muted);font-size:15px;font-weight:400">v${esc(scan.pkgVer)}</span>`:''}</div>
+        <div class="detail-name">${esc(scan.pkg)}${scan.pkgVer?` <span class="detail-ver">v${esc(scan.pkgVer)}</span>`:''}</div>
         <div class="detail-sub">${esc(distroInfo.label)}${scan.distroVer?' '+esc(scan.distroVer):''}${scan.desc?' · '+esc(scan.desc):''} · ${vulns.length} vulnerabilit${vulns.length===1?'y':'ies'} across ${sorted.length} package${sorted.length!==1?'s':''} · scanned ${fmtDate(scan.scannedAt)}</div>
       </div>
       <div class="detail-chips">${chips||'<span class="sev NONE">✅ CLEAN</span>'}</div>
-      <div style="margin-left:auto;flex-shrink:0">${exportBtnHtml('os','__OS_SCAN__')}</div>
+      <div class="detail-actions">${exportBtnHtml('os','__OS_SCAN__')}</div>
     </div>
-    ${vulns.length===0?'<div style="text-align:center;padding:60px;color:var(--l);font-size:14px">🛡️ No vulnerabilities found — this package is clean!</div>':groupHtml+groupPage.html}`;
+    ${vulns.length===0?'<div class="detail-empty">🛡️ No vulnerabilities found — this package is clean!</div>':groupHtml+groupPage.html}`;
 
-  const fb=el.querySelector('.pkg-group-body'),fc=el.querySelector('.pkg-chev');
-  if(fb){fb.style.display='block';if(fc)fc.style.transform='rotate(180deg)';}
-
+  el.querySelector('.pkg-group')?.classList.add('open');
 }
 
 function osVulnCardHtml(v,vi){
@@ -185,14 +181,14 @@ function osVulnCardHtml(v,vi){
   const title=v.summary||v.description||'No description';
 
   const cvss3=v.cvss?.cvss3;
-  const cvssInline=cvss3?(()=>{const cls=cvss3.score>=9?'CRITICAL':cvss3.score>=7?'HIGH':cvss3.score>=4?'MEDIUM':'LOW';return`<span class="sev ${cls}" style="font-size:9px;padding:1px 6px">${cvss3.score}</span>`;})():'';
+  const cvssInline=cvss3?`<span class="sev xs ${cvssClass(cvss3.score)}">${cvss3.score}</span>`:'';
   let eb='';
-  if(v.vex) eb+=`<span title="VEX: ${esc(v.vex.label)}" style="background:rgba(94,240,200,.15);border:1px solid rgba(94,240,200,.4);color:var(--accent);font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;margin-right:3px">VEX</span>`;
-  if(v.vex) eb+=`<span title="${esc(v.vex.source||'VEX')}: ${esc(v.vex.label)}" class="sev ${esc(v.vex.cls)}" style="font-size:9px;padding:1px 6px;margin-right:3px">${esc(v.vex.icon||'')} ${esc(v.vex.label)}</span>`;
-  if(v.inKev) eb+=`<span title="CISA KEV" style="background:#ff3b30;color:#fff;font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;margin-right:3px">🔥 KEV</span>`;
-  if((v.pocs||[]).length) eb+=`<span title="${v.pocs.length} PoC(s)" style="background:#ff9500;color:#000;font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;margin-right:3px">💥 PoC×${v.pocs.length}</span>`;
+  if(v.vex) eb+=`<span class="mark vex" title="VEX: ${esc(v.vex.label)}">VEX</span>`;
+  if(v.vex) eb+=`<span class="sev xs vex-state ${esc(v.vex.cls)}" title="${esc(v.vex.source||'VEX')}: ${esc(v.vex.label)}">${esc(v.vex.icon||'')} ${esc(v.vex.label)}</span>`;
+  if(v.inKev) eb+='<span class="mark kev" title="CISA KEV">🔥 KEV</span>';
+  if((v.pocs||[]).length) eb+=`<span class="mark poc" title="${v.pocs.length} PoC(s)">💥 PoC×${v.pocs.length}</span>`;
   const risk=v.risk;
-  const riskBadge=risk?`<span class="sev ${risk.label}" style="font-size:9px;padding:1px 7px" title="Risk score">⚡${risk.score}</span>`:'';
+  const riskBadge=risk?`<span class="sev xs risk ${esc(risk.label)}" title="Risk score">⚡${Number(risk.score)||0}</span>`:'';
 
   return`<div class="vi" id="osvi-${vi}">
     <div class="vi-hdr" onclick="toggleOsVI(${vi})">
@@ -203,16 +199,16 @@ function osVulnCardHtml(v,vi){
       <span class="vi-sev ${sev}">${sev}</span>
       <span class="vi-chev">▼</span>
     </div>
-    <div class="vi-body" id="osvib-${vi}" style="display:none">
+    <div class="vi-body" id="osvib-${vi}">
       <div class="vgrid">
         <span class="vk">CVE ID</span><span class="vv"><a href="https://nvd.nist.gov/vuln/detail/${esc(cveId)}" target="_blank" rel="noopener">${esc(cveId)} ↗</a></span>
-        <span class="vk">Package</span><span class="vv" style="color:#fff;font-weight:500">${esc(v.pkgName||'—')}</span>
-        <span class="vk">Installed</span><span class="vv" style="color:var(--muted)">${esc(v.pkgVersion||'—')}</span>
+        <span class="vk">Package</span><span class="vv strong">${esc(v.pkgName||'—')}</span>
+        <span class="vk">Installed</span><span class="vv dim">${esc(v.pkgVersion||'—')}</span>
         ${v.fix?`<span class="vk">Fixed in</span><span class="vv"><span class="fix-tag">→ ${esc(v.fix)}</span></span>`:''}
-        ${v.description?`<span class="vk">Description</span><span class="vv" style="white-space:pre-wrap;line-height:1.55" id="osdesc-${vi}">${esc(v.description.slice(0,480))}${v.description.length>480?`<button data-full="${esc(v.description)}" onclick="expandOsDesc(${vi},this)" style="background:none;border:none;color:var(--accent);cursor:pointer;font-size:11px;padding:0;text-decoration:underline;margin-left:2px">… show more</button>`:''}</span>`:''}
+        ${v.description?`<span class="vk">Description</span><span class="vv prose" id="osdesc-${vi}">${esc(v.description.slice(0,480))}${v.description.length>480?`<button class="more-link" data-full="${esc(v.description)}" onclick="expandOsDesc(${vi},this)">… show more</button>`:''}</span>`:''}
         ${v.published?`<span class="vk">Published</span><span class="vv">${new Date(v.published).toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'})}</span>`:''}
         ${(v.urls||[]).length?`<span class="vk">Reference</span><span class="vv"><a href="${esc(safeUrl(v.urls[0]))}" target="_blank" rel="noopener">${esc(v.urls[0].length>60?v.urls[0].slice(0,60)+'…':v.urls[0])}</a></span>`:''}
-        <span class="vk">CVSS</span><span class="vv">${_osCvssHtml(v.cvss)}</span>
+        <span class="vk">CVSS</span><span class="vv">${cvssHtml(v.cvss)}</span>
         <span class="vk">NVD Score</span><span class="vv">${_osNvdScoreHtml(v.cvss)}</span>
         <span class="vk">EPSS</span><span class="vv">${_osEpssHtml(v.epss)}</span>
         <span class="vk">Risk Score</span><span class="vv">${_osRiskHtml(v.risk)}</span>
@@ -224,43 +220,26 @@ function osVulnCardHtml(v,vi){
   </div>`;
 }
 
-function _osCvssHtml(cvss){
-  if(!cvss||(!cvss.cvss3&&!cvss.cvss2)) return '<span style="color:var(--muted);font-size:11px">not in NVD</span>';
-  let out='';
-  if(cvss.cvss3){const s=cvss.cvss3.score,cls=s>=9?'CRITICAL':s>=7?'HIGH':s>=4?'MEDIUM':'LOW';out+=`<span class="sev ${cls}" style="font-size:10px;padding:2px 7px;margin-right:5px">${s} ${cvss.cvss3.severity||cls}</span><span style="color:var(--muted);font-size:10px;margin-right:10px">CVSSv${cvss.cvss3.version||3}</span>`;}
-  if(cvss.cvss2){const s=cvss.cvss2.score,cls=s>=7?'HIGH':s>=4?'MEDIUM':'LOW';out+=`<span class="sev ${cls}" style="font-size:10px;padding:2px 7px;margin-right:5px;opacity:.7">${s}</span><span style="color:var(--muted);font-size:10px">CVSSv2</span>`;}
-  return out;
-}
 function _osNvdScoreHtml(cvss){
-  if(!cvss?.cvss3) return '<span style="color:var(--muted);font-size:11px">not in NVD</span>';
-  const s=cvss.cvss3.score,cls=s>=9?'CRITICAL':s>=7?'HIGH':s>=4?'MEDIUM':'LOW';
-  return`<span class="sev ${cls}">${s}</span><span style="color:var(--muted);font-size:11px;margin-left:6px">${cvss.cvss3.vector||''}</span>`;
+  if(!cvss?.cvss3) return NOT_IN_NVD;
+  const s=cvss.cvss3.score;
+  return`<span class="sev ${cvssClass(s)}">${s}</span><span class="text-note nvd-vector">${esc(cvss.cvss3.vector||'')}</span>`;
 }
 function _osEpssHtml(epss){
-  if(!epss||!Number.isFinite(epss.epss)) return '<span style="color:var(--muted);font-size:11px">not found</span>';
+  if(!epss||!Number.isFinite(epss.epss)) return '<span class="text-note">not found</span>';
   const pct=(epss.epss*100).toFixed(2),cls=epss.epss>=.1?'hi':epss.epss>=.01?'mi':'';
-  const pctl=Number.isFinite(epss.percentile)?`<span style="font-size:10px;color:var(--muted)">${(epss.percentile*100).toFixed(0)}th pct</span>`:'';
+  const pctl=Number.isFinite(epss.percentile)?`<span class="text-meta">${(epss.percentile*100).toFixed(0)}th pct</span>`:'';
   return`<div class="epss-row"><span class="epss-pct ${cls}">${pct}%</span><div class="epss-bar"><div class="epss-fill ${cls}" style="width:${Math.min(epss.epss*500,100)}%"></div></div>${pctl}</div>`;
 }
 function _osRiskHtml(risk){
-  if(!risk) return '<span style="color:var(--muted);font-size:11px">—</span>';
-  const bgCol=risk.label==='CRITICAL'?'var(--c)':risk.label==='HIGH'?'var(--h)':risk.label==='MEDIUM'?'var(--m)':'var(--l)';
-  return`<div class="epss-row"><span class="sev ${risk.label}" style="font-size:10px;padding:2px 8px">${risk.score}/100</span><div class="epss-bar"><div class="epss-fill" style="width:${risk.score}%;background:${bgCol}"></div></div><span style="font-size:10px;color:var(--muted)">60% CVSS · 40% EPSS</span></div>`;
+  if(!risk) return '<span class="text-note">—</span>';
+  const fill=['CRITICAL','HIGH','MEDIUM'].includes(risk.label)?risk.label:'LOW';
+  const score=Number(risk.score)||0;
+  return`<div class="epss-row"><span class="sev risk-score ${esc(risk.label)}">${score}/100</span><div class="epss-bar"><div class="epss-fill ${fill}" style="width:${score}%"></div></div><span class="text-meta">60% CVSS · 40% EPSS</span></div>`;
 }
 
-function toggleOsPkgGroup(hdr){
-  const body=hdr.nextElementSibling,chev=hdr.querySelector('.pkg-chev');
-  if(!body)return;
-  const open=body.style.display!=='none';
-  body.style.display=open?'none':'block';
-  if(chev)chev.style.transform=open?'':'rotate(180deg)';
-}
 function toggleOsVI(vi){
-  const el=document.getElementById('osvi-'+vi),body=document.getElementById('osvib-'+vi);
-  if(!el||!body)return;
-  const open=el.classList.contains('open');
-  el.classList.toggle('open',!open);
-  body.style.display=open?'none':'block';
+  document.getElementById('osvi-'+vi)?.classList.toggle('open');
 }
 function expandOsDesc(vi,btn){
   const el=document.getElementById('osdesc-'+vi);
@@ -268,15 +247,13 @@ function expandOsDesc(vi,btn){
 }
 
 function _osVexHtml(vex){
-  if(!vex) return '<span style="color:var(--muted);font-size:11px">—</span>';
-  const cols={LOW:'var(--l)',HIGH:'var(--h)',MEDIUM:'var(--m)',UNKNOWN:'var(--u)',CRITICAL:'var(--c)'};
-  const col=cols[vex.cls]||'var(--muted)';
-  return`<span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:3px 10px;border-radius:6px;border:1px solid ${col};color:${col};background:${col.replace(')',', .1)').replace('var(--','rgba(').replace(')',',1)')}">🔖 ${esc(vex.label)}</span>`;
+  if(!vex) return '<span class="text-note">—</span>';
+  return`<span class="vex-tag ${esc(vex.cls)}">🔖 ${esc(vex.label)}</span>`;
 }
 
 document.addEventListener('keydown',e=>{
   const m=document.getElementById('osModal');
-  if(m?.style.display!=='none'){
+  if(m&&!m.hidden){
     if(e.key==='Enter')  doOsScan();
   }
 });

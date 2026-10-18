@@ -9,11 +9,11 @@ function pickDepSys(id){ selDepSys=id; renderDepEcos(); }
 function openDepModal(){
   selDepSys=null;
   ['dDesc','dPkg','dVer'].forEach(id=>document.getElementById(id).value='');
-  document.getElementById('dmerr').style.display='none';
+  document.getElementById('dmerr').hidden=true;
   setBtn('btnDepGo',false,'▶ Scan');
   renderDepEcos();
-  document.getElementById('depModal').style.display='flex';
+  document.getElementById('depModal').hidden=false;
   setTimeout(()=>document.getElementById('dPkg').focus(),160);
 }
-function closeDepModal(){ document.getElementById('depModal').style.display='none'; }
+function closeDepModal(){ document.getElementById('depModal').hidden=true; }
 

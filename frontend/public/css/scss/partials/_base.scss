@@ -1,5 +1,8 @@
 // Reset
 *,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
+// Hidden until /api/auth/me answers, so a signed-out visitor never sees the app.
+.auth-pending #app { visibility: hidden; }
+[hidden] { display: none !important; }
 
 // CSS Variables
 :root {

@@ -71,21 +71,21 @@ async function navTo(page, opts={}){
   });
 
   if(isProxy){
-    document.getElementById('topbarLeft').innerHTML=`<span style="font-family:'Syne',sans-serif;font-size:17px;font-weight:700;color:#fff">Proxy activity</span>`;
+    document.getElementById('topbarLeft').innerHTML='<span class="topbar-title">Proxy activity</span>';
     document.getElementById('topbarActions').innerHTML='';
     if(typeof renderProxy==='function') renderProxy();
     return;
   }
 
   if(isRules){
-    document.getElementById('topbarLeft').innerHTML=`<span style="font-family:'Syne',sans-serif;font-size:17px;font-weight:700;color:#fff">Gate rules</span>`;
+    document.getElementById('topbarLeft').innerHTML='<span class="topbar-title">Gate rules</span>';
     document.getElementById('topbarActions').innerHTML='';
     if(typeof renderRules==='function') renderRules();
     return;
   }
 
   if(page==='admin'){
-    document.getElementById('topbarLeft').innerHTML='<span style="font-size:17px;font-weight:700;color:#fff">User Management</span>';
+    document.getElementById('topbarLeft').innerHTML='<span class="topbar-title">User Management</span>';
     document.getElementById('topbarActions').innerHTML='';
     if(typeof renderAdmin==='function') renderAdmin();
     return;
@@ -95,7 +95,7 @@ async function navTo(page, opts={}){
   const ta=document.getElementById('topbarActions');
 
   if(page==='lib-list'){
-    tl.innerHTML=`<span style="font-family:'Syne',sans-serif;font-size:17px;font-weight:700;color:#fff">Library Scan</span>`;
+    tl.innerHTML=`<span class="topbar-title">Library Scan</span>`;
     ta.innerHTML='';
     await renderLibList();
 
@@ -112,7 +112,7 @@ async function navTo(page, opts={}){
     renderLibDetail(s);
 
   }else if(page==='dep-list'){
-    tl.innerHTML=`<span style="font-family:'Syne',sans-serif;font-size:17px;font-weight:700;color:#fff">Dependency Scan</span>`;
+    tl.innerHTML=`<span class="topbar-title">Dependency Scan</span>`;
     ta.innerHTML='';
     await renderDepList();
 
@@ -135,7 +135,7 @@ async function navTo(page, opts={}){
       <div class="breadcrumb">
         <span class="bc-root" onclick="navTo('dep-list')">Dependency Scan</span>
         <span class="bc-sep">/</span>
-        <span class="bc-root" onclick="navTo('dep-detail',{scan:currentDepScan})" style="cursor:pointer">${esc(currentDepScan?.package||scan?.package||'')}</span>
+        <span class="bc-root" onclick="navTo('dep-detail',{scan:currentDepScan})">${esc(currentDepScan?.package||scan?.package||'')}</span>
         <span class="bc-sep">/</span>
         <span class="bc-current">${esc(dep.name)}</span>
       </div>`;
@@ -143,11 +143,11 @@ async function navTo(page, opts={}){
     renderDepPkg(dep, scan);
 
   }else if(page==='img-form'){
-    tl.innerHTML=`<span style="font-family:'Syne',sans-serif;font-size:17px;font-weight:700;color:#fff">Image Scan</span>`;
+    tl.innerHTML=`<span class="topbar-title">Image Scan</span>`;
     ta.innerHTML='';
 
   }else if(page==='img-list'){
-    tl.innerHTML=`<span style="font-family:'Syne',sans-serif;font-size:17px;font-weight:700;color:#fff">Image Scan</span>`;
+    tl.innerHTML=`<span class="topbar-title">Image Scan</span>`;
     ta.innerHTML='';
     await renderImgList();
 
@@ -164,7 +164,7 @@ async function navTo(page, opts={}){
     renderImgDetail(s);
 
   }else if(page==='os-list'){
-    tl.innerHTML=`<span style="font-family:'Syne',sans-serif;font-size:17px;font-weight:700;color:#fff">OS Packages</span>`;
+    tl.innerHTML=`<span class="topbar-title">OS Packages</span>`;
     ta.innerHTML='';
     await renderOsList();
 
@@ -181,11 +181,11 @@ async function navTo(page, opts={}){
     renderOsDetail(s);
 
   }else if(page==='gh-form'){
-    tl.innerHTML=`<span style="font-family:'Syne',sans-serif;font-size:17px;font-weight:700;color:#fff">GitHub Scan</span>`;
+    tl.innerHTML=`<span class="topbar-title">GitHub Scan</span>`;
     ta.innerHTML='';
 
   }else if(page==='gh-list'){
-    tl.innerHTML=`<span style="font-family:'Syne',sans-serif;font-size:17px;font-weight:700;color:#fff">GitHub Scan</span>`;
+    tl.innerHTML=`<span class="topbar-title">GitHub Scan</span>`;
     ta.innerHTML='';
     await renderGhList();
 

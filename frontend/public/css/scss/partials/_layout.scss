@@ -94,6 +94,12 @@
     background: var(--blue);
     &:hover { background: #80c4ff; box-shadow: 0 6px 20px rgba(77,166,255,.28); }
   }
+
+  &.purple, &.purple:hover { background: #a78bfa; }
+  &.orange, &.orange:hover { background: #f97316; }
+
+  // Full-width submit button under a scan form
+  &.wide { width: 100%; justify-content: center; padding: 12px; margin-top: 4px; }
 }
 
 .btn-secondary {
@@ -136,4 +142,77 @@
   &.LOW      { background: var(--l-bg); border: 1px solid var(--l-br); color: var(--l); }
   &.NONE     { background: var(--l-bg); border: 1px solid var(--l-br); color: var(--l); }
   &.UNKNOWN  { background: var(--u-bg); border: 1px solid var(--u-br); color: var(--u); }
+}
+
+// Placeholder text inside a panel: loading, empty, errors
+.panel-note {
+  padding: 24px;
+  color: var(--muted);
+  &.tight { padding: 16px; }
+  &.error { color: #ff5f56; }
+}
+
+// Signed-in user chip and menu (topbar)
+.user-chip { position: relative; display: flex; align-items: center; margin-left: auto; }
+
+.user-chip-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #0b0f18;
+  border: 1px solid #1a2030;
+  border-radius: 999px;
+  padding: 5px 12px 5px 8px;
+  cursor: pointer;
+  user-select: none;
+  transition: border-color .15s;
+  &:hover { border-color: #2a3450; }
+}
+
+.user-chip-avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #5ef0c8;
+  color: #07090f;
+  font-size: 10px;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.user-chip-name { font-size: 12px; color: #e5e7eb; font-weight: 600; }
+.user-chip-role { font-size: 9px; color: #5ef0c8; font-weight: 800; letter-spacing: .04em; }
+.user-chip-caret { font-size: 9px; color: #5a6478; margin-left: 2px; }
+
+.user-menu {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  background: #0b0f18;
+  border: 1px solid #1a2030;
+  border-radius: 10px;
+  min-width: 160px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0,0,0,.5);
+  z-index: 9999;
+
+  &.open { display: block; }
+}
+
+.user-menu-item {
+  padding: 10px 14px;
+  font-size: 12px;
+  color: #8a9ab0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  &:hover { background: #111827; }
+  & + & { border-top: 1px solid #1a2030; }
+
+  &.danger { color: #ff6b6b; &:hover { background: #1a0808; } }
 }

@@ -72,10 +72,10 @@ async function renderRules() {
   const host = document.getElementById('rulesContent');
   if (!host) return;
   if (window._authUser?.role !== 'admin') {
-    host.innerHTML = '<div style="padding:24px;color:var(--muted)">Policy editing requires an administrator account.</div>';
+    host.innerHTML = '<div class="panel-note">Policy editing requires an administrator account.</div>';
     return;
   }
-  host.innerHTML = '<div style="padding:24px;color:var(--muted)">Loading…</div>';
+  host.innerHTML = '<div class="panel-note">Loading…</div>';
   try {
     const [factsRes, policyRes] = await Promise.all([
       fetch('/api/policy/facts'), fetch('/api/policy'),
@@ -562,7 +562,7 @@ function draftPaint() {
       </div>
     </div>
 
-    <div id="draftErr" class="draft-err" style="display:none"></div>
+    <div id="draftErr" class="draft-err" hidden></div>
 
     <div class="rules-modal-actions">
       <button id="draftCancel">Cancel</button>
@@ -624,7 +624,7 @@ function draftCommit() {
   draftSync(false);
   const body = _rulesState.body;
   const err = document.getElementById('draftErr');
-  const fail = (msg) => { err.textContent = msg; err.style.display = 'block'; };
+  const fail = (msg) => { err.textContent = msg; err.hidden = false; };
 
   if (_draft.kind === 'name') {
     const pattern = _draft.pattern.trim();
@@ -716,7 +716,7 @@ function rulesImport() {
 function _rulesModal(title, html) {
   _rulesCloseModal();
   const ov = document.createElement('div');
-  ov.className = 'ov'; ov.id = 'rulesOv'; ov.style.display = 'flex';
+  ov.className = 'ov'; ov.id = 'rulesOv';
   ov.innerHTML = `<div class="modal rules-modal" onclick="event.stopPropagation()">
       <div class="mhdr"><span class="mtitle">${esc(title)}</span>
         <button class="mclose" id="rulesModalClose">✕</button></div>

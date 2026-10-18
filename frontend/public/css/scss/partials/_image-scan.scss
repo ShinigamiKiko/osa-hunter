@@ -10,3 +10,19 @@
 }
 
 .img-hero-icon { font-size: 76px; margin-bottom: 18px; animation: float 4s ease-in-out infinite; line-height: 1; }
+.img-hero-logo { width: 90px; height: 90px; object-fit: contain; filter: drop-shadow(0 0 18px rgba(94,240,200,.35)); }
+
+// Note under a scan form (image scan, GitHub scan)
+.form-hint {
+  display: flex; align-items: center; gap: 12px;
+  margin-top: 10px; padding: 12px 14px;
+  background: rgba(94,240,200,.05);
+  border: 1px solid rgba(94,240,200,.13);
+  border-radius: 8px;
+  font-size: 13px; line-height: 1.6; color: var(--muted2);
+
+  &.purple { background: rgba(167,139,250,.05); border-color: rgba(167,139,250,.13); }
+}
+
+.form-hint-icon { font-size: 20px; line-height: 1; flex-shrink: 0; }
+.form-hint-aside { color: var(--muted); }

@@ -80,9 +80,9 @@ test('OS package scans with only UNKNOWN findings are not labelled clean', () =>
   const ctx = { console: { log() {}, warn() {} }, Date, Set, Map, Promise,
     localStorage: { getItem: () => '[]', setItem() {} },
     document: { addEventListener() {}, getElementById: id => nodes[id] ||= { innerHTML: '', style: {}, querySelector: () => null, querySelectorAll: () => [] } },
-    navTo() {}, exportBtnHtml: () => '', kevBadge: () => '', pocBadge: () => '' };
+    navTo() {}, exportBtnHtml: () => '' };
   ctx.window = ctx; vm.createContext(ctx);
-  for (const file of ['utils.js', 'ui-os-scan.js'])
+  for (const file of ['utils.js', 'enrich.js', 'ui-os-scan.js'])
     vm.runInContext(fs.readFileSync(path.join(__dirname, '../../frontend/public/js', file), 'utf8'), ctx, { filename: file });
   const scan = { package: 'openssl', distro: 'debian', version: '3.0.9', counts: { UNKNOWN: 1 }, topSev: 'UNKNOWN',
     vulns: [{ id: 'CVE-2026-2', severity: 'UNKNOWN', package: 'openssl' }] };

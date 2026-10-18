@@ -17,6 +17,8 @@
 //   _proxy        — proxy activity tabs, table, pager
 //   _rules        — gate policy editor: rule cards, exceptions, revisions
 //   _pager        — 50/100/150 row pager shared by every long list
+//   _badges       — severity sizes, CVSS/EPSS cells, KEV/PoC/toxic/activity badges
+//   _scan-pages   — list rows, detail header pieces, finding groups, dependency sections
 //   _admin        — user accounts and API keys
 
 @use 'partials/base';
@@ -33,4 +35,6 @@
 @use 'partials/proxy';
 @use 'partials/rules';
 @use 'partials/pager';
+@use 'partials/badges';
+@use 'partials/scan-pages';
 @use 'partials/admin';

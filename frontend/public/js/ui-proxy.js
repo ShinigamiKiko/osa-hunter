@@ -29,7 +29,7 @@ async function _proxyLoadRules() {
 async function renderProxy() {
   const host = document.getElementById('proxyContent');
   if (!host) return;
-  host.innerHTML = '<div style="padding:24px;color:var(--muted)">Loading…</div>';
+  host.innerHTML = '<div class="panel-note">Loading…</div>';
 
   let summary = { overall: { total: 0, denied: 0 }, byEcosystem: [] };
   try {
@@ -124,7 +124,7 @@ async function proxyLoadTable() {
   const requestId = ++_proxyRequestId;
   _proxyController?.abort();
   _proxyController = new AbortController();
-  t.innerHTML = '<div style="padding:16px;color:var(--muted)">Loading…</div>';
+  t.innerHTML = '<div class="panel-note tight">Loading…</div>';
   // Changing a filter starts again on page one.
   const pager = pageState('proxy', `${_proxyEco}|${_proxyDecision}|${_proxyQ}`);
   pager.rerender = proxyLoadTable;
@@ -142,13 +142,13 @@ async function proxyLoadTable() {
   }
   catch (e) {
     if (e.name === 'AbortError' || requestId !== _proxyRequestId) return;
-    t.innerHTML = `<div style="padding:16px;color:#ff5f56">${esc(e.message)}</div>`;
+    t.innerHTML = `<div class="panel-note tight error">${esc(e.message)}</div>`;
     return;
   }
   if (requestId !== _proxyRequestId || !document.getElementById('proxyTable')) return;
   pager.page = d.page || 1;
   if (!d.events || !d.events.length) {
-    t.innerHTML = '<div style="padding:24px;color:var(--muted)">No packages passed through the gate yet.</div>';
+    t.innerHTML = '<div class="panel-note">No packages passed through the gate yet.</div>';
     return;
   }
   const rows = d.events.map(e => `<tr>

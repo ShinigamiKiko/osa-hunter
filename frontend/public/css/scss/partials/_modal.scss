@@ -95,6 +95,20 @@
   }
 }
 
+// Caveat inside a modal (OS scan: VEX status)
+.modal-note {
+  margin: 10px 14px 0;
+  padding: 10px 12px;
+  background: rgba(249,115,22,.06);
+  border: 1px solid rgba(249,115,22,.2);
+  border-radius: 8px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--muted2);
+
+  a { color: #f97316; }
+}
+
 .mactions { display: flex; gap: 8px; margin-top: 22px; }
 
 .btn-cancel {
@@ -114,6 +128,9 @@
   transition: all .2s;
   &:hover:not(:disabled) { background: #7ef5d5; }
   &:disabled { opacity: .4; cursor: not-allowed; }
+
+  &.purple, &.purple:hover:not(:disabled) { background: #a78bfa; }
+  &.orange, &.orange:hover:not(:disabled) { background: #f97316; color: #fff; }
 }
 
 // Misc form elements

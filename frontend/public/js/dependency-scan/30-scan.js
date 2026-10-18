@@ -70,7 +70,7 @@ async function doDepScan(){
   const pkg  = document.getElementById('dPkg').value.trim();
   const ver  = document.getElementById('dVer').value.trim();
   const desc = document.getElementById('dDesc').value.trim();
-  document.getElementById('dmerr').style.display='none';
+  document.getElementById('dmerr').hidden=true;
   if(!sys) return showErr('dmerr','Select a package system');
   if(!pkg) return showErr('dmerr','Enter a package name');
   if(depScanInFlight) return;

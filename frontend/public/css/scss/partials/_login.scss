@@ -1,5 +1,21 @@
 // Login page
 
+// The sign-in page centres its card in the viewport.
+.login-doc,
+.login-doc body {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  width: 100%;
+  max-width: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #07090f;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  overflow: auto;
+}
+
 .login-page {
   display: flex;
   align-items: center;
@@ -25,6 +41,17 @@
 // Radar container
 .login-radar {
   margin-bottom: 8px;
+
+  // A smaller radar than the one on empty list pages.
+  .er-stage      { width: 200px; height: 200px; margin-bottom: 0; }
+  .er-lg         { width: 196px; height: 196px; }
+  .er-md,
+  .er-sweep-mask { width: 166px; height: 166px; }
+  .er-sm         { width: 134px; height: 134px; }
+  .er-b1         { left: 72%; top: 30%; }
+  .er-b2         { left: 24%; top: 64%; }
+  .er-b3         { left: 58%; top: 74%; }
+  .er-wasp       { width: 170px; }
 }
 
 // Brand
@@ -103,7 +130,6 @@
 }
 
 .login-err {
-  display: none;
   background: #1a0808;
   border: 1px solid #ff3b30;
   color: #ff6b6b;

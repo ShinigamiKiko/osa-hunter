@@ -1,0 +1,329 @@
+@use 'sass:color';
+
+// Building blocks of the scan list and detail pages.
+
+.topbar-title { font-family: var(--font-display); font-size: 17px; font-weight: 700; color: #fff; }
+
+// List pages
+.list-toolbar { display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 14px; }
+.tbl th.col-del { width: 28px; }
+
+.row-main { display: flex; align-items: center; gap: 9px; }
+.row-icon { flex-shrink: 0; font-size: 20px; line-height: 1; &.sm { font-size: 18px; } &.lg { font-size: 22px; } }
+.row-meta { display: flex; align-items: center; gap: 5px; margin-top: 2px; }
+.row-sub  { font-size: 10px; color: var(--muted); margin-top: 2px; }
+.row-flag { margin-top: 4px; }
+.row-date { color: var(--muted); font-size: 10px; white-space: nowrap; }
+.row-clean { color: var(--l); font-size: 11px; }
+.row-toxic { color: #ff3b30; font-size: 11px; }
+.row-count { color: var(--muted); }
+.row-system { font-size: 10px; color: var(--muted2); }
+.row-distro { font-size: 13px; color: var(--muted2); span { color: var(--muted); } }
+.row-deps { font-size: 12px; color: var(--text); }
+.row-deps-sub { font-size: 10px; color: var(--muted); }
+
+.row-del {
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 3px 5px;
+  border-radius: 4px;
+  &:hover { color: var(--c); }
+}
+
+// Detail header pieces
+.detail-icon { font-size: 22px; }
+.detail-icon.orange { background: rgba(249,115,22,.1);  border: 1px solid rgba(249,115,22,.25); }
+.detail-icon.purple { background: rgba(167,139,250,.1); border: 1px solid rgba(167,139,250,.25); }
+.detail-icon img { width: 34px; height: 34px; object-fit: contain; filter: drop-shadow(0 0 8px rgba(167,139,250,.4)); }
+
+.detail-name.lg { font-size: 27px; }
+.detail-ver { color: var(--muted); font-size: 15px; font-weight: 400; &.lg { font-size: 20px; } }
+.detail-sub a { color: inherit; text-decoration: none; }
+.detail-badges { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; }
+.detail-chips.stacked { flex-direction: column; align-items: flex-end; gap: 8px; }
+.chip-row { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+.detail-actions { margin-left: auto; flex-shrink: 0; }
+
+.detail-header.clickable {
+  cursor: pointer;
+  transition: border-color .18s;
+  &:hover { border-color: rgba(167,139,250,.5); }
+}
+
+.detail-empty {
+  text-align: center;
+  padding: 60px;
+  color: var(--l);
+  font-size: 14px;
+  &.muted { color: var(--muted); }
+}
+
+.scan-incomplete {
+  padding: 16px;
+  color: var(--h);
+  ul { margin: 8px 0 0 18px; color: var(--muted2); font-size: 13px; }
+}
+
+.scan-warning {
+  margin-bottom: 12px;
+  padding: 10px 14px;
+  background: rgba(251,191,36,.08);
+  border: 1px solid rgba(251,191,36,.35);
+  border-radius: 8px;
+  color: #fbbf24;
+  font-size: 12px;
+}
+
+// Collapsible group of findings (per package, or per weakness type)
+.pkg-group { margin-bottom: 20px; &.compact { margin-bottom: 12px; } }
+
+.pkg-group-hdr {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 16px;
+  background: var(--s2);
+  border: 1px solid var(--br);
+  border-radius: 11px;
+  cursor: pointer;
+  transition: background .13s;
+  user-select: none;
+
+  &:hover { background: var(--s3); }
+  .vbar { height: 28px; }
+}
+
+.pkg-group-title { flex: 1; min-width: 0; }
+.pkg-group-name  { font-size: 14px; font-weight: 600; color: #fff; }
+.pkg-group-label { font-size: 13px; font-weight: 700; color: #fff; flex: 1; }
+.pkg-group-icon  { font-size: 16px; line-height: 1; }
+.pkg-group-ver   { color: var(--muted); font-size: 11px; margin-left: 6px; &.lg { font-size: 14px; margin-left: 7px; } }
+.pkg-group-title .fix-tag  { font-size: 10px; margin-left: 8px; }
+.pkg-group-title .pkg-flag { margin-left: 8px; }
+.pkg-group-stats { display: flex; align-items: center; gap: 6px; }
+.pkg-group-count { font-size: 11px; color: var(--muted); margin-left: 4px; }
+
+.pkg-chev { color: var(--muted); font-size: 10px; transition: transform .18s; margin-left: 4px; }
+.pkg-group-body { display: none; margin-top: 2px; }
+.pkg-group.open {
+  .pkg-chev { transform: rotate(180deg); }
+  .pkg-group-body { display: block; }
+}
+
+// Header and body drawn as one box (GitHub findings)
+.pkg-group.attached {
+  .pkg-group-hdr { border-radius: 11px 11px 0 0; }
+  .pkg-group-body {
+    margin-top: 0;
+    background: var(--s1);
+    border: 1px solid var(--br);
+    border-top: none;
+    border-radius: 0 0 11px 11px;
+    overflow: hidden;
+  }
+}
+
+a.pkg-link {
+  font-size: 17px;
+  font-weight: 700;
+  color: #fff;
+  text-decoration: none;
+  &:hover { text-decoration: underline; }
+}
+
+.pkg-type-tag {
+  font-size: 9px;
+  font-weight: 600;
+  color: #f5c518;
+  background: rgba(245,197,24,.12);
+  border: 1px solid rgba(245,197,24,.35);
+  border-radius: 4px;
+  padding: 1px 5px;
+  margin-left: 7px;
+  letter-spacing: .3px;
+}
+
+.card-note { padding: 16px 20px; color: var(--l); font-size: 12px; &.warn { color: #fbbf24; } }
+
+// Vulnerability card details
+.vi-cve { color: var(--accent); font-weight: 700; font-size: 11px; text-decoration: none; &.lg { font-size: 14px; } }
+.vi-cve-sep { color: var(--muted); font-size: 10px; margin: 0 5px; &.lg { font-size: 12px; } }
+.vi-alt-id { opacity: .7; &.lg { font-size: 14px; } }
+
+.vv.prose { white-space: pre-wrap; line-height: 1.55; }
+.vv.strong { color: #fff; font-weight: 500; }
+.vv.dim { color: var(--muted); }
+.vv.links { line-height: 2; }
+.vv.note { font-size: 11px; color: var(--muted); }
+.vv.meta { font-size: 11px; color: var(--muted2); }
+.vv.code-id { font-family: var(--font-mono); font-size: 11px; color: var(--muted); word-break: break-all; }
+.vv.chips { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.more-link {
+  background: none;
+  border: none;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 0;
+  text-decoration: underline;
+  margin-left: 2px;
+}
+
+.sev.xs.vex-state { margin-right: 3px; }
+.sev.xs.risk { padding: 1px 7px; }
+.sev.risk-score { font-size: 10px; padding: 2px 8px; }
+
+$sev-rgb: (CRITICAL: rgb(255,59,48), HIGH: rgb(255,140,50), MEDIUM: rgb(251,191,36), LOW: rgb(52,199,89), UNKNOWN: rgb(90,100,120));
+$sev-color: (CRITICAL: var(--c), HIGH: var(--h), MEDIUM: var(--m), LOW: var(--l), UNKNOWN: var(--u));
+
+.epss-fill {
+  @each $sev, $color in $sev-color { &.#{$sev} { background: $color; } }
+}
+
+.vex-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 6px;
+  @each $sev, $c in $sev-rgb {
+    &.#{$sev} { border: 1px solid $c; color: $c; background: color.change($c, $alpha: .1); }
+  }
+}
+
+// GitHub findings: one row per file location
+.finding { border-bottom: 1px solid var(--br); }
+
+.finding-hdr {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 16px;
+  cursor: pointer;
+  transition: background .12s;
+
+  &:hover { background: var(--s3); }
+  .vbar { height: 16px; }
+  .sev { flex-shrink: 0; }
+}
+
+.finding-path {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--accent);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.finding-line { color: var(--muted); }
+
+.finding-blocking {
+  font-size: 9px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(239,68,68,.15);
+  color: #ef4444;
+  border: 1px solid rgba(239,68,68,.3);
+  flex-shrink: 0;
+  font-weight: 600;
+}
+
+.finding-chev { color: var(--muted); font-size: 10px; transition: transform .18s; flex-shrink: 0; margin-left: 4px; }
+.finding-body { display: none; .vgrid { padding: 12px 16px 14px; } }
+.finding.open {
+  .finding-chev { transform: rotate(90deg); }
+  .finding-body { display: block; }
+}
+
+.code-block {
+  margin: 0;
+  padding: 8px 10px;
+  background: #0d1117;
+  border: 1px solid var(--br);
+  border-radius: 7px;
+  font-size: 11px;
+  color: #e6edf3;
+  overflow-x: auto;
+  line-height: 1.7;
+  font-family: var(--font-mono);
+
+  &.fix { background: rgba(52,199,89,.05); border-color: rgba(52,199,89,.2); color: #34c759; line-height: inherit; }
+}
+
+.code-ln { color: var(--muted2); user-select: none; margin-right: 14px; }
+
+.risk-chip { font-size: 10px; padding: 1px 7px; border-radius: 10px; background: rgba(255,255,255,.06); color: var(--muted); }
+
+a.ref-link { display: block; color: var(--accent); font-size: 11px; margin-bottom: 2px; }
+
+// Dependency graph: own vulnerabilities, direct and transitive sections
+$dep-sections: (
+  direct:     #a78bfa,
+  transitive: #3b82f6,
+  clean:      #34c759,
+  vulnerable: #ff3b30,
+);
+
+.dep-section { margin-bottom: 20px; }
+
+.dep-section-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 14px;
+  border-radius: 0 8px 8px 0;
+  cursor: pointer;
+  user-select: none;
+  transition: background .13s;
+}
+
+.dep-section-tag { font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 5px; }
+
+@each $name, $color in $dep-sections {
+  .dep-section.#{$name} {
+    .dep-section-head { border-left: 3px solid $color; background: color.change($color, $alpha: .06); }
+    .dep-section-head:hover { background: color.change($color, $alpha: .12); }
+    .dep-section-tag { background: color.change($color, $alpha: .12); border: 1px solid color.change($color, $alpha: .35); color: $color; }
+  }
+}
+
+.dep-section-label { font-size: 13px; font-weight: 600; color: #fff; }
+.dep-section-count { color: var(--muted); font-size: 11px; }
+.dep-section-right { margin-left: auto; display: flex; gap: 5px; align-items: center; }
+.dep-section-note  { color: var(--muted); font-size: 11px; &.ok { color: var(--l); } }
+.dep-section.clean .dep-section-note.ok { color: #34c759; }
+.dep-section-chev  { color: var(--muted); font-size: 10px; transition: transform .18s; margin-left: 6px; transform: rotate(180deg); }
+.dep-section-body  { margin-top: 8px; }
+.dep-section-empty { text-align: center; padding: 40px 20px; color: var(--muted); font-size: 13px; }
+
+.dep-section.collapsed {
+  .dep-section-chev { transform: none; }
+  .dep-section-body { display: none; }
+}
+
+.dep-hdr-stats {
+  margin-left: 10px;
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 500;
+  display: inline-flex;
+  gap: 10px;
+  align-items: center;
+
+  .direct     { color: #a78bfa; }
+  .transitive { color: #3b82f6; }
+  .warn       { color: var(--h); }
+  .ok         { color: var(--l); }
+}
+
+.relation-direct { color: #a78bfa; }
+.relation-other  { color: var(--muted); }

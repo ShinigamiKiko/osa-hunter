@@ -26,19 +26,19 @@ function pickEco(id){selEco=id;renderEcos();}
 
 function openLibModal(){
   selEco=null;['fDesc','fPkg','fVer'].forEach(id=>document.getElementById(id).value='');
-  document.getElementById('lmerr').style.display='none';
+  document.getElementById('lmerr').hidden=true;
   setBtn('btnLibGo',false,'▶ Scan');renderEcos();
-  document.getElementById('libModal').style.display='flex';
+  document.getElementById('libModal').hidden=false;
   setTimeout(()=>document.getElementById('fPkg').focus(),160);
 }
-function closeLibModal(){document.getElementById('libModal').style.display='none';}
+function closeLibModal(){document.getElementById('libModal').hidden=true;}
 
 async function doLibScan(){
   const eco=ECOS.find(e=>e.id===selEco);
   const pkg=document.getElementById('fPkg').value.trim();
   const ver=document.getElementById('fVer').value.trim();
   const desc=document.getElementById('fDesc').value.trim();
-  document.getElementById('lmerr').style.display='none';
+  document.getElementById('lmerr').hidden=true;
   if(!eco) return showErr('lmerr','Select an ecosystem');
   if(!pkg) return showErr('lmerr','Enter a package name');
   if(libScanInFlight) return;
@@ -70,8 +70,8 @@ async function doLibScan(){
 
 function updateLibBadge(){
   const b=document.getElementById('libBadge');
-  if(libScans.length){b.style.display='';b.textContent=libScans.length;}
-  else b.style.display='none';
+  if(libScans.length){b.hidden=false;b.textContent=libScans.length;}
+  else b.hidden=true;
 }
 
 async function renderLibList(){
@@ -83,33 +83,31 @@ async function renderLibList(){
     _initEmptyRadar();return;
   }
   el.innerHTML=`
-    <div style="display:flex;justify-content:flex-end;margin-bottom:14px">
+    <div class="list-toolbar">
       <button class="btn-secondary" onclick="openLibModal()">+ Add library</button>
       <button class="btn-secondary" onclick="if(confirm('Clear all?')){libScans=[];saveLib();updateLibBadge();renderLibList()}">Clear all</button>
     </div>
     <div class="tbl-wrap"><table class="tbl">
-      <thead><tr><th>Package</th><th>Description</th><th>Version</th><th>Top Severity</th><th>Findings</th><th>Scanned</th><th style="width:28px"></th></tr></thead>
+      <thead><tr><th>Package</th><th>Description</th><th>Version</th><th>Top Severity</th><th>Findings</th><th>Scanned</th><th class="col-del"></th></tr></thead>
       <tbody>${pg.rows.map(([s,i])=>{
         const cnt={};s.vulns.forEach(v=>{const sv=v._sev||v.severity||'UNKNOWN';cnt[sv]=(cnt[sv]||0)+1;});
         const pills=['CRITICAL','HIGH','MEDIUM','LOW','UNKNOWN'].filter(sv=>cnt[sv])
-          .map(sv=>`<span class="sev ${sv}" style="font-size:9px;padding:2px 6px">${cnt[sv]} ${sv}</span>`).join(' ');
+          .map(sv=>`<span class="sev sm ${sv}">${cnt[sv]} ${sv}</span>`).join(' ');
         const isToxic=s.toxic?.found;
         return`<tr class="row" onclick="navTo('lib-detail',{scan:libScans[${i}]})">
           <td>
-            <div class="row-name" style="font-size:17px">${esc(s.pkg)}</div>
-            <div style="display:flex;align-items:center;gap:5px;margin-top:2px">
+            <div class="row-name">${esc(s.pkg)}</div>
+            <div class="row-meta">
               <div class="row-eco">${esc(s.ecoLogo)} ${esc(s.ecoLabel)}</div>
-              ${isToxic?`<span style="background:rgba(255,59,48,.15);border:1px solid rgba(255,59,48,.4);color:#ff3b30;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px">☠ TOXIC</span>`:''}
+              ${isToxic?'<span class="pkg-flag toxic">☠ TOXIC</span>':''}
             </div>
           </td>
           <td><div class="row-desc">${esc(s.desc||'—')}</div></td>
           <td><span class="row-ver">${s.ver?'v'+esc(s.ver):'any'}</span></td>
           <td><span class="sev ${esc(s.topSev)}">${esc(s.topSev)}</span></td>
-          <td>${s.vulns.length===0?'<span style="color:var(--l);font-size:11px">✓ clean</span>':(pills||`<span style="color:var(--muted)">${s.vulns.length}</span>`)}</td>
-          <td style="color:var(--muted);font-size:10px;white-space:nowrap">${fmtDate(s.scannedAt)}</td>
-          <td><button onclick="event.stopPropagation();libScans.splice(${i},1);saveLib();updateLibBadge();renderLibList()"
-            style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;padding:3px 5px;border-radius:4px"
-            onmouseover="this.style.color='var(--c)'" onmouseout="this.style.color='var(--muted)'">✕</button></td>
+          <td>${s.vulns.length===0?'<span class="row-clean">✓ clean</span>':(pills||`<span class="row-count">${s.vulns.length}</span>`)}</td>
+          <td class="row-date">${fmtDate(s.scannedAt)}</td>
+          <td><button class="row-del" onclick="event.stopPropagation();libScans.splice(${i},1);saveLib();updateLibBadge();renderLibList()">✕</button></td>
         </tr>`;
       }).join('')}</tbody>
     </table></div>${pg.html}`;
@@ -121,24 +119,24 @@ function renderLibDetail(s){
   const el=document.getElementById('libDetailContent');
   el.innerHTML=`
     <div class="detail-header">
-      <div class="detail-icon green" style="font-size:22px">${esc(s.ecoLogo)}</div>
+      <div class="detail-icon green">${esc(s.ecoLogo)}</div>
       <div class="detail-info">
-        <div class="detail-name" style="font-size:27px">${esc(s.pkg)}${s.ver?` <span style="color:var(--muted);font-size:20px;font-weight:400">${s.ver.startsWith('v') ? esc(s.ver) : 'v'+esc(s.ver)}</span>`:''}</div>
+        <div class="detail-name lg">${esc(s.pkg)}${s.ver?` <span class="detail-ver lg">${s.ver.startsWith('v') ? esc(s.ver) : 'v'+esc(s.ver)}</span>`:''}</div>
         <div class="detail-sub">${esc(s.ecoLabel)} · ${esc(s.desc||'No description')} · scanned ${fmtDate(s.scannedAt)}</div>
-        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:6px">
+        <div class="detail-badges">
           ${_toxicBadgeHtml(s.toxic)}
-          <div id="activityBadge"><span style="font-size:11px;color:var(--muted)">⏳ Checking activity…</span></div>
+          <div id="activityBadge"><span class="activity-pending">⏳ Checking activity…</span></div>
         </div>
       </div>
-      <div class="detail-chips" style="display:flex;flex-direction:column;align-items:flex-end;gap:8px">
-        <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end">
+      <div class="detail-chips stacked">
+        <div class="chip-row">
           ${s.vulns.length===0?'<span class="sev NONE">✅ CLEAN</span>':['CRITICAL','HIGH','MEDIUM','LOW','UNKNOWN'].filter(sv=>cnt[sv]).map(sv=>`<span class="sev ${sv}">${cnt[sv]} ${sv}</span>`).join('')}
         </div>
         ${exportBtnHtml('lib',{name:s.pkg,ecosystem:s.eco,version:s.ver||'',desc:s.desc||'',ecoLabel:s.ecoLabel||'',ecoLogo:s.ecoLogo||''})}
       </div>
     </div>
     ${s.vulns.length===0
-      ?'<div style="text-align:center;padding:60px;color:var(--l);font-size:14px">🛡️ No vulnerabilities found — this package version is clean!</div>'
+      ?'<div class="detail-empty">🛡️ No vulnerabilities found — this package version is clean!</div>'
       :`<div id="vulnCards">${vulnPage.rows.map(([v,vi])=>vulnCardHtml(s,v,vi)).join('')}</div>${vulnPage.html}`}`;
   if(s.vulns.length) renderStoredEnrichment(s.vulns,'lib');
   checkActivity('activityBadge',s.pkg,s.ecoLabel);
@@ -151,8 +149,8 @@ function vulnCardHtml(s,v,vi){
     <div class="vi-hdr" onclick="toggleVI(${vi})">
       <div class="vbar ${sev}"></div>
       <div class="vi-id">
-        ${cveId.startsWith('CVE-')?`<a href="https://nvd.nist.gov/vuln/detail/${esc(cveId)}" target="_blank" onclick="event.stopPropagation()" style="color:var(--accent);font-weight:700;font-size:14px;text-decoration:none">${esc(cveId)} ↗</a><span style="color:var(--muted);font-size:12px;margin:0 5px">/</span>`:''}
-        <span style="opacity:.7;font-size:14px">${esc(v.id)}</span>
+        ${cveId.startsWith('CVE-')?`<a class="vi-cve lg" href="https://nvd.nist.gov/vuln/detail/${esc(cveId)}" target="_blank" onclick="event.stopPropagation()">${esc(cveId)} ↗</a><span class="vi-cve-sep lg">/</span>`:''}
+        <span class="vi-alt-id lg">${esc(v.id)}</span>
         <span class="vi-cvss-inline" id="cvss-hdr-lib-${cveId}"></span>
       </div>
       <div class="vi-sum">${esc(v.summary||'No summary')}</div>
@@ -164,12 +162,12 @@ function vulnCardHtml(s,v,vi){
       <div class="vgrid">
         <span class="vk">OSV ID</span><span class="vv"><a href="https://osv.dev/vulnerability/${esc(v.id)}" target="_blank">${esc(v.id)} ↗</a></span>
         <span class="vk">CVSS</span><span class="vv" id="cvss-lib-${cveId}"></span>
-        <span class="vk">NVD Score</span><span class="vv" id="nvd-lib-${cveId}"><span style="color:var(--muted);font-size:11px">loading…</span></span>
+        <span class="vk">NVD Score</span><span class="vv" id="nvd-lib-${cveId}"><span class="text-note">loading…</span></span>
         <span class="vk">EPSS</span><span class="vv" id="epss-lib-${cveId}"></span>
-        ${v.details?`<span class="vk">Details</span><span class="vv" style="white-space:pre-wrap" id="det-${vi}">${esc(v.details.slice(0,480))}${v.details.length>480?`<span id="det-dots-${vi}"> <button data-full="${esc(v.details)}" onclick="expandDet(${vi},this)" style="background:none;border:none;color:var(--accent);cursor:pointer;font-size:11px;padding:0;text-decoration:underline">… show more</button></span>`:''}</span>`:''}
+        ${v.details?`<span class="vk">Details</span><span class="vv prose" id="det-${vi}">${esc(v.details.slice(0,480))}${v.details.length>480?`<span id="det-dots-${vi}"> <button class="more-link" data-full="${esc(v.details)}" onclick="expandDet(${vi},this)">… show more</button></span>`:''}</span>`:''}
         ${(v._fix||v.fix)?`<span class="vk">Fixed in</span><span class="vv"><span class="fix-tag">→ ${esc(v._fix||v.fix)}</span></span>`:''}
         ${v.published?`<span class="vk">Published</span><span class="vv">${new Date(v.published).toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'})}</span>`:''}
-        ${(v._refs||v.refs||[]).length?`<span class="vk">References</span><span class="vv" style="line-height:2">${(v._refs||v.refs).slice(0,4).map(u=>`<a href="${esc(safeUrl(u))}" target="_blank" rel="noopener noreferrer">${esc(u.length>60?u.slice(0,60)+'…':u)}</a>`).filter(Boolean).join('<br/>')}</span>`:''}
+        ${(v._refs||v.refs||[]).length?`<span class="vk">References</span><span class="vv links">${(v._refs||v.refs).slice(0,4).map(u=>`<a href="${esc(safeUrl(u))}" target="_blank" rel="noopener noreferrer">${esc(u.length>60?u.slice(0,60)+'…':u)}</a>`).filter(Boolean).join('<br/>')}</span>`:''}
         <span class="vk">CISA KEV</span><span class="vv" id="kev-lib-${cveId}"></span>
         <span class="vk">PoC (GitHub)</span><span class="vv" id="poc-lib-${cveId}"></span>
       </div>
@@ -184,14 +182,9 @@ function expandDet(vi,btn){
   dots.remove();el.textContent=btn.getAttribute('data-full');
 }
 function toggleVI(vi){
-  const el=document.getElementById('vi-'+vi);
-  const body=document.getElementById('vib-'+vi);
-  if(!el||!body)return;
-  const open=el.classList.contains('open');
-  el.classList.toggle('open',!open);
-  body.style.display=open?'none':'block';
+  document.getElementById('vi-'+vi)?.classList.toggle('open');
 }
 
 document.addEventListener('keydown',e=>{
-  if(e.key==='Enter' && document.getElementById('libModal').style.display!=='none') doLibScan();
+  if(e.key==='Enter' && !document.getElementById('libModal').hidden) doLibScan();
 });

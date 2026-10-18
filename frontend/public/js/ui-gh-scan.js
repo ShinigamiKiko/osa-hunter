@@ -5,14 +5,14 @@ const saveGh = () => safeSave('es_gh', ghScans);
 function updateGhBadge(){
   const b = document.getElementById('ghBadge');
   if(!b) return;
-  if(ghScans.length){ b.style.display=''; b.textContent=ghScans.length; }
-  else b.style.display='none';
+  if(ghScans.length){ b.hidden=false; b.textContent=ghScans.length; }
+  else b.hidden=true;
 }
 
 async function doGhScan(){
   const url  = document.getElementById('ghUrl').value.trim();
   const desc = document.getElementById('ghDesc').value.trim();
-  document.getElementById('ghErr').style.display='none';
+  document.getElementById('ghErr').hidden=true;
 
   if(!url) return showErr('ghErr','Enter a GitHub repository URL');
   if(!/^https:\/\/github\.com\/[^/]+\/[^/]+/.test(url))
@@ -58,7 +58,7 @@ async function renderGhList(){
     el.innerHTML='<div class="empty">'+_emptyRadar()+
       '<h2>No GitHub scans yet</h2>'+
       '<p>Paste a public GitHub repository URL to scan for security vulnerabilities with Semgrep</p>'+
-      '<button class="btn-primary" style="background:#a78bfa;color:#07090f" onclick="navTo(\'gh-form\')">+ New scan</button>'+
+      '<button class="btn-primary purple" onclick="navTo(\'gh-form\')">+ New scan</button>'+
       '</div>';
     _initEmptyRadar(); return;
   }
@@ -67,27 +67,27 @@ async function renderGhList(){
     var s = pair[0], i = pair[1];
     var counts = s.counts||{};
     var pills = ['CRITICAL','HIGH','MEDIUM','LOW','UNKNOWN'].filter(function(sv){return counts[sv];})
-      .map(function(sv){return '<span class="sev '+sv+'" style="font-size:9px;padding:2px 6px">'+counts[sv]+' '+sv+'</span>';}).join(' ');
+      .map(function(sv){return '<span class="sev sm '+sv+'">'+counts[sv]+' '+sv+'</span>';}).join(' ');
     var total = (s.findings||[]).length;
     return '<tr class="row" onclick="navTo(\'gh-detail\',{scan:ghScans['+i+']})">' +
-      '<td><div style="display:flex;align-items:center;gap:9px"><div style="flex-shrink:0;font-size:18px;line-height:1">🔬</div><div>' +
+      '<td><div class="row-main"><span class="row-icon sm">🔬</span><div>' +
       '<div class="row-name">'+esc(s.repo)+'</div>' +
-      '<div style="font-size:10px;color:var(--muted);margin-top:2px">'+esc(s.url)+'</div>' +
-      '<div style="margin-top:4px">'+_toxicBadgeHtml(s.toxic)+'</div>' +
+      '<div class="row-sub">'+esc(s.url)+'</div>' +
+      '<div class="row-flag">'+_toxicBadgeHtml(s.toxic)+'</div>' +
       '</div></div></td>' +
       '<td><div class="row-desc">'+esc(s.desc||'—')+'</div></td>' +
-      '<td><span class="sev '+(s.complete === true ? s.topSev : 'UNKNOWN')+'">'+(s.complete === true ? s.topSev : 'RESCAN')+'</span></td>' +
-      '<td>'+(total===0 ? (s.complete === true ? '<span style="color:var(--l);font-size:11px">✓ clean</span>' : '<span style="color:var(--muted);font-size:11px">Not verified</span>') : (pills||'<span style="color:var(--muted)">'+total+'</span>'))+'</td>' +
-      '<td style="color:var(--muted);font-size:10px;white-space:nowrap">'+fmtDate(s.scannedAt)+'</td>' +
-      '<td><button onclick="event.stopPropagation();ghScans.splice('+i+',1);saveGh();updateGhBadge();renderGhList()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;padding:3px 5px;border-radius:4px" onmouseover="this.style.color=\'var(--c)\'" onmouseout="this.style.color=\'var(--muted)\'">✕</button></td>' +
+      '<td><span class="sev '+(s.complete === true ? esc(s.topSev) : 'UNKNOWN')+'">'+(s.complete === true ? esc(s.topSev) : 'RESCAN')+'</span></td>' +
+      '<td>'+(total===0 ? (s.complete === true ? '<span class="row-clean">✓ clean</span>' : '<span class="text-note">Not verified</span>') : (pills||'<span class="row-count">'+total+'</span>'))+'</td>' +
+      '<td class="row-date">'+fmtDate(s.scannedAt)+'</td>' +
+      '<td><button class="row-del" onclick="event.stopPropagation();ghScans.splice('+i+',1);saveGh();updateGhBadge();renderGhList()">✕</button></td>' +
       '</tr>';
   }).join('');
   el.innerHTML =
-    '<div style="display:flex;justify-content:flex-end;margin-bottom:14px">' +
+    '<div class="list-toolbar">' +
     '<button class="btn-secondary" onclick="navTo(\'gh-form\')">+ New scan</button>' +
     '<button class="btn-secondary" onclick="if(confirm(\'Clear all GitHub scans?\')){ghScans=[];saveGh();updateGhBadge();renderGhList()}">Clear all</button></div>' +
     '<div class="tbl-wrap"><table class="tbl"><thead><tr>' +
-    '<th>Repository</th><th>Description</th><th>Top Severity</th><th>Findings</th><th>Scanned</th><th style="width:28px"></th>' +
+    '<th>Repository</th><th>Description</th><th>Top Severity</th><th>Findings</th><th>Scanned</th><th class="col-del"></th>' +
     '</tr></thead><tbody>'+rows+'</tbody></table></div>'+pg.html;
 }
 
@@ -212,7 +212,7 @@ function renderGhDetail(scan){
     var sevCounts = {};
     items.forEach(function(f){var s=(f.severity||'UNKNOWN').toUpperCase();sevCounts[s]=(sevCounts[s]||0)+1;});
     var pills = ['CRITICAL','HIGH','MEDIUM','LOW','UNKNOWN'].filter(function(sv){return sevCounts[sv];})
-      .map(function(sv){return '<span class="sev '+sv+'" style="font-size:9px;padding:1px 6px">'+sevCounts[sv]+'</span>';}).join('');
+      .map(function(sv){return '<span class="sev xs '+sv+'">'+sevCounts[sv]+'</span>';}).join('');
 
     var filePage = paginate('gh-files:'+vtype.label, items, rerender, scan);
     var fileRows = filePage.rows.map(function(filePair){
@@ -221,28 +221,28 @@ function renderGhDetail(scan){
       var sev = (f.severity||'UNKNOWN').toUpperCase();
       var fname = f.path ? (f.path.length > 70 ? '…'+f.path.slice(-67) : f.path) : 'unknown';
       var lineStr = f.line ? ':'+f.line : '';
-      return '<div id="ghfi-'+vi+'" style="border-bottom:1px solid var(--br)">' +
-        '<div onclick="toggleGhVI('+vi+')" style="display:flex;align-items:center;gap:10px;padding:9px 16px;cursor:pointer;transition:background .12s" onmouseover="this.style.background=\'var(--s3)\'" onmouseout="this.style.background=\'\'">' +
-        '<span class="vbar '+sev+'" style="height:16px;width:3px;border-radius:2px;flex-shrink:0"></span>' +
-        '<span style="font-family:var(--font-mono);font-size:11px;color:var(--accent);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(fname)+'<span style="color:var(--muted)">'+esc(lineStr)+'</span></span>' +
-        '<span class="sev '+sev+'" style="font-size:9px;padding:1px 6px;flex-shrink:0">'+sev+'</span>' +
-        (f.isBlocking?'<span style="font-size:9px;padding:1px 6px;border-radius:4px;background:rgba(239,68,68,.15);color:#ef4444;border:1px solid rgba(239,68,68,.3);flex-shrink:0;font-weight:600">BLOCKING</span>':'') +
-        '<span id="ghfichev-'+vi+'" style="color:var(--muted);font-size:10px;transition:transform .18s;flex-shrink:0;margin-left:4px">▶</span>' +
+      return '<div class="finding" id="ghfi-'+vi+'">' +
+        '<div class="finding-hdr" onclick="toggleGhVI('+vi+')">' +
+        '<span class="vbar '+sev+'"></span>' +
+        '<span class="finding-path">'+esc(fname)+'<span class="finding-line">'+esc(lineStr)+'</span></span>' +
+        '<span class="sev xs '+sev+'">'+sev+'</span>' +
+        (f.isBlocking?'<span class="finding-blocking">BLOCKING</span>':'') +
+        '<span class="finding-chev">▶</span>' +
         '</div>' +
-        '<div id="ghfib-'+vi+'" style="display:none">'+ghFindingBodyHtml(f)+'</div>' +
+        '<div class="finding-body">'+ghFindingBodyHtml(f)+'</div>' +
         '</div>';
     }).join('');
 
-    return '<div class="pkg-group" data-group="'+esc(vtype.label)+'" style="margin-bottom:20px">' +
-      '<div class="pkg-group-hdr" onclick="toggleGhGroup(this)" style="display:flex;align-items:center;gap:10px;padding:11px 16px;background:var(--s2);border:1px solid var(--br);border-radius:11px 11px 0 0;cursor:pointer;transition:background .13s;user-select:none" onmouseover="this.style.background=\'var(--s3)\'" onmouseout="this.style.background=\'var(--s2)\'">' +
-      '<div class="vbar '+topSev+'" style="height:28px"></div>' +
-      '<span style="font-size:16px;line-height:1">'+vtype.icon+'</span>' +
-      '<span style="font-size:13px;font-weight:700;color:#fff;flex:1">'+esc(vtype.label)+'</span>' +
-      '<div style="display:flex;align-items:center;gap:6px">'+pills+
-      '<span style="font-size:11px;color:var(--muted);margin-left:4px">'+items.length+' finding'+(items.length>1?'s':'')+'</span>' +
-      '<span class="pkg-chev" style="color:var(--muted);font-size:10px;transition:transform .18s;margin-left:4px">▼</span>' +
+    return '<div class="pkg-group attached" data-group="'+esc(vtype.label)+'">' +
+      '<div class="pkg-group-hdr" onclick="togglePkgGroup(this)">' +
+      '<div class="vbar '+topSev+'"></div>' +
+      '<span class="pkg-group-icon">'+vtype.icon+'</span>' +
+      '<span class="pkg-group-label">'+esc(vtype.label)+'</span>' +
+      '<div class="pkg-group-stats">'+pills+
+      '<span class="pkg-group-count">'+items.length+' finding'+(items.length>1?'s':'')+'</span>' +
+      '<span class="pkg-chev">▼</span>' +
       '</div></div>' +
-      '<div class="pkg-group-body" style="display:none;background:var(--s1);border:1px solid var(--br);border-top:none;border-radius:0 0 11px 11px;overflow:hidden">'+fileRows+filePage.html+'</div>' +
+      '<div class="pkg-group-body">'+fileRows+filePage.html+'</div>' +
       '</div>';
   }).join('');
 
@@ -250,21 +250,19 @@ function renderGhDetail(scan){
   var fileCount = new Set(findings.map(function(f){return f.path;}).filter(Boolean)).size;
   el.innerHTML =
     '<div class="detail-header">' +
-    '<div class="detail-icon" style="background:rgba(167,139,250,.1);border:1px solid rgba(167,139,250,.25);display:flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:14px;flex-shrink:0">' +
-    '<img src="/assets/osa.png" style="width:34px;height:34px;object-fit:contain;filter:drop-shadow(0 0 8px rgba(167,139,250,.4))"/></div>' +
+    '<div class="detail-icon purple"><img src="/assets/osa.png" alt=""/></div>' +
     '<div class="detail-info">' +
     '<div class="detail-name">'+esc(scan.repo)+'</div>' +
-    '<div class="detail-sub"><a href="'+esc(scan.url)+'" target="_blank" style="color:var(--muted);text-decoration:none">'+esc(scan.url)+' ↗</a>'+(scan.desc?' · '+esc(scan.desc):'')+' · '+findings.length+' finding'+(findings.length!==1?'s':'')+' in '+fileCount+' file'+(fileCount!==1?'s':'')+' · '+sortedGroups.length+' vuln type'+(sortedGroups.length!==1?'s':'')+' · scanned '+fmtDate(scan.scannedAt)+'</div>' +
-    '<div style="margin-top:6px">'+_toxicBadgeHtml(scan.toxic)+'</div>' +
+    '<div class="detail-sub"><a href="'+esc(safeUrl(scan.url))+'" target="_blank" rel="noopener">'+esc(scan.url)+' ↗</a>'+(scan.desc?' · '+esc(scan.desc):'')+' · '+findings.length+' finding'+(findings.length!==1?'s':'')+' in '+fileCount+' file'+(fileCount!==1?'s':'')+' · '+sortedGroups.length+' vuln type'+(sortedGroups.length!==1?'s':'')+' · scanned '+fmtDate(scan.scannedAt)+'</div>' +
+    '<div class="detail-badges">'+_toxicBadgeHtml(scan.toxic)+'</div>' +
     '</div>' +
     '<div class="detail-chips">'+(chips||(scan.complete === true ? '<span class="sev NONE">✅ CLEAN</span>' : '<span class="sev UNKNOWN">RESCAN REQUIRED</span>'))+'</div>' +
-    '<div style="margin-left:auto;flex-shrink:0">'+exportBtnHtml('sast','__SAST_SCAN__')+'</div>' +
+    '<div class="detail-actions">'+exportBtnHtml('sast','__SAST_SCAN__')+'</div>' +
     '</div>' +
     _ghCompletenessHtml(scan) +
-    (findings.length===0 ? (scan.complete === true ? '<div style="text-align:center;padding:60px;color:var(--l);font-size:14px">✅ No findings — this repository looks clean!</div>' : '') : groupHtml + groupPage.html);
+    (findings.length===0 ? (scan.complete === true ? '<div class="detail-empty">✅ No findings — this repository looks clean!</div>' : '') : groupHtml + groupPage.html);
 
-  var fb=el.querySelector('.pkg-group-body'),fc=el.querySelector('.pkg-chev');
-  if(fb){fb.style.display='block';if(fc)fc.style.transform='rotate(180deg)';}
+  el.querySelector('.pkg-group')?.classList.add('open');
 }
 
 function ghFindingBodyHtml(f){
@@ -282,48 +280,35 @@ function ghFindingBodyHtml(f){
     var gutterW = String(startLine + lines.length - 1).length;
     var rows = lines.map(function(l, i){
       var ln = String(startLine + i).padStart(gutterW, ' ');
-      return '<span style="color:var(--muted2);user-select:none;margin-right:14px">'+esc(ln)+'</span>'+esc(l);
+      return '<span class="code-ln">'+esc(ln)+'</span>'+esc(l);
     }).join('\n');
-    codeHtml = '<span class="vk">Code</span><span class="vv"><pre style="margin:0;padding:8px 10px;background:#0d1117;border:1px solid var(--br);border-radius:7px;font-size:11px;color:#e6edf3;overflow-x:auto;line-height:1.7;font-family:var(--font-mono)">'+rows+'</pre></span>';
+    codeHtml = '<span class="vk">Code</span><span class="vv"><pre class="code-block">'+rows+'</pre></span>';
   }
 
-  return '<div class="vgrid" style="padding:12px 16px 14px">' +
-    '<span class="vk">Description</span><span class="vv" style="white-space:pre-wrap;line-height:1.6">'+esc(msg)+'</span>' +
+  return '<div class="vgrid">' +
+    '<span class="vk">Description</span><span class="vv prose">'+esc(msg)+'</span>' +
     codeHtml +
-    (f.fix?'<span class="vk">Suggested Fix</span><span class="vv"><pre style="margin:0;padding:8px 10px;background:rgba(52,199,89,.05);border:1px solid rgba(52,199,89,.2);border-radius:7px;font-size:11px;color:#34c759;overflow-x:auto;font-family:var(--font-mono)">'+esc(f.fix)+'</pre></span>':'') +
-    '<span class="vk">Rule</span><span class="vv" style="font-family:var(--font-mono);font-size:11px;color:var(--muted);word-break:break-all">'+esc(ruleId)+'</span>' +
-    (f.language?'<span class="vk">Language</span><span class="vv" style="font-size:11px;color:var(--muted)">'+esc(f.language)+'</span>':'') +
+    (f.fix?'<span class="vk">Suggested Fix</span><span class="vv"><pre class="code-block fix">'+esc(f.fix)+'</pre></span>':'') +
+    '<span class="vk">Rule</span><span class="vv code-id">'+esc(ruleId)+'</span>' +
+    (f.language?'<span class="vk">Language</span><span class="vv note">'+esc(f.language)+'</span>':'') +
     (f.category?'<span class="vk">Category</span><span class="vv">'+esc(f.category)+'</span>':'') +
     (f.likelihood||f.impact||f.confidence?
-      '<span class="vk">Risk Factors</span><span class="vv" style="display:flex;gap:8px;flex-wrap:wrap">' +
-      (f.likelihood?'<span style="font-size:10px;padding:1px 7px;border-radius:10px;background:rgba(255,255,255,.06);color:var(--muted)">Likelihood: '+esc(f.likelihood)+'</span>':'') +
-      (f.impact?'<span style="font-size:10px;padding:1px 7px;border-radius:10px;background:rgba(255,255,255,.06);color:var(--muted)">Impact: '+esc(f.impact)+'</span>':'') +
-      (f.confidence?'<span style="font-size:10px;padding:1px 7px;border-radius:10px;background:rgba(255,255,255,.06);color:var(--muted)">Confidence: '+esc(f.confidence)+'</span>':'') +
+      '<span class="vk">Risk Factors</span><span class="vv chips">' +
+      (f.likelihood?'<span class="risk-chip">Likelihood: '+esc(f.likelihood)+'</span>':'') +
+      (f.impact?'<span class="risk-chip">Impact: '+esc(f.impact)+'</span>':'') +
+      (f.confidence?'<span class="risk-chip">Confidence: '+esc(f.confidence)+'</span>':'') +
       '</span>':'') +
-    (cwe?'<span class="vk">CWE</span><span class="vv" style="color:var(--muted2);font-size:11px">'+esc(cwe)+'</span>':'') +
-    (owasp?'<span class="vk">OWASP</span><span class="vv" style="color:var(--muted2);font-size:11px">'+esc(owasp)+'</span>':'') +
-    (tech?'<span class="vk">Technology</span><span class="vv" style="color:var(--muted2);font-size:11px">'+esc(tech)+'</span>':'') +
+    (cwe?'<span class="vk">CWE</span><span class="vv meta">'+esc(cwe)+'</span>':'') +
+    (owasp?'<span class="vk">OWASP</span><span class="vv meta">'+esc(owasp)+'</span>':'') +
+    (tech?'<span class="vk">Technology</span><span class="vv meta">'+esc(tech)+'</span>':'') +
     (refs.length?'<span class="vk">References</span><span class="vv">'+refs.slice(0,3).map(function(r){
-      return '<a href="'+esc(safeUrl(r))+'" target="_blank" rel="noopener" style="display:block;color:var(--accent);font-size:11px;margin-bottom:2px">'+esc(r.length>70?r.slice(0,70)+'…':r)+'</a>';
+      return '<a class="ref-link" href="'+esc(safeUrl(r))+'" target="_blank" rel="noopener">'+esc(r.length>70?r.slice(0,70)+'…':r)+'</a>';
     }).join('')+'</span>':'') +
     '</div>';
 }
 
-function toggleGhGroup(hdr){
-  var body=hdr.nextElementSibling,chev=hdr.querySelector('.pkg-chev');
-  if(!body)return;
-  var open=body.style.display!=='none';
-  body.style.display=open?'none':'block';
-  if(chev)chev.style.transform=open?'':'rotate(180deg)';
-}
-
 function toggleGhVI(vi){
-  var body=document.getElementById('ghfib-'+vi);
-  var chev=document.getElementById('ghfichev-'+vi);
-  if(!body)return;
-  var open=body.style.display!=='none';
-  body.style.display=open?'none':'block';
-  if(chev)chev.style.transform=open?'':'rotate(90deg)';
+  document.getElementById('ghfi-'+vi)?.classList.toggle('open');
 }
 
 document.addEventListener('keydown',function(e){
@@ -337,11 +322,11 @@ function _ghCompletenessHtml(scan){
   if (scan.complete === true) return '';
   var errors = Number(scan.errors) || 0;
   if (scan.complete !== false || !errors)
-    return '<p role="status" style="padding:16px;color:var(--h)">Scan completeness is unknown. Rescan this repository to verify the results.</p>';
+    return '<p role="status" class="scan-incomplete">Scan completeness is unknown. Rescan this repository to verify the results.</p>';
   var samples = (scan.errorSamples || []).map(function(e){
     return '<li><code>'+esc(e.path || '—')+'</code> · '+esc(e.type || 'Error')+(e.message ? ' — '+esc(e.message) : '')+'</li>';
   }).join('');
-  return '<div role="status" style="padding:16px;color:var(--h)">Scan incomplete: Semgrep reported '+errors+' analysis error'+(errors!==1?'s':'')+
+  return '<div role="status" class="scan-incomplete">Scan incomplete: Semgrep reported '+errors+' analysis error'+(errors!==1?'s':'')+
     '. Findings in the affected files may be missing; rescan to retry.'+
-    (samples ? '<ul style="margin:8px 0 0 18px;color:var(--muted2);font-size:13px">'+samples+'</ul>' : '')+'</div>';
+    (samples ? '<ul>'+samples+'</ul>' : '')+'</div>';
 }

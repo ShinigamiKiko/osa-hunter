@@ -25,20 +25,19 @@ function renderDepDetail(scan){
     const cveId=[...(v.aliases||[]),v.id].find(x=>x&&x.startsWith('CVE-'))||v.id||'';
     const sev=v.severity||'UNKNOWN';
     const cveLink=cveId.startsWith('CVE-')
-      ?`<a href="https://nvd.nist.gov/vuln/detail/${esc(cveId)}" target="_blank" onclick="event.stopPropagation()" style="color:var(--accent);font-weight:700;font-size:11px;text-decoration:none">${esc(cveId)} &#8599;</a><span style="color:var(--muted);font-size:10px;margin:0 5px">/</span>`
+      ?`<a class="vi-cve" href="https://nvd.nist.gov/vuln/detail/${esc(cveId)}" target="_blank" onclick="event.stopPropagation()">${esc(cveId)} &#8599;</a><span class="vi-cve-sep">/</span>`
       :'';
     const fixRow=v.fix?`<span class="vk">Fixed in</span><span class="vv"><span class="fix-tag">&#8594; ${esc(v.fix)}</span></span>`:'';
     const descText = v.details||v.summary||'';
-    const detRow=descText?`<span class="vk">Description</span><span class="vv" style="white-space:pre-wrap;line-height:1.5">${esc(descText.slice(0,500))}${descText.length>500?'&#8230;':''}</span>`:'';
+    const detRow=descText?`<span class="vk">Description</span><span class="vv prose">${esc(descText.slice(0,500))}${descText.length>500?'&#8230;':''}</span>`:'';
     const nvdScore = v.cvss?.cvss3?.score||null;
-    const nvdSev   = nvdScore ? (nvdScore>=9?'CRITICAL':nvdScore>=7?'HIGH':nvdScore>=4?'MEDIUM':'LOW') : null;
-    const nvdRow   = nvdScore ? `<span class="vk">NVD Score</span><span class="vv"><span class="sev ${nvdSev}" style="font-size:10px;padding:1px 7px">${nvdScore}</span> <span style="color:var(--muted);font-size:10px">${v.cvss.cvss3.vector||''}</span></span>` : '';
+    const nvdRow   = nvdScore ? `<span class="vk">NVD Score</span><span class="vv"><span class="sev nvd-score ${cvssClass(nvdScore)}">${nvdScore}</span> <span class="text-meta">${esc(v.cvss.cvss3.vector||'')}</span></span>` : '';
     return`<div class="vi" id="dvi-${depIdx}-${vi}">
       <div class="vi-hdr" onclick="toggleDepVI(${depIdx},${vi})">
         <div class="vbar ${sev}"></div>
         <div class="vi-id">
           ${cveLink}
-          <span style="opacity:.7">${esc(v.id)}</span>
+          <span class="vi-alt-id">${esc(v.id)}</span>
           <span id="dvicvss-${depIdx}-${vi}"></span>
         </div>
         <div class="vi-sum">${esc(v.summary||'No summary')}</div>
@@ -46,7 +45,7 @@ function renderDepDetail(scan){
         <span class="vi-sev ${sev}">${sev}</span>
         <span class="vi-chev">&#9660;</span>
       </div>
-      <div class="vi-body" id="dvib-${depIdx}-${vi}" style="display:none">
+      <div class="vi-body">
         <div class="vgrid">
           <span class="vk">CVSS</span><span class="vv" id="dvicvssv-${depIdx}-${vi}">${v.cvss?cvssHtml(v.cvss):'—'}</span>
           ${nvdRow}
@@ -63,42 +62,48 @@ function renderDepDetail(scan){
     const isToxic =dep.toxic?.found;
     const topSev  =dep.topSeverity||(['CRITICAL','HIGH','MEDIUM','LOW','UNKNOWN'].find(s=>(dep.counts||{})[s])||'NONE');
     const pills   =['CRITICAL','HIGH','MEDIUM','LOW','UNKNOWN'].filter(k=>(dep.counts||{})[k])
-      .map(k=>`<span class="sev ${k}" style="font-size:9px;padding:1px 6px">${dep.counts[k]}</span>`).join('');
+      .map(k=>`<span class="sev xs ${k}">${dep.counts[k]}</span>`).join('');
     const fixVer  =dep.vulns?.find(v=>v.fix)?.fix;
     const cveCount=dep.vulns?.length||0;
 
-    const cleanBadge ='<span class="sev NONE" style="font-size:9px;padding:1px 6px">&#10003;</span>';
-    const noCvesDiv  ='<div style="padding:16px 20px;color:var(--l);font-size:12px">&#x2705; No vulnerabilities found</div>';
-    const toxicBadge =isToxic?'<span style="background:rgba(255,59,48,.15);border:1px solid rgba(255,59,48,.4);color:#ff3b30;font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;margin-left:8px">&#9760; TOXIC</span>':'';
-    const fixBadge   =fixVer?`<span class="fix-tag" style="margin-left:8px;font-size:10px">&#8594; ${esc(fixVer)}</span>`:'';
-    const cveLabel   =cveCount?`<span style="font-size:11px;color:var(--muted);margin-left:4px">${cveCount} CVE${cveCount>1?'s':''}</span>`:'';
+    const cleanBadge ='<span class="sev xs NONE">&#10003;</span>';
+    const noCvesDiv  ='<div class="card-note">&#x2705; No vulnerabilities found</div>';
+    const toxicBadge =isToxic?'<span class="pkg-flag toxic">&#9760; TOXIC</span>':'';
+    const fixBadge   =fixVer?`<span class="fix-tag">&#8594; ${esc(fixVer)}</span>`:'';
+    const cveLabel   =cveCount?`<span class="pkg-group-count">${cveCount} CVE${cveCount>1?'s':''}</span>`:'';
     const vulnsBody  =cveCount?(dep.vulns||[]).map((v,vi)=>depMiniVulnRow(v,vi,depIdx)).join(''):noCvesDiv;
     const sysId      =esc(scan.system);
     const depName    =esc(dep.name);
     const depVer     =esc(dep.version||'');
 
-    return`<div class="pkg-group" style="margin-bottom:12px">
-      <div style="display:flex;align-items:stretch;background:var(--s2);border:1px solid var(--br);border-radius:11px;overflow:hidden">
-        <div class="pkg-group-hdr" onclick="toggleDepCard(${depIdx})"
-          style="flex:1;display:flex;align-items:center;gap:10px;padding:11px 16px;cursor:pointer;transition:background .13s;user-select:none"
-          onmouseover="this.style.background='var(--s3)'" onmouseout="this.style.background=''">
-          <div class="vbar ${topSev}" style="height:28px"></div>
-          <div style="flex:1;min-width:0">
-            <a href="#" data-open-lib data-system="${sysId}" data-name="${depName}" data-version="${depVer}"
-              style="font-size:17px;font-weight:700;color:#fff;text-decoration:none"
-              onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${esc(dep.name)}</a>
-            <span style="color:var(--muted);font-size:14px;margin-left:7px">${esc(dep.version)}</span>
-            ${fixBadge}${toxicBadge}
-          </div>
-          <div style="display:flex;align-items:center;gap:6px">
-            ${cveCount?pills:cleanBadge}
-            ${cveLabel}
-            <span class="pkg-chev" id="dcard-chev-${depIdx}" style="color:var(--muted);font-size:10px;transition:transform .18s;margin-left:4px">&#9660;</span>
-          </div>
+    return`<div class="pkg-group compact" id="dcard-${depIdx}">
+      <div class="pkg-group-hdr" onclick="toggleDepCard(${depIdx})">
+        <div class="vbar ${topSev}"></div>
+        <div class="pkg-group-title">
+          <a class="pkg-link" href="#" data-open-lib data-system="${sysId}" data-name="${depName}" data-version="${depVer}">${esc(dep.name)}</a>
+          <span class="pkg-group-ver lg">${esc(dep.version)}</span>
+          ${fixBadge}${toxicBadge}
         </div>
-
+        <div class="pkg-group-stats">
+          ${cveCount?pills:cleanBadge}
+          ${cveLabel}
+          <span class="pkg-chev">&#9660;</span>
+        </div>
       </div>
-      <div id="dcard-body-${depIdx}" class="pkg-group-body" style="display:none;margin-top:2px">${vulnsBody}</div>
+      <div class="pkg-group-body">${vulnsBody}</div>
+    </div>`;
+  }
+
+  // One collapsible section: own vulnerabilities, direct or transitive deps.
+  function sectionHtml({ key, kind, tag, label, count, right, body }){
+    return`<div class="dep-section ${kind}" id="depsec-${key}">
+      <div class="dep-section-head" onclick="toggleDepSection('${key}')">
+        <span class="dep-section-tag">${tag}</span>
+        <span class="dep-section-label">${esc(label)}</span>
+        <span class="dep-section-count">(${count})</span>
+        <span class="dep-section-right">${right}<span class="dep-section-chev">&#9660;</span></span>
+      </div>
+      <div class="dep-section-body">${body}</div>
     </div>`;
   }
 
@@ -106,40 +111,18 @@ function renderDepDetail(scan){
     const cnt={CRITICAL:0,HIGH:0,MEDIUM:0,LOW:0,UNKNOWN:0};
     deps.forEach(d=>(d.vulns||[]).forEach(v=>{const s=(v.severity||'').toUpperCase();if(s in cnt)cnt[s]++;}));
     const pills=['CRITICAL','HIGH','MEDIUM','LOW','UNKNOWN'].filter(k=>cnt[k])
-      .map(k=>`<span class="sev ${k}" style="font-size:9px;padding:1px 6px">${cnt[k]}</span>`).join('');
-    const accent=isTransitive?'#3b82f6':'#a78bfa';
-    const rgb   =isTransitive?'59,130,246':'167,139,250';
-    const bgTag =isTransitive?'rgba(59,130,246,.12)':'rgba(167,139,250,.12)';
-    const brTag =isTransitive?'rgba(59,130,246,.35)':'rgba(167,139,250,.35)';
-    const tag   =isTransitive?'&#8627; Transitive':'&#8679; Direct';
-    const clean ='<span style="color:var(--l);font-size:11px">&#x2705; all clean</span>';
-
-    const emptyBody = !deps.length
-      ? `<div style="text-align:center;padding:40px 20px;color:var(--muted);font-size:13px">
-           ${isTransitive ? '&#128065; No transitive dependencies found' : '&#128065; No direct dependencies found'}
-         </div>`
-      : '';
-
-    return`<div style="margin-bottom:20px">
-      <div onclick="toggleDepSection('${key}')"
-        style="display:flex;align-items:center;gap:10px;padding:9px 14px;border-left:3px solid ${accent};background:rgba(${rgb},.06);border-radius:0 8px 8px 0;cursor:pointer;user-select:none;transition:background .13s"
-        onmouseover="this.style.background='rgba(${rgb},.12)'"
-        onmouseout="this.style.background='rgba(${rgb},.06)'">
-        <span style="font-size:11px;font-weight:700;padding:2px 9px;border-radius:5px;background:${bgTag};border:1px solid ${brTag};color:${accent}">${tag}</span>
-        <span style="font-size:13px;font-weight:600;color:#fff">${esc(label)}</span>
-        <span style="color:var(--muted);font-size:11px">(${deps.length})</span>
-        <span style="margin-left:auto;display:flex;gap:5px;align-items:center">
-          ${deps.length ? (pills||clean) : '<span style="color:var(--muted);font-size:11px">&mdash; empty</span>'}
-          <span id="depsec-chev-${key}" style="color:var(--muted);font-size:10px;transition:transform .18s;margin-left:6px;transform:rotate(180deg)">&#9660;</span>
-        </span>
-      </div>
-      <div id="depsec-body-${key}" style="display:block;margin-top:8px">
-        ${deps.length ? (()=>{
-          const page=paginate('dep-section:'+key,deps,()=>renderDepDetail(scan),scan);
-          return page.rows.map(([d])=>depPkgCard(d,allDeps.indexOf(d))).join('')+page.html;
-        })() : emptyBody}
-      </div>
-    </div>`;
+      .map(k=>`<span class="sev xs ${k}">${cnt[k]}</span>`).join('');
+    const clean='<span class="dep-section-note ok">&#x2705; all clean</span>';
+    const body = deps.length ? (()=>{
+      const page=paginate('dep-section:'+key,deps,()=>renderDepDetail(scan),scan);
+      return page.rows.map(([d])=>depPkgCard(d,allDeps.indexOf(d))).join('')+page.html;
+    })() : `<div class="dep-section-empty">&#128065; No ${isTransitive?'transitive':'direct'} dependencies found</div>`;
+    return sectionHtml({
+      key, kind: isTransitive?'transitive':'direct',
+      tag: isTransitive?'&#8627; Transitive':'&#8679; Direct', label, count: deps.length,
+      right: deps.length ? (pills||clean) : '<span class="dep-section-note">&mdash; empty</span>',
+      body,
+    });
   }
 
   const rootVulns = rootDep?.vulns||[];
@@ -152,36 +135,16 @@ function renderDepDetail(scan){
   const exportBtn      =(typeof exportBtnHtml==='function')?exportBtnHtml('dep','__DEP_SCAN__'):'';
 
   const rootPills = ['CRITICAL','HIGH','MEDIUM','LOW','UNKNOWN'].filter(k=>rootCnt[k])
-    .map(k=>`<span class="sev ${k}" style="font-size:9px;padding:1px 6px">${rootCnt[k]}</span>`).join('');
+    .map(k=>`<span class="sev xs ${k}">${rootCnt[k]}</span>`).join('');
   const rootIsClean  = rootVulns.length === 0;
-  const rootAccent   = rootIsClean ? '#34c759'            : '#ff3b30';
-  const rootRgb      = rootIsClean ? '52,199,89'          : '255,59,48';
-  const rootTagBg    = rootIsClean ? 'rgba(52,199,89,.12)' : 'rgba(255,59,48,.12)';
-  const rootTagBr    = rootIsClean ? 'rgba(52,199,89,.35)' : 'rgba(255,59,48,.35)';
-  const rootTagIcon  = rootIsClean ? '&#x2705;'           : '&#9888;';
-  const rootRight    = rootIsClean
-    ? `<span style="color:#34c759;font-size:11px">&#x2705; clean</span>`
-    : rootPills;
-  const rootBodyHtml = rootIsClean
-    ? `<div style="padding:16px 20px;color:var(--l);font-size:12px">&#x2705; No own vulnerabilities found</div>`
-    : rootVulns.map((v,vi)=>depMiniVulnRow(v,vi,-1)).join('');
-  const rootVulnsHtml = `<div style="margin-bottom:20px">
-      <div onclick="toggleDepSection('root')"
-        style="display:flex;align-items:center;gap:10px;padding:9px 14px;border-left:3px solid ${rootAccent};background:rgba(${rootRgb},.06);border-radius:0 8px 8px 0;cursor:pointer;user-select:none;transition:background .13s"
-        onmouseover="this.style.background='rgba(${rootRgb},.12)'"
-        onmouseout="this.style.background='rgba(${rootRgb},.06)'">
-        <span style="font-size:11px;font-weight:700;padding:2px 9px;border-radius:5px;background:${rootTagBg};border:1px solid ${rootTagBr};color:${rootAccent}">${rootTagIcon} Own Vulnerabilities</span>
-        <span style="font-size:13px;font-weight:600;color:#fff">${esc(scan.package)}</span>
-        <span style="color:var(--muted);font-size:11px">(${rootVulns.length})</span>
-        <span style="margin-left:auto;display:flex;gap:5px;align-items:center">
-          ${rootRight}
-          <span id="depsec-chev-root" style="color:var(--muted);font-size:10px;transition:transform .18s;margin-left:6px;transform:rotate(180deg)">&#9660;</span>
-        </span>
-      </div>
-      <div id="depsec-body-root" style="display:block;margin-top:8px">
-        ${rootBodyHtml}
-      </div>
-    </div>`;
+  const rootVulnsHtml = sectionHtml({
+    key: 'root', kind: rootIsClean?'clean':'vulnerable',
+    tag: `${rootIsClean?'&#x2705;':'&#9888;'} Own Vulnerabilities`, label: scan.package, count: rootVulns.length,
+    right: rootIsClean ? '<span class="dep-section-note ok">&#x2705; clean</span>' : rootPills,
+    body: rootIsClean
+      ? '<div class="card-note">&#x2705; No own vulnerabilities found</div>'
+      : rootVulns.map((v,vi)=>depMiniVulnRow(v,vi,-1)).join(''),
+  });
 
   const legacyVulnerabilityCount = ['CRITICAL','HIGH','MEDIUM','LOW','UNKNOWN']
     .reduce((total,sev)=>total+Number(sm[sev]||0),0);
@@ -192,38 +155,35 @@ function renderDepDetail(scan){
     (dependencyVulnerabilityCount || legacyVulnerabilityCount);
   const hasVulnerabilities = vulnCount>0 || Number(sm.withVulns||0)>0;
   const noVulnsHtml    =scan.complete === false
-    ? '<span style="color:var(--h)">Scan incomplete — rescan required</span>'
+    ? '<span class="warn">Scan incomplete — rescan required</span>'
     : hasVulnerabilities
-    ?`<span style="color:var(--h)">&#9888; ${sm.withVulns||'Some'} deps · ${vulnCount||'?'} vulnerabilities</span>`
-    :'<span style="color:var(--l)">&#10003; no vulns</span>';
+    ?`<span class="warn">&#9888; ${sm.withVulns||'Some'} deps · ${vulnCount||'?'} vulnerabilities</span>`
+    :'<span class="ok">&#10003; no vulns</span>';
   const emptyHtml=(!direct.length&&!indirect.length)
-    ?'<div style="text-align:center;padding:60px;color:var(--muted);font-size:14px">No dependencies found in the graph.</div>'
+    ?'<div class="detail-empty muted">No dependencies found in the graph.</div>'
     :'';
 
   el.innerHTML=`
-    <div class="detail-header" style="cursor:pointer;transition:border-color .18s"
-      onclick="openDepPkg(-1)"
-      onmouseover="this.style.borderColor='rgba(167,139,250,.5)'"
-      onmouseout="this.style.borderColor='var(--br)'">
-      <div class="detail-icon green" style="font-size:22px">${esc(sysInfo.logo)}</div>
-      <div class="detail-info" style="flex:1">
-        <div class="detail-name" style="font-size:27px">
-          ${esc(scan.package)} <span style="color:var(--muted);font-size:15px;font-weight:400">${esc(scan.resolvedVersion)}</span>
-          <span class="dep-hdr-stats" style="margin-left:10px;font-size:11px;color:var(--muted);font-weight:500;display:inline-flex;gap:10px;align-items:center">
+    <div class="detail-header clickable" onclick="openDepPkg(-1)">
+      <div class="detail-icon green">${esc(sysInfo.logo)}</div>
+      <div class="detail-info">
+        <div class="detail-name lg">
+          ${esc(scan.package)} <span class="detail-ver">${esc(scan.resolvedVersion)}</span>
+          <span class="dep-hdr-stats">
             <span>&#128230; ${totalCount} total</span>
-            <span style="color:#a78bfa">&#8679; ${directCount} direct</span>
-            <span style="color:#3b82f6">&#8681; ${transitiveCount} transitive</span>
+            <span class="direct">&#8679; ${directCount} direct</span>
+            <span class="transitive">&#8681; ${transitiveCount} transitive</span>
             ${noVulnsHtml}
           </span>
         </div>
-        <div class="detail-sub">${sysInfo.label} &middot; ${esc(scan.desc||'No description')} &middot; scanned ${fmtDate(scan.scannedAt)}</div>
-        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:6px" onclick="event.stopPropagation()">
+        <div class="detail-sub">${esc(sysInfo.label)} &middot; ${esc(scan.desc||'No description')} &middot; scanned ${fmtDate(scan.scannedAt)}</div>
+        <div class="detail-badges" onclick="event.stopPropagation()">
           ${_toxicBadgeHtml(scan.toxic)}
-          <div id="depDetailActivityBadge"><span style="font-size:11px;color:var(--muted)">&#9203; Checking activity&#8230;</span></div>
+          <div id="depDetailActivityBadge"><span class="activity-pending">&#9203; Checking activity&#8230;</span></div>
         </div>
       </div>
-      <div class="detail-chips" style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;flex-shrink:0" onclick="event.stopPropagation()">
-        <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end">${chipsHtml}</div>
+      <div class="detail-chips stacked" onclick="event.stopPropagation()">
+        <div class="chip-row">${chipsHtml}</div>
         ${exportBtn}
       </div>
     </div>

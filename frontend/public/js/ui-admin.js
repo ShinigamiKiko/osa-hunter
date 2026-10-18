@@ -35,7 +35,7 @@ function renderAdmin() {
             <button class="btn-secondary btn-sm" onclick="hideCreateUser()">Cancel</button>
           </div>
         </div>
-        <div id="createErr" class="form-error"></div>
+        <div id="createErr" class="form-error" hidden></div>
       </div>
 
       <div class="admin-panel">
@@ -59,7 +59,7 @@ function hideCreateUser() {
   document.getElementById('createUserForm').classList.remove('open');
   document.getElementById('newUsername').value = '';
   document.getElementById('newPassword').value = '';
-  document.getElementById('createErr').style.display = 'none';
+  document.getElementById('createErr').hidden=true;
 }
 
 const dateOnly = d => new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: '2-digit' });
@@ -109,8 +109,8 @@ async function createUser() {
   const password = document.getElementById('newPassword').value;
   const role     = document.getElementById('newRole').value;
   const errEl    = document.getElementById('createErr');
-  errEl.style.display = 'none';
-  if (!username || !password) { errEl.textContent = 'Username and password required'; errEl.style.display = 'block'; return; }
+  errEl.hidden=true;
+  if (!username || !password) { errEl.textContent = 'Username and password required'; errEl.hidden=false; return; }
   try {
     const r = await fetch('/api/auth/users', {
       method: 'POST',
@@ -119,11 +119,11 @@ async function createUser() {
       credentials: 'same-origin',
     });
     const data = await readJson(r);
-    if (!r.ok) { errEl.textContent = data.error || 'Failed to create user'; errEl.style.display = 'block'; return; }
+    if (!r.ok) { errEl.textContent = data.error || 'Failed to create user'; errEl.hidden=false; return; }
     hideCreateUser();
     loadUsers();
   } catch (e) {
-    errEl.textContent = 'Connection error'; errEl.style.display = 'block';
+    errEl.textContent = 'Connection error'; errEl.hidden=false;
   }
 }
 
@@ -188,7 +188,7 @@ async function renderApiKeys() {
           <button class="btn-primary btn-sm" onclick="createApiKey()">Generate</button>
           <button class="btn-secondary btn-sm" onclick="hideNewKeyForm()">Cancel</button>
         </div>
-        <div id="newKeyErr" class="form-error tight"></div>
+        <div id="newKeyErr" class="form-error tight" hidden></div>
       </div>
 
       ${!keys.length
@@ -215,8 +215,8 @@ function hideNewKeyForm() {
 async function createApiKey() {
   const name  = document.getElementById('newKeyName').value.trim();
   const errEl = document.getElementById('newKeyErr');
-  errEl.style.display = 'none';
-  if (!name) { errEl.textContent = 'Name is required'; errEl.style.display = 'block'; return; }
+  errEl.hidden=true;
+  if (!name) { errEl.textContent = 'Name is required'; errEl.hidden=false; return; }
 
   const r = await fetch('/api/auth/api-keys', {
     method: 'POST',
@@ -225,7 +225,7 @@ async function createApiKey() {
     credentials: 'same-origin',
   });
   const data = await r.json();
-  if (!r.ok) { errEl.textContent = data.error || 'Failed'; errEl.style.display = 'block'; return; }
+  if (!r.ok) { errEl.textContent = data.error || 'Failed'; errEl.hidden = false; return; }
 
   hideNewKeyForm();
   showKeyModal(data.key, data.name);

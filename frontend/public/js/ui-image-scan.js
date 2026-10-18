@@ -3,7 +3,6 @@ imgScans = Array.isArray(imgScans) ? imgScans.map(scan => normalizeImageScan(sca
 const saveImg = () => safeSave('es_img', imgScans);
 const OS_PKG_TYPES = new Set(['debian','ubuntu','alpine','rhel','centos','oracle','amazon','rocky','fedora','suse','opensuse','photon','wolfi','chainguard','cbsl','cbl-mariner']);
 
-function whaleSmallSvg(){ return`<span style="font-size:22px;line-height:1">🐋</span>`; }
 
 function normalizeImageScan(data, metadata = {}) {
   const vulns = Array.isArray(data.Results)
@@ -31,7 +30,7 @@ async function doImageScan(){
   const image=document.getElementById('imgName').value.trim();
   const tag  =document.getElementById('imgTag').value.trim()||'latest';
   const desc =document.getElementById('imgDesc').value.trim();
-  document.getElementById('imgErr').style.display='none';
+  document.getElementById('imgErr').hidden=true;
   if(!image){ showErr('imgErr','Enter an image name'); return; }
   setBtn('btnImgScan',true,'Scanning...');
   try{
@@ -62,7 +61,7 @@ async function renderImgList(){
     </div>`; return;
   }
   el.innerHTML=`
-    <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:14px">
+    <div class="list-toolbar">
       <button class="btn-secondary" onclick="navTo('img-form')">+ New scan</button>
       <button class="btn-secondary" onclick="if(confirm('Clear all image scans?')){imgScans=[];saveImg();renderImgList()}">Clear all</button>
     </div>
@@ -70,29 +69,27 @@ async function renderImgList(){
       <table class="tbl">
         <thead><tr>
           <th>Image</th><th>Description</th><th>Tag</th>
-          <th>Top Severity</th><th>Findings</th><th>Scanned</th><th style="width:28px"></th>
+          <th>Top Severity</th><th>Findings</th><th>Scanned</th><th class="col-del"></th>
         </tr></thead>
         <tbody>
           ${pg.rows.map(([s,i])=>{
             const _c=s.counts||{}; const _v=s.vulns||[];
             const topS=['CRITICAL','HIGH','MEDIUM','LOW','UNKNOWN'].find(sv=>_c[sv])||'NONE';
             const pills=['CRITICAL','HIGH','MEDIUM','LOW','UNKNOWN'].filter(sv=>_c[sv])
-              .map(sv=>`<span class="sev ${sv}" style="font-size:9px;padding:2px 6px">${_c[sv]} ${sv}</span>`).join(' ');
+              .map(sv=>`<span class="sev sm ${sv}">${_c[sv]} ${sv}</span>`).join(' ');
             return`<tr class="row" onclick="navTo('img-detail',{scan:imgScans[${i}]})">
-              <td><div style="display:flex;align-items:center;gap:9px">
-                <div style="flex-shrink:0">${whaleSmallSvg()}</div>
+              <td><div class="row-main">
+                <span class="row-icon lg">🐋</span>
                 <div class="row-name">${esc(s.image)}</div>
               </div></td>
               <td><div class="row-desc">${esc(s.desc||'—')}</div></td>
               <td><span class="row-ver">${esc(s.tag)}</span></td>
               <td><span class="sev ${topS}">${topS}</span></td>
               <td>${_v.length===0
-                ?'<span style="color:var(--l);font-size:11px">✓ clean</span>'
-                :(pills||`<span style="color:var(--muted)">${_v.length}</span>`)}</td>
-              <td style="color:var(--muted);font-size:10px;white-space:nowrap">${fmtDate(s.scannedAt)}</td>
-              <td><button onclick="event.stopPropagation();imgScans.splice(${i},1);saveImg();renderImgList()"
-                style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;padding:3px 5px;border-radius:4px"
-                onmouseover="this.style.color='var(--c)'" onmouseout="this.style.color='var(--muted)'">✕</button></td>
+                ?'<span class="row-clean">✓ clean</span>'
+                :(pills||`<span class="row-count">${_v.length}</span>`)}</td>
+              <td class="row-date">${fmtDate(s.scannedAt)}</td>
+              <td><button class="row-del" onclick="event.stopPropagation();imgScans.splice(${i},1);saveImg();renderImgList()">✕</button></td>
             </tr>`;
           }).join('')}
         </tbody>
@@ -132,12 +129,12 @@ function renderImgDetail(s){
   const groupHtml = groupPage.rows.map(([[pkgName, g]])=>{
     const topSev = ['CRITICAL','HIGH','MEDIUM','LOW','UNKNOWN'].find(s=>g.counts[s])||'UNKNOWN';
     const pills = ['CRITICAL','HIGH','MEDIUM','LOW','UNKNOWN'].filter(sv=>g.counts[sv])
-      .map(sv=>`<span class="sev ${sv}" style="font-size:9px;padding:1px 6px">${g.counts[sv]}</span>`).join('');
-    const pkgVer = g.vulns[0]?.InstalledVersion ? `<span style="color:var(--muted);font-size:11px;margin-left:6px">v${esc(g.vulns[0].InstalledVersion)}</span>` : '';
+      .map(sv=>`<span class="sev xs ${sv}">${g.counts[sv]}</span>`).join('');
+    const pkgVer = g.vulns[0]?.InstalledVersion ? `<span class="pkg-group-ver">v${esc(g.vulns[0].InstalledVersion)}</span>` : '';
     const fixedVer= g.vulns.find(v=>v.FixedVersion)?.FixedVersion;
-    const fixTag  = fixedVer ? `<span class="fix-tag" style="font-size:10px">→ ${esc(fixedVer)}</span>` : '';
+    const fixTag  = fixedVer ? `<span class="fix-tag">→ ${esc(fixedVer)}</span>` : '';
     const _pt = (g.vulns[0]?._pkgType||'').toLowerCase();
-    const debTag = OS_PKG_TYPES.has(_pt) ? `<span style="font-size:9px;font-weight:600;color:#f5c518;background:rgba(245,197,24,.12);border:1px solid rgba(245,197,24,.35);border-radius:4px;padding:1px 5px;margin-left:7px;letter-spacing:.3px">${_pt==='debian'||_pt==='ubuntu'?'deb':_pt}</span>` : '';
+    const debTag = OS_PKG_TYPES.has(_pt) ? `<span class="pkg-type-tag">${_pt==='debian'||_pt==='ubuntu'?'deb':esc(_pt)}</span>` : '';
 
     const cardPage = paginate('img-cards:'+pkgName, g.vulns, rerender, s);
     const cardsHtml = cardPage.rows.map(([v])=>{
@@ -145,25 +142,20 @@ function renderImgDetail(s){
       return imgVulnCardHtml(v, vi);
     }).join('') + cardPage.html;
 
-    return `<div class="pkg-group" data-group="${esc(pkgName)}" style="margin-bottom:20px">
-      <div class="pkg-group-hdr" onclick="togglePkgGroup(this)" style="
-        display:flex;align-items:center;gap:10px;
-        padding:11px 16px;
-        background:var(--s2);border:1px solid var(--br);border-radius:11px;
-        cursor:pointer;transition:background .13s;user-select:none;
-        margin-bottom:0" onmouseover="this.style.background='var(--s3)'" onmouseout="this.style.background='var(--s2)'">
-        <div class="vbar ${topSev}" style="height:28px"></div>
-        <div style="flex:1;min-width:0">
-          <span style="font-size:14px;font-weight:600;color:#fff">${esc(pkgName)}</span>${debTag}
-          ${pkgVer}${fixTag?'<span style="margin-left:8px">'+fixTag+'</span>':''}
+    return `<div class="pkg-group" data-group="${esc(pkgName)}">
+      <div class="pkg-group-hdr" onclick="togglePkgGroup(this)">
+        <div class="vbar ${topSev}"></div>
+        <div class="pkg-group-title">
+          <span class="pkg-group-name">${esc(pkgName)}</span>${debTag}
+          ${pkgVer}${fixTag}
         </div>
-        <div style="display:flex;align-items:center;gap:6px">
+        <div class="pkg-group-stats">
           ${pills}
-          <span style="font-size:11px;color:var(--muted);margin-left:4px">${g.vulns.length} CVE${g.vulns.length>1?'s':''}</span>
-          <span class="pkg-chev" style="color:var(--muted);font-size:10px;transition:transform .18s;margin-left:4px">▼</span>
+          <span class="pkg-group-count">${g.vulns.length} CVE${g.vulns.length>1?'s':''}</span>
+          <span class="pkg-chev">▼</span>
         </div>
       </div>
-      <div class="pkg-group-body" style="display:none;margin-top:2px">
+      <div class="pkg-group-body">
         ${cardsHtml}
       </div>
     </div>`;
@@ -171,25 +163,23 @@ function renderImgDetail(s){
 
   el.innerHTML=`
     <div class="detail-header">
-      <div class="detail-icon blue" style="display:flex;align-items:center;justify-content:center">${whaleSmallSvg()}</div>
+      <div class="detail-icon blue">🐋</div>
       <div class="detail-info">
         <div class="detail-name">${esc(s.image)}:${esc(s.tag)}</div>
         <div class="detail-sub">${s.vulns.length} vulnerabilit${s.vulns.length===1?'y':'ies'} across ${sorted.length} package${sorted.length!==1?'s':''}${s.desc?' · '+esc(s.desc):''}  ·  scanned ${fmtDate(s.scannedAt)}</div>
       </div>
-      <div class="detail-chips" style="display:flex;flex-direction:column;align-items:flex-end;gap:8px">
-        <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end">
+      <div class="detail-chips stacked">
+        <div class="chip-row">
           ${chips||'<span class="sev NONE">✅ CLEAN</span>'}
         </div>
         ${exportBtnHtml('img', {image:s.image,tag:s.tag||'latest',desc:s.desc||''})}
       </div>
     </div>
     ${s.vulns.length===0
-      ?'<div style="text-align:center;padding:60px;color:var(--l);font-size:14px">🐳 No vulnerabilities found — this image is clean!</div>'
+      ?'<div class="detail-empty">🐳 No vulnerabilities found — this image is clean!</div>'
       :groupHtml + groupPage.html}`;
 
-  const firstBody = el.querySelector('.pkg-group-body');
-  const firstChev = el.querySelector('.pkg-chev');
-  if(firstBody){ firstBody.style.display='block'; if(firstChev) firstChev.style.transform='rotate(180deg)'; }
+  el.querySelector('.pkg-group')?.classList.add('open');
 
   if(s.vulns.length){
     s.vulns.forEach(v=>{
@@ -207,15 +197,6 @@ function renderImgDetail(s){
   }
 }
 
-function togglePkgGroup(hdr){
-  const body = hdr.nextElementSibling;
-  const chev = hdr.querySelector('.pkg-chev');
-  if(!body) return;
-  const open = body.style.display !== 'none';
-  body.style.display = open ? 'none' : 'block';
-  if(chev) chev.style.transform = open ? '' : 'rotate(180deg)';
-}
-
 function imgVulnCardHtml(v,vi){
   const sev=(v.Severity||'UNKNOWN').toUpperCase();
   const cveId=v.VulnerabilityID||'';
@@ -224,7 +205,7 @@ function imgVulnCardHtml(v,vi){
     <div class="vi-hdr" onclick="toggleIVI(${vi})">
       <div class="vbar ${sev}"></div>
       <div class="vi-id">
-        ${cveId.startsWith('CVE-')?`<a href="https://nvd.nist.gov/vuln/detail/${esc(cveId)}" target="_blank" onclick="event.stopPropagation()" style="color:var(--accent);font-weight:700;font-size:11px;text-decoration:none">${esc(cveId)} &#8599;</a>`:`<span style="opacity:.7">${esc(cveId)}</span>`}
+        ${cveId.startsWith('CVE-')?`<a class="vi-cve" href="https://nvd.nist.gov/vuln/detail/${esc(cveId)}" target="_blank" onclick="event.stopPropagation()">${esc(cveId)} &#8599;</a>`:`<span class="vi-alt-id">${esc(cveId)}</span>`}
         <span class="vi-cvss-inline" id="cvss-hdr-img-${cveId}"></span>
       </div>
       <div class="vi-sum">${esc(title.length>80?title.slice(0,80)+'…':title)}</div>
@@ -232,21 +213,21 @@ function imgVulnCardHtml(v,vi){
       <span class="vi-sev ${sev}">${sev}</span>
       <span class="vi-chev">▼</span>
     </div>
-    <div class="vi-body" id="ivib-${vi}" style="display:none">
+    <div class="vi-body" id="ivib-${vi}">
       <div class="vgrid">
         <span class="vk">CVE ID</span><span class="vv"><a href="https://avd.aquasec.com/nvd/${esc(cveId.toLowerCase())}" target="_blank">${esc(cveId)} ↗</a></span>
-        <span class="vk">Package</span><span class="vv" style="color:#fff;font-weight:500">${esc(v.PkgName||'—')}</span>
-        <span class="vk">Installed</span><span class="vv" style="color:var(--muted)">${esc(v.InstalledVersion||'—')}</span>
+        <span class="vk">Package</span><span class="vv strong">${esc(v.PkgName||'—')}</span>
+        <span class="vk">Installed</span><span class="vv dim">${esc(v.InstalledVersion||'—')}</span>
         ${v.FixedVersion?`<span class="vk">Fixed in</span><span class="vv"><span class="fix-tag">→ ${esc(v.FixedVersion)}</span></span>`:''}
         ${v.Title?`<span class="vk">Title</span><span class="vv">${esc(v.Title)}</span>`:''}
-        ${v.Description?`<span class="vk">Description</span><span class="vv" style="white-space:pre-wrap" id="idesc-${vi}">${esc(v.Description.slice(0,480))}${v.Description.length>480?`<span id="idesc-dots-${vi}"> <button data-full="${esc(v.Description)}" onclick="expandIDesc(${vi},this)" style="background:none;border:none;color:var(--accent);cursor:pointer;font-size:11px;padding:0;text-decoration:underline">… show more</button></span>`:''}</span>`:''}
+        ${v.Description?`<span class="vk">Description</span><span class="vv prose" id="idesc-${vi}">${esc(v.Description.slice(0,480))}${v.Description.length>480?`<span id="idesc-dots-${vi}"> <button class="more-link" data-full="${esc(v.Description)}" onclick="expandIDesc(${vi},this)">… show more</button></span>`:''}</span>`:''}
         ${v.PublishedDate?`<span class="vk">Published</span><span class="vv">${new Date(v.PublishedDate).toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'})}</span>`:''}
         ${v.PrimaryURL?`<span class="vk">Reference</span><span class="vv"><a href="${esc(safeUrl(v.PrimaryURL))}" target="_blank" rel="noopener noreferrer">${esc(v.PrimaryURL.length>60?v.PrimaryURL.slice(0,60)+'…':v.PrimaryURL)}</a></span>`:''}
-        <span class="vk">CVSS</span><span class="vv" id="cvss-img-${cveId}"><span style="color:var(--muted);font-size:11px">loading…</span></span>
-        <span class="vk">NVD Score</span><span class="vv" id="nvd-img-${cveId}"><span style="color:var(--muted);font-size:11px">loading…</span></span>
-        <span class="vk">EPSS</span><span class="vv" id="epss-img-${cveId}"><span style="color:var(--muted);font-size:11px">loading…</span></span>
-        <span class="vk">CISA KEV</span><span class="vv" id="kev-img-${cveId}"><span style="color:var(--muted);font-size:11px">loading…</span></span>
-        <span class="vk">PoC (GitHub)</span><span class="vv" id="poc-img-${cveId}"><span style="color:var(--muted);font-size:11px">loading…</span></span>
+        <span class="vk">CVSS</span><span class="vv" id="cvss-img-${cveId}"><span class="text-note">loading…</span></span>
+        <span class="vk">NVD Score</span><span class="vv" id="nvd-img-${cveId}"><span class="text-note">loading…</span></span>
+        <span class="vk">EPSS</span><span class="vv" id="epss-img-${cveId}"><span class="text-note">loading…</span></span>
+        <span class="vk">CISA KEV</span><span class="vv" id="kev-img-${cveId}"><span class="text-note">loading…</span></span>
+        <span class="vk">PoC (GitHub)</span><span class="vv" id="poc-img-${cveId}"><span class="text-note">loading…</span></span>
       </div>
     </div>
   </div>`;
@@ -260,10 +241,5 @@ function expandIDesc(vi,btn){
 }
 
 function toggleIVI(vi){
-  const el=document.getElementById('ivi-'+vi);
-  const body=document.getElementById('ivib-'+vi);
-  if(!el||!body) return;
-  const open=el.classList.contains('open');
-  el.classList.toggle('open',!open);
-  body.style.display=open?'none':'block';
+  document.getElementById('ivi-'+vi)?.classList.toggle('open');
 }

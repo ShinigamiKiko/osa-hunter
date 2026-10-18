@@ -12,7 +12,7 @@ function findingCounts(vulns) {
 function esc(s){ return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 function safeUrl(u){ try{ const p=new URL(u); return['http:','https:'].includes(p.protocol)?u:'#'; }catch{ return '#'; } }
 function fmtDate(iso){ if(!iso)return'—'; const d=new Date(iso); return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); }
-function showErr(id,msg){ const e=document.getElementById(id); if(e){ e.textContent=msg; e.style.display='block'; } }
+function showErr(id,msg){ const e=document.getElementById(id); if(e){ e.textContent=msg; e.hidden=false; } }
 function setBtn(id,loading,label){ const b=document.getElementById(id); if(!b)return; b.disabled=loading; if(label)b.textContent=loading?'⏳ Scanning…':label; }
 function safeLoad(key,def){ try{ const v=localStorage.getItem(key); return v?JSON.parse(v):def; }catch{ return def; } }
 // Scan lists keep up to 150 entries. When the browser's storage quota is full,
@@ -33,6 +33,13 @@ function pruneLocalScans(list){
   }):[];
 }
 
+// Collapsible blocks: the clicked header opens or closes its container.
+function togglePkgGroup(hdr){ hdr.closest('.pkg-group')?.classList.toggle('open'); }
+function toggleCard(hdr){ hdr.closest('.vi')?.classList.toggle('open'); }
+function toggleFinding(hdr){ hdr.closest('.finding')?.classList.toggle('open'); }
+// "… show more": the button carries the full text of the cell it sits in.
+function showFullText(btn){ btn.parentElement.textContent=btn.dataset.full; }
+
 // Parse a fetch() response as JSON, but fail with a readable message when the
 // body isn't JSON — e.g. nginx returns an HTML error page (504/502/413) when a
 // scan exceeds the proxy timeout or the payload is too large. Without this the
@@ -49,14 +56,14 @@ async function readJson(r){
 
 function _toxicBadgeHtml(toxic){
   if(!toxic?.found)
-    return `<span style="display:inline-flex;align-items:center;gap:5px;font-size:10px;background:rgba(52,199,89,.1);color:#34c759;border:1px solid rgba(52,199,89,.3);padding:2px 9px;border-radius:12px">✅ Not in toxic-repos</span>`;
+    return '<span class="toxic-badge clean">✅ Not in toxic-repos</span>';
   const LABELS={ddos:'DDoS tool',hostile_actions:'Hostile actions',political_slogan:'Political slogan',malware:'Malware',ip_blocking:'IP blocking'};
   const label=LABELS[toxic.problem_type]||toxic.problem_type||'Toxic';
   const full=toxic.description||'';
   const preview=full.length>60?full.slice(0,60):full;
   const more=full.length>60
-    ?`<button onclick="this.parentElement.querySelector('.toxic-full').style.display='inline';this.remove()" style="background:none;border:none;color:inherit;opacity:.75;cursor:pointer;font-size:10px;padding:0;text-decoration:underline;margin-left:2px">…</button><span class="toxic-full" style="display:none">${esc(full.slice(60))}</span>`:'';
-  return `<span style="display:inline-flex;align-items:center;flex-wrap:wrap;gap:4px;font-size:10px;background:rgba(255,59,48,.12);color:#ff3b30;border:1px solid rgba(255,59,48,.35);padding:3px 10px;border-radius:12px">☠ <strong>Toxic: ${esc(label)}</strong>${full?' — '+esc(preview)+more:''}</span>`;
+    ?`<button class="toxic-more" onclick="this.parentElement.classList.add('expanded');this.remove()">…</button><span class="toxic-full">${esc(full.slice(60))}</span>`:'';
+  return `<span class="toxic-badge found">☠ <strong>Toxic: ${esc(label)}</strong>${full?' — '+esc(preview)+more:''}</span>`;
 }
 
 // Pagination
@@ -129,16 +136,12 @@ function _pagerRerender(key){
 // Paging a grouped detail view re-renders it; keep the groups the reader
 // opened open instead of folding everything back to the first group.
 function keepOpenGroups(container,render){
-  const open=new Set(container?[...container.querySelectorAll('.pkg-group[data-group]')]
-    .filter(g=>g.querySelector('.pkg-group-body')?.style.display==='block')
+  const open=new Set(container?[...container.querySelectorAll('.pkg-group.open[data-group]')]
     .map(g=>g.dataset.group):[]);
   render();
   if(!container) return;
   container.querySelectorAll('.pkg-group[data-group]').forEach(g=>{
-    if(!open.has(g.dataset.group)) return;
-    const body=g.querySelector('.pkg-group-body'), chev=g.querySelector('.pkg-chev');
-    if(body) body.style.display='block';
-    if(chev) chev.style.transform='rotate(180deg)';
+    if(open.has(g.dataset.group)) g.classList.add('open');
   });
 }
 
