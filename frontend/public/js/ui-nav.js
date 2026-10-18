@@ -175,7 +175,7 @@ async function navTo(page, opts={}){
       <div class="breadcrumb">
         <span class="bc-root" onclick="navTo('os-list')">OS Packages</span>
         <span class="bc-sep">/</span>
-        <span class="bc-current">${esc(s.name)} ${esc(s.version||'')}</span>
+        <span class="bc-current">${esc(s.pkg)}${s.pkgVer?' '+esc(s.pkgVer):''}</span>
       </div>`;
     ta.innerHTML='';
     renderOsDetail(s);
