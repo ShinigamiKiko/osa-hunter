@@ -1,0 +1,20 @@
+.icon {
+  display: inline-block;
+  width: 1.125em;
+  height: 1.125em;
+  flex-shrink: 0;
+  vertical-align: -.16em;
+}
+
+.nav-icon .icon { width: 20px; height: 20px; }
+.eco-logo .icon { width: 28px; height: 28px; }
+.detail-icon .icon { width: 30px; height: 30px; }
+.img-hero-icon .icon { width: 48px; height: 48px; }
+.ering-c .icon { width: 36px; height: 36px; }
+.icon.spin { animation: icon-spin 1s linear infinite; }
+
+@keyframes icon-spin { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .icon.spin { animation: none; }
+}

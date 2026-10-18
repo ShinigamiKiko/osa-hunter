@@ -16,7 +16,7 @@ test('the OS scan breadcrumb names the scanned package', async () => {
     renderOsDetail() {},
   };
   ctx.window = ctx; vm.createContext(ctx);
-  for (const file of ['utils.js', 'ui-nav.js'])
+  for (const file of ['icons.js', 'icon-renderer.js', 'utils.js', 'ui-nav.js'])
     vm.runInContext(fs.readFileSync(path.join(__dirname, '../../frontend/public/js', file), 'utf8'), ctx, { filename: file });
   await ctx.navTo('os-detail', { scan: { pkg: 'openssl', pkgVer: '3.0.2', distro: 'ubuntu', vulns: [] } });
   const crumbs = Object.values(nodes).map(n => n.innerHTML).join('');

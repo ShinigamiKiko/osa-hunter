@@ -28,14 +28,14 @@ function epssHtml(score){
 }
 
 function kevBadge(found){
-  if(found) return '<span class="flag bad">🔥 Found in CISA KEV — actively exploited</span>';
-  return '<span class="flag good">✅ Not in CISA KEV</span>';
+  if(found) return `<span class="flag bad">${icon('flame')} Found in CISA KEV — actively exploited</span>`;
+  return `<span class="flag good">${icon('check')} Not in CISA KEV</span>`;
 }
 
 function pocBadge(pocs){
-  if(!pocs||!pocs.length) return '<span class="flag good">✅ No public PoC found</span>';
+  if(!pocs||!pocs.length) return `<span class="flag good">${icon('check')} No public PoC found</span>`;
   return pocs.map(p=>
-    `<a class="poc-link" href="${esc(safeUrl(p.url))}" target="_blank" rel="noopener noreferrer">💥 ${esc(p.name)} ⭐${Number(p.stars)||0}</a>`
+    `<a class="poc-link" href="${esc(safeUrl(p.url))}" target="_blank" rel="noopener noreferrer">${icon('bug')} ${esc(p.name)} ${icon('star')}${Number(p.stars)||0}</a>`
   ).join('');
 }
 
@@ -52,8 +52,8 @@ function renderStoredEnrichment(vulns, scope){
     const eb=document.getElementById(`eb-${scope}-${cveId}`);
     if(eb){
       let h='';
-      if(v.inKev) h+='<span class="mark kev" title="CISA Known Exploited">🔥 KEV</span>';
-      if((v.pocs||[]).length) h+=`<span class="mark poc" title="${v.pocs.length} PoC(s)">💥 PoC×${v.pocs.length}</span>`;
+      if(v.inKev) h+=`<span class="mark kev" title="CISA Known Exploited">${icon('flame')} KEV</span>`;
+      if((v.pocs||[]).length) h+=`<span class="mark poc" title="${v.pocs.length} PoC(s)">${icon('bug')} PoC×${v.pocs.length}</span>`;
       eb.innerHTML=h;
     }
 

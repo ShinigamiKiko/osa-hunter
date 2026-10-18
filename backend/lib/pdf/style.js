@@ -1,5 +1,16 @@
 'use strict';
 
+const fs   = require('fs');
+const path = require('path');
+
+// The browser and the reports share one icon set. It sits at a different depth
+// in the repository (backend/lib/pdf) and in the backend image (/app/lib/pdf).
+const iconPaths = ['../../frontend/public/js/icon-renderer.js', '../../../frontend/public/js/icon-renderer.js']
+  .map(rel => path.join(__dirname, rel));
+const iconModule = iconPaths.find(file => fs.existsSync(file));
+if (!iconModule) throw new Error('icon-renderer.js not found; looked in ' + iconPaths.join(', '));
+const { icon, brandIcon } = require(iconModule);
+
 function esc(s) {
   return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
@@ -7,6 +18,7 @@ function esc(s) {
 const BASE_CSS = `
 *{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 html,body{margin:0;padding:0;background:#0a0c12;color:#e5e7eb;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+.icon{display:inline-block;width:1em;height:1em;vertical-align:-.15em;flex-shrink:0}
 .report{width:100%;background:#07090f}
 .rpt-header{background:#0b0f18;border-bottom:1px solid #1a2030;padding:28px 32px;display:flex;align-items:flex-start;justify-content:space-between;gap:24px}
 .rpt-brand{display:flex;align-items:center;gap:10px;margin-bottom:14px}
@@ -128,13 +140,13 @@ function cvssCell(cvss) {
 }
 function badges(v) {
   let out = '';
-  if (v.inKev) out += '<span class="badge kev">🔥 KEV</span>';
-  if (Array.isArray(v.pocs) && v.pocs.length) out += `<span class="badge poc">💥 PoC×${v.pocs.length}</span>`;
+  if (v.inKev) out += `<span class="badge kev">${icon('flame')} KEV</span>`;
+  if (Array.isArray(v.pocs) && v.pocs.length) out += `<span class="badge poc">${icon('bug')} PoC×${v.pocs.length}</span>`;
   return out;
 }
 function fixCell(v) {
   const fix = v.fix || v._fix || v.FixedVersion || '';
-  return fix ? `<span class="fix-val">→ ${esc(fix)}</span>` : '<span class="no-fix">No fix yet</span>';
+  return fix ? `<span class="fix-val">${icon('arrow-right')} ${esc(fix)}</span>` : '<span class="no-fix">No fix yet</span>';
 }
 function activityLine(activity) {
   if (!activity || !activity.found || !activity.lastCommit) return '';
@@ -144,16 +156,16 @@ function activityLine(activity) {
   const age = days < 1 ? 'today' : days < 7 ? `${days}d ago` : days < 60 ? `${Math.floor(days/7)}w ago` : years >= 1 ? `${years}y ago` : `${Math.floor(days/30)}mo ago`;
   const stale = years >= 2;
   const color = stale ? '#ff8c32' : '#34d399';
-  const label = stale ? '⚠ Possibly stale' : '● Active';
+  const label = stale ? `${icon('triangle-alert')} Possibly stale` : `${icon('activity')} Active`;
   const dateStr = date.toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' });
   return `<div style="font-size:12px;color:${color}">${label} · last commit ${age} · ${dateStr}</div>`;
 }
 function toxicLine(toxic) {
-  if (!toxic || !toxic.found) return '<div style="font-size:12px;color:#34d399;margin-top:6px">✅ Not in toxic-repos</div>';
+  if (!toxic || !toxic.found) return `<div style="font-size:12px;color:#34d399;margin-top:6px">${icon('check')} Not in toxic-repos</div>`;
   const labels = { ddos:'DDoS tool', hostile_actions:'Hostile actions', political_slogan:'Political slogan', malware:'Malware', ip_blocking:'IP blocking' };
   const label = labels[toxic.problem_type] || toxic.problem_type || 'Toxic';
   const desc = toxic.description ? ` — ${esc(toxic.description.slice(0,100))}` : '';
-  return `<div style="font-size:12px;color:#c084fc;font-weight:600;margin-top:6px">☠ Toxic: ${esc(label)}${desc}</div>`;
+  return `<div style="font-size:12px;color:#c084fc;font-weight:600;margin-top:6px">${icon('skull')} Toxic: ${esc(label)}${desc}</div>`;
 }
 function wrapHtml(bodyHtml) {
   return `<!doctype html><html><head><meta charset="utf-8"/><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'"/><style>${BASE_CSS}</style></head><body><div class="report">${bodyHtml}</div></body></html>`;
@@ -182,18 +194,18 @@ function buildChips(counts, kevHits, pocHits, extra) {
   if (kevHits) html += `<div class="chip kev"><b>${kevHits}</b> in CISA KEV</div>`;
   if (pocHits) html += `<div class="chip poc"><b>${pocHits}</b> with PoC</div>`;
   if (extra)   html += extra;
-  return `<div class="chips">${html || '<div class="chip low"><b>✅</b> Clean</div>'}</div>`;
+  return `<div class="chips">${html || `<div class="chip low"><b>${icon('check')}</b> Clean</div>`}</div>`;
 }
 function buildAlerts(kevHits, pocHits, toxic) {
   const rows = [];
-  if (kevHits)      rows.push(`<div class="alert kev">🔥 ${kevHits} CVE${kevHits>1?'s':''} found in CISA KEV — actively exploited in the wild</div>`);
-  if (pocHits)      rows.push(`<div class="alert poc">💥 ${pocHits} CVE${pocHits>1?'s':''} with public PoC on GitHub</div>`);
-  if (toxic?.found) rows.push(`<div class="alert toxic">☠ Toxic repository — ${esc(toxic.problem_type||'unknown issue')}</div>`);
-  if (!rows.length) rows.push(`<div class="alert clean">✅ No active exploits or toxic flags detected</div>`);
+  if (kevHits)      rows.push(`<div class="alert kev">${icon('flame')} ${kevHits} CVE${kevHits>1?'s':''} found in CISA KEV — actively exploited in the wild</div>`);
+  if (pocHits)      rows.push(`<div class="alert poc">${icon('bug')} ${pocHits} CVE${pocHits>1?'s':''} with public PoC on GitHub</div>`);
+  if (toxic?.found) rows.push(`<div class="alert toxic">${icon('skull')} Toxic repository — ${esc(toxic.problem_type||'unknown issue')}</div>`);
+  if (!rows.length) rows.push(`<div class="alert clean">${icon('check')} No active exploits or toxic flags detected</div>`);
   return `<div class="alerts">${rows.join('')}</div>`;
 }
 function buildFooter(date) {
   return `<div class="rpt-footer"><span>OSA Hunter — Vulnerability Scanner</span><span>Generated ${date}</span></div>`;
 }
 
-module.exports = { esc, safeSeverity, BASE_CSS, sevBadge, scoreClass, epssCell, cvssCell, badges, fixCell, activityLine, toxicLine, wrapHtml, buildHeader, buildChips, buildAlerts, buildFooter };
+module.exports = { icon, brandIcon, esc, safeSeverity, BASE_CSS, sevBadge, scoreClass, epssCell, cvssCell, badges, fixCell, activityLine, toxicLine, wrapHtml, buildHeader, buildChips, buildAlerts, buildFooter };

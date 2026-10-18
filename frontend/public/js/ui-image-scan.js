@@ -32,7 +32,7 @@ async function doImageScan(){
   const desc =document.getElementById('imgDesc').value.trim();
   document.getElementById('imgErr').hidden=true;
   if(!image){ showErr('imgErr','Enter an image name'); return; }
-  setBtn('btnImgScan',true,'Scanning...');
+  setBtn('btnImgScan',true);
   try{
     const r=await fetch('/api/trivy/scan',{method:'POST',
       headers:{'Content-Type':'application/json'},body:JSON.stringify({image,tag,desc})});
@@ -54,7 +54,7 @@ async function renderImgList(){
   const pg=paginate('img-list',imgScans,renderImgList);
   if(!imgScans.length){
     el.innerHTML=`<div class="empty">
-      <div class="empty-rings"><div class="ering"></div><div class="ering"></div><div class="ering"></div><div class="ering-c">🐋</div></div>
+      <div class="empty-rings"><div class="ering"></div><div class="ering"></div><div class="ering"></div><div class="ering-c">${brandIcon('docker')}</div></div>
       <h2>No image scans yet</h2>
       <p>Scan a Docker image to see vulnerability results</p>
       <button class="btn-primary blue-btn" onclick="navTo('img-form')">+ New scan</button>
@@ -79,17 +79,17 @@ async function renderImgList(){
               .map(sv=>`<span class="sev sm ${sv}">${_c[sv]} ${sv}</span>`).join(' ');
             return`<tr class="row" onclick="navTo('img-detail',{scan:imgScans[${i}]})">
               <td><div class="row-main">
-                <span class="row-icon lg">🐋</span>
+                <span class="row-icon lg">${brandIcon('docker')}</span>
                 <div class="row-name">${esc(s.image)}</div>
               </div></td>
               <td><div class="row-desc">${esc(s.desc||'—')}</div></td>
               <td><span class="row-ver">${esc(s.tag)}</span></td>
               <td><span class="sev ${topS}">${topS}</span></td>
               <td>${_v.length===0
-                ?'<span class="row-clean">✓ clean</span>'
+                ?`<span class="row-clean">${icon('check')} clean</span>`
                 :(pills||`<span class="row-count">${_v.length}</span>`)}</td>
               <td class="row-date">${fmtDate(s.scannedAt)}</td>
-              <td><button class="row-del" onclick="event.stopPropagation();imgScans.splice(${i},1);saveImg();renderImgList()">✕</button></td>
+              <td><button class="row-del" onclick="event.stopPropagation();imgScans.splice(${i},1);saveImg();renderImgList()">${icon('x')}</button></td>
             </tr>`;
           }).join('')}
         </tbody>
@@ -132,7 +132,7 @@ function renderImgDetail(s){
       .map(sv=>`<span class="sev xs ${sv}">${g.counts[sv]}</span>`).join('');
     const pkgVer = g.vulns[0]?.InstalledVersion ? `<span class="pkg-group-ver">v${esc(g.vulns[0].InstalledVersion)}</span>` : '';
     const fixedVer= g.vulns.find(v=>v.FixedVersion)?.FixedVersion;
-    const fixTag  = fixedVer ? `<span class="fix-tag">→ ${esc(fixedVer)}</span>` : '';
+    const fixTag  = fixedVer ? `<span class="fix-tag">${icon('arrow-right')} ${esc(fixedVer)}</span>` : '';
     const _pt = (g.vulns[0]?._pkgType||'').toLowerCase();
     const debTag = OS_PKG_TYPES.has(_pt) ? `<span class="pkg-type-tag">${_pt==='debian'||_pt==='ubuntu'?'deb':esc(_pt)}</span>` : '';
 
@@ -152,7 +152,7 @@ function renderImgDetail(s){
         <div class="pkg-group-stats">
           ${pills}
           <span class="pkg-group-count">${g.vulns.length} CVE${g.vulns.length>1?'s':''}</span>
-          <span class="pkg-chev">▼</span>
+          <span class="pkg-chev">${icon('chevron-down')}</span>
         </div>
       </div>
       <div class="pkg-group-body">
@@ -163,20 +163,20 @@ function renderImgDetail(s){
 
   el.innerHTML=`
     <div class="detail-header">
-      <div class="detail-icon blue">🐋</div>
+      <div class="detail-icon blue">${brandIcon('docker')}</div>
       <div class="detail-info">
         <div class="detail-name">${esc(s.image)}:${esc(s.tag)}</div>
         <div class="detail-sub">${s.vulns.length} vulnerabilit${s.vulns.length===1?'y':'ies'} across ${sorted.length} package${sorted.length!==1?'s':''}${s.desc?' · '+esc(s.desc):''}  ·  scanned ${fmtDate(s.scannedAt)}</div>
       </div>
       <div class="detail-chips stacked">
         <div class="chip-row">
-          ${chips||'<span class="sev NONE">✅ CLEAN</span>'}
+          ${chips||`<span class="sev NONE">${icon('check')} CLEAN</span>`}
         </div>
         ${exportBtnHtml('img', {image:s.image,tag:s.tag||'latest',desc:s.desc||''})}
       </div>
     </div>
     ${s.vulns.length===0
-      ?'<div class="detail-empty">🐳 No vulnerabilities found — this image is clean!</div>'
+      ?`<div class="detail-empty">${brandIcon('docker')} No vulnerabilities found — this image is clean!</div>`
       :groupHtml + groupPage.html}`;
 
   el.querySelector('.pkg-group')?.classList.add('open');
@@ -205,20 +205,20 @@ function imgVulnCardHtml(v,vi){
     <div class="vi-hdr" onclick="toggleIVI(${vi})">
       <div class="vbar ${sev}"></div>
       <div class="vi-id">
-        ${cveId.startsWith('CVE-')?`<a class="vi-cve" href="https://nvd.nist.gov/vuln/detail/${esc(cveId)}" target="_blank" onclick="event.stopPropagation()">${esc(cveId)} &#8599;</a>`:`<span class="vi-alt-id">${esc(cveId)}</span>`}
+        ${cveId.startsWith('CVE-')?`<a class="vi-cve" href="https://nvd.nist.gov/vuln/detail/${esc(cveId)}" target="_blank" onclick="event.stopPropagation()">${esc(cveId)} ${icon('external-link')}</a>`:`<span class="vi-alt-id">${esc(cveId)}</span>`}
         <span class="vi-cvss-inline" id="cvss-hdr-img-${cveId}"></span>
       </div>
       <div class="vi-sum">${esc(title.length>80?title.slice(0,80)+'…':title)}</div>
       <span class="enrich-badges" id="eb-img-${cveId}"></span>
       <span class="vi-sev ${sev}">${sev}</span>
-      <span class="vi-chev">▼</span>
+      <span class="vi-chev">${icon('chevron-down')}</span>
     </div>
     <div class="vi-body" id="ivib-${vi}">
       <div class="vgrid">
-        <span class="vk">CVE ID</span><span class="vv"><a href="https://avd.aquasec.com/nvd/${esc(cveId.toLowerCase())}" target="_blank">${esc(cveId)} ↗</a></span>
+        <span class="vk">CVE ID</span><span class="vv"><a href="https://avd.aquasec.com/nvd/${esc(cveId.toLowerCase())}" target="_blank">${esc(cveId)} ${icon('external-link')}</a></span>
         <span class="vk">Package</span><span class="vv strong">${esc(v.PkgName||'—')}</span>
         <span class="vk">Installed</span><span class="vv dim">${esc(v.InstalledVersion||'—')}</span>
-        ${v.FixedVersion?`<span class="vk">Fixed in</span><span class="vv"><span class="fix-tag">→ ${esc(v.FixedVersion)}</span></span>`:''}
+        ${v.FixedVersion?`<span class="vk">Fixed in</span><span class="vv"><span class="fix-tag">${icon('arrow-right')} ${esc(v.FixedVersion)}</span></span>`:''}
         ${v.Title?`<span class="vk">Title</span><span class="vv">${esc(v.Title)}</span>`:''}
         ${v.Description?`<span class="vk">Description</span><span class="vv prose" id="idesc-${vi}">${esc(v.Description.slice(0,480))}${v.Description.length>480?`<span id="idesc-dots-${vi}"> <button class="more-link" data-full="${esc(v.Description)}" onclick="expandIDesc(${vi},this)">… show more</button></span>`:''}</span>`:''}
         ${v.PublishedDate?`<span class="vk">Published</span><span class="vv">${new Date(v.PublishedDate).toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'})}</span>`:''}

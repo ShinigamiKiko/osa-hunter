@@ -5,32 +5,32 @@
   const TTL_MS = 24 * 60 * 60 * 1000;
 
   const ECOS = [
-    {id:'npm',       label:'npm',   logo:'📦'},
-    {id:'pypi',      label:'PyPI',  logo:'🐍'},
-    {id:'go',        label:'Go',    logo:'🐹'},
-    {id:'crates',    label:'Rust',  logo:'🦀'},
-    {id:'maven',     label:'Maven', logo:'☕'},
-    {id:'rubygems',  label:'Ruby',  logo:'💎'},
-    {id:'nuget',     label:'NuGet', logo:'🔷'},
-    {id:'packagist', label:'PHP',   logo:'🐘'},
+    {id:'npm',       label:'npm'},
+    {id:'pypi',      label:'PyPI'},
+    {id:'go',        label:'Go'},
+    {id:'crates',    label:'Rust'},
+    {id:'maven',     label:'Maven'},
+    {id:'rubygems',  label:'Ruby'},
+    {id:'nuget',     label:'NuGet'},
+    {id:'packagist', label:'PHP'},
   ];
   const OS_DISTROS = [
-    {id:'ubuntu', label:'Ubuntu', logo:'🟠'},
-    {id:'debian', label:'Debian', logo:'🌀'},
-    {id:'rhel',   label:'RHEL',   logo:'🎩'},
-    {id:'alpine', label:'Alpine', logo:'🏔️'},
-    {id:'suse',   label:'SUSE',   logo:'🦎'},
+    {id:'ubuntu', label:'Ubuntu'},
+    {id:'debian', label:'Debian'},
+    {id:'rhel',   label:'RHEL'},
+    {id:'alpine', label:'Alpine'},
+    {id:'suse',   label:'SUSE'},
   ];
 
-  function ecoMeta(id)    { return ECOS.find(x=>x.id===(id||'').toLowerCase())       || {id:id||'',label:id||'',logo:'📦'}; }
-  function distroMeta(id) { return OS_DISTROS.find(x=>x.id===(id||'').toLowerCase()) || {id:id||'',label:id||'',logo:'🐧'}; }
+  function ecoMeta(id)    { return ECOS.find(x=>x.id===(id||'').toLowerCase())       || {id:id||'',label:id||''}; }
+  function distroMeta(id) { return OS_DISTROS.find(x=>x.id===(id||'').toLowerCase()) || {id:id||'',label:id||''}; }
 
   const converters = {
     lib(e) {
       const eco = ecoMeta(e.ecosystem);
       return {
         id:eco.id, pkg:e.package, ver:e.version||'',
-        eco:eco.id, ecoLabel:eco.label, ecoLogo:eco.logo,
+        eco:eco.id, ecoLabel:eco.label,
         desc:'',
         vulns:(e.vulns||[]).map(v=>({...v,_sev:v.severity,_fix:v.fix,_aliases:v.aliases||[],_refs:v.refs||[]})),
         toxic:e.toxic||{found:false}, topSev:e.topSeverity||'NONE',
@@ -46,7 +46,7 @@
       const d = distroMeta(e.distro);
       return {
         id:e._cacheKey, pkg:e.package, pkgVer:e.version||'',
-        distro:d.id, distroLabel:d.label, distroLogo:d.logo, distroVer:e.distroVersion||'',
+        distro:d.id, distroLabel:d.label, distroVer:e.distroVersion||'',
         desc:'', vulns:e.vulns||[], counts:e.counts||{},
         topSev:e.topSeverity||'NONE', scannedAt:e.scannedAt||e._cachedAt,
       };
@@ -115,7 +115,6 @@
     arr.sort((a,b) => new Date(b.scannedAt||0) - new Date(a.scannedAt||0));
     if (arr.length > meta.max) arr.splice(meta.max);
     try { localStorage.setItem(meta.lsKey, JSON.stringify(arr)); } catch(_) {}
-    console.log('[scan-history] +'+added+' '+type+' entries from server');
   }
 
   function patchNavTo() {
@@ -127,7 +126,6 @@
       if (types) await Promise.allSettled(types.map(fetchAndMerge));
       return orig(page, opts);
     };
-    console.log('[scan-history] navTo patched ✓');
   }
 
   patchNavTo();

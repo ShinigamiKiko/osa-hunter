@@ -112,12 +112,12 @@ router.post('/export/pdf', rateLimit(scanLimiter), async (req, res) => {
   let scan;
   try {
     if (type === 'lib') {
-      const { name, ecosystem, version, desc, ecoLabel, ecoLogo } = params;
+      const { name, ecosystem, version, desc, ecoLabel } = params;
       if (!name || !ecosystem) return res.status(400).json({ error: 'lib scan requires name + ecosystem' });
 
       const data = await internalPostJson('libscan', { name, ecosystem, version }, req);
       const actData = await internalPostJson('activity', { name, ecosystem: ecoLabel || ecosystem }, req).catch(() => null);
-      scan = { ...data, desc, ecoLabel: ecoLabel || ecosystem, ecoLogo: ecoLogo || '📦', activity: actData };
+      scan = { ...data, desc, ecoLabel: ecoLabel || ecosystem, activity: actData };
 
     } else if (type === 'img') {
       const { image, tag, desc } = params;

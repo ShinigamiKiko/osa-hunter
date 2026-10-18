@@ -96,6 +96,6 @@ async function doDepScan(){
   }catch(e){ showErr('dmerr',e.message||'Scan failed'); }
   finally {
     depScanInFlight=false;
-    setBtn('btnDepGo',false,'▶ Scan');
+    setBtn('btnDepGo',false,'Scan');
   }
 }

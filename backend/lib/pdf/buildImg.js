@@ -1,5 +1,5 @@
 'use strict';
-const { esc, safeSeverity, wrapHtml, buildHeader, buildChips, buildAlerts, buildFooter, sevBadge, epssCell, cvssCell } = require('./style');
+const { icon, brandIcon, esc, safeSeverity, wrapHtml, buildHeader, buildChips, buildAlerts, buildFooter, sevBadge, epssCell, cvssCell } = require('./style');
 
 const SEV_W = { CRITICAL:4, HIGH:3, MEDIUM:2, LOW:1, UNKNOWN:0 };
 
@@ -80,8 +80,8 @@ function buildImgReportHtml(scan, { osaPngB64 = '' } = {}) {
       const title   = v.Title || v.summary || v.Description || '';
       const libVer  = v.InstalledVersion || v.installedVersion || ver;
       const fix     = v.FixedVersion || v.fixedVersion || v.fix || '';
-      const kevBadge = v.inKev ? '<span class="badge kev">🔥 KEV</span>' : '';
-      const pocBadge = Array.isArray(v.pocs) && v.pocs.length ? `<span class="badge poc">💥 PoC×${v.pocs.length}</span>` : '';
+      const kevBadge = v.inKev ? `<span class="badge kev">${icon('flame')} KEV</span>` : '';
+      const pocBadge = Array.isArray(v.pocs) && v.pocs.length ? `<span class="badge poc">${icon('bug')} PoC×${v.pocs.length}</span>` : '';
       const cvss3   = v.cvss?.cvss3?.score;
       const epssVal = v.epss?.epss;
       const cvssStr = cvss3 != null ? `CVSS ${cvss3}` : '';
@@ -95,7 +95,7 @@ function buildImgReportHtml(scan, { osaPngB64 = '' } = {}) {
         <div class="cve-badges">${kevBadge}${pocBadge}</div>
         <div class="cve-desc">
           ${title ? `<div style="color:#e5e7eb;font-weight:600;font-size:11px;margin-bottom:2px">${esc(title.slice(0,120))}</div>` : ''}
-          ${fix ? `<span class="fix-val">→ ${esc(fix)}</span>` : ''}
+          ${fix ? `<span class="fix-val">${icon('arrow-right')} ${esc(fix)}</span>` : ''}
         </div>
         <div class="cve-meta">
           <span class="sev ${sev}">${esc(sev)}</span>
@@ -109,7 +109,7 @@ function buildImgReportHtml(scan, { osaPngB64 = '' } = {}) {
         <div class="pkg-hdr-vbar ${topSevG}"></div>
         <span class="pkg-hdr-name">${esc(pkgName)}</span>
         ${ver      ? `<span class="pkg-hdr-ver">@${esc(ver)}</span>` : ''}
-        ${fixedVer ? `<span class="pkg-hdr-fix">→ ${esc(fixedVer)}</span>` : ''}
+        ${fixedVer ? `<span class="pkg-hdr-fix">${icon('arrow-right')} ${esc(fixedVer)}</span>` : ''}
         <div style="margin-left:auto;display:flex;align-items:center;gap:6px">
           ${pills}
           <span style="font-size:11px;color:#5a6478">${g.vulns.length} CVE${g.vulns.length>1?'s':''}</span>
@@ -129,7 +129,7 @@ function buildImgReportHtml(scan, { osaPngB64 = '' } = {}) {
 
   const chips  = buildChips(counts, kevHits, pocHits);
   const alerts = buildAlerts(kevHits, pocHits, null);
-  const empty  = '<div style="text-align:center;padding:60px;color:#34d399;font-size:14px">🐳 No vulnerabilities found — this image is clean!</div>';
+  const empty  = `<div style="text-align:center;padding:60px;color:#34d399;font-size:14px">${brandIcon('docker')} No vulnerabilities found — this image is clean!</div>`;
 
   const base = wrapHtml(header + chips + alerts + (vulns.length ? groupSections : empty) + buildFooter(date));
   return base.replace('</style>', EXTRA_CSS + '</style>');

@@ -61,7 +61,7 @@ async function renderProxy() {
       </select>
        <button id="proxySearch">Search</button>
        <button class="proxy-clear" id="proxyClear" title="Delete all proxy history">Clear</button>
-       <button id="proxyRefresh">↻ Refresh</button>
+       <button id="proxyRefresh">${icon('refresh-cw')} Refresh</button>
     </div>
     <div id="proxyTable"></div>`;
   host.querySelectorAll('[data-proxy-eco]').forEach(button => button.addEventListener('click', () => proxyPick(button.dataset.proxyEco)));

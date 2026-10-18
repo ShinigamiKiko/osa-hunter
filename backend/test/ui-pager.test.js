@@ -14,7 +14,7 @@ function context(files, extra = {}) {
     document: { addEventListener() {}, getElementById: () => null, querySelector: () => null, querySelectorAll: () => [] },
     window: { addEventListener() {} }, CSS: { escape: s => s }, navTo() {}, setTimeout, ...extra };
   vm.createContext(ctx);
-  for (const file of files) vm.runInContext(JS(file), ctx, { filename: file });
+  for (const file of ['icons.js', 'icon-renderer.js', ...files]) vm.runInContext(JS(file), ctx, { filename: file });
   return { ctx, storage, run: code => vm.runInContext(code, ctx) };
 }
 

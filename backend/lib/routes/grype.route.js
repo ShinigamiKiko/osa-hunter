@@ -119,17 +119,17 @@ router.post('/osscan', async (req, res) => {
       const fixState = vuln.fix?.state || 'unknown';
 
       const VEX_LABEL = {
-        'not_affected':        { label:'Not Affected',        cls:'LOW',      icon:'🟢' },
-        'affected':            { label:'Affected',            cls:'HIGH',     icon:'🔴' },
-        'fixed':               { label:'Fixed',               cls:'LOW',      icon:'✅' },
-        'under_investigation': { label:'Under Investigation', cls:'MEDIUM',   icon:'🔍' },
-        'not-fixed':           { label:'Not Fixed',           cls:'HIGH',     icon:'🔴' },
-        'wont-fix':            { label:'Wont Fix',          cls:'MEDIUM',   icon:'⚠️' },
-        'unknown':             { label:'Unknown',             cls:'UNKNOWN',  icon:'❓' },
+        'not_affected':        { label:'Not Affected',        cls:'LOW' },
+        'affected':            { label:'Affected',            cls:'HIGH' },
+        'fixed':               { label:'Fixed',               cls:'LOW' },
+        'under_investigation': { label:'Under Investigation', cls:'MEDIUM' },
+        'not-fixed':           { label:'Not Fixed',           cls:'HIGH' },
+        'wont-fix':            { label:"Won't Fix",           cls:'MEDIUM' },
+        'unknown':             { label:'Unknown',             cls:'UNKNOWN' },
       };
 
       const vexKey = vexStatus || fixState;
-      const vex = VEX_LABEL[vexKey] || { label: vexKey, cls:'UNKNOWN', icon:'❓' };
+      const vex = VEX_LABEL[vexKey] || { label: vexKey, cls:'UNKNOWN' };
       vex.source = vexStatus ? 'OpenVEX' : 'Grype fix.state';
       const sev    = (vuln.severity || 'UNKNOWN').toUpperCase() === 'NEGLIGIBLE'
                        ? 'LOW'

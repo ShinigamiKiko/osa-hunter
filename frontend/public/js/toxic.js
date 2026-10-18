@@ -11,8 +11,8 @@ async function checkActivity(badgeId, pkgName, ecosystem){
     const years=Math.floor(days/365);
     const age=days<1?'today':days<7?`${days}d ago`:days<60?`${Math.floor(days/7)}w ago`:years>=1?`${years}y ago`:`${Math.floor(days/30)}mo ago`;
     const stale=years>=2;
-    const label=stale?'⚠ Possibly stale':'● Active';
-    const link=d.repoUrl?` <a class="activity-link" href="${esc(safeUrl(d.repoUrl))}" target="_blank" rel="noopener">↗ repo</a>`:'';
+    const label=stale?`${icon('triangle-alert')} Possibly stale`:`${icon('activity')} Active`;
+    const link=d.repoUrl?` <a class="activity-link" href="${esc(safeUrl(d.repoUrl))}" target="_blank" rel="noopener">${icon('external-link')} repo</a>`:'';
     el.innerHTML=`<span class="activity ${stale?'stale':'active'}">${label} · last commit ${age}${link}</span>`;
   }catch{
     el.innerHTML='<span class="activity">Activity: error</span>';

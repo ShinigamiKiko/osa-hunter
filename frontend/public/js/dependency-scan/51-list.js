@@ -26,7 +26,7 @@ async function renderDepList(){
       <tbody>
         ${pg.rows.map(([s,i])=>{
           markDependencyCompleteness(s);
-          const sysInfo=DEP_SYSTEMS.find(x=>x.id===s.system)||{logo:'📦',label:s.system};
+          const sysInfo=DEP_SYSTEMS.find(x=>x.id===s.system)||{label:s.system};
           const _sum={ ...s.summary };
           if (Array.isArray(s.deps) && s.deps.length)
             Object.assign(_sum, findingCounts(s.deps.flatMap(d => d.vulns || [])));
@@ -43,13 +43,13 @@ async function renderDepList(){
           const vulnCell  = s.complete === false
             ? '<span class="sev UNKNOWN">RESCAN REQUIRED</span>'
             : !hasVulnerabilities
-            ? '<span class="row-clean">&#10003; clean</span>'
+            ? `<span class="row-clean">${icon('check')} clean</span>`
             : (pills||`<span class="row-count">${vulnerabilityCount||'?'}</span>`);
-          const toxicCell = _sum.toxic>0 ? `<span class="row-toxic">&#9760; ${_sum.toxic}</span>` : '<span class="row-clean">&#10003;</span>';
-          const toxicFlag = s.toxic?.found ? '<div class="row-meta"><span class="pkg-flag toxic">&#9760; TOXIC</span></div>' : '';
+          const toxicCell = _sum.toxic>0 ? `<span class="row-toxic">${icon('skull')} ${_sum.toxic}</span>` : `<span class="row-clean">${icon('check')}</span>`;
+          const toxicFlag = s.toxic?.found ? `<div class="row-meta"><span class="pkg-flag toxic">${icon('skull')} TOXIC</span></div>` : '';
           return `<tr class="row" onclick="currentDepScan=depScans[${i}];navTo('dep-detail',{scan:depScans[${i}]})">
             <td><div class="row-main">
-              <span class="row-icon sm">${esc(sysInfo.logo)}</span>
+              <span class="row-icon sm">${brandIcon(s.system)}</span>
               <div><div class="row-name">${esc(s.package)}</div>${toxicFlag}</div>
             </div></td>
             <td><div class="row-desc">${esc(s.desc||'—')}</div></td>
@@ -60,7 +60,7 @@ async function renderDepList(){
             <td>${vulnCell}</td>
             <td>${toxicCell}</td>
             <td class="row-date">${fmtDate(s.scannedAt)}</td>
-            <td><button class="row-del" onclick="event.stopPropagation();depScans.splice(${i},1);saveDep();renderDepList()">&#10005;</button></td>
+            <td><button class="row-del" onclick="event.stopPropagation();depScans.splice(${i},1);saveDep();renderDepList()">${icon('x')}</button></td>
           </tr>`;
         }).join('')}
       </tbody>
@@ -104,8 +104,8 @@ function _enrichDepCardVulns(vulns, depIdx){
     const eb=document.getElementById('dvieb-'+depIdx+'-'+vi);
     if(eb){
       let hb='';
-      if(v.inKev)    hb+='<span class="mark kev" title="CISA KEV">&#128293; KEV</span>';
-      if(v.pocs?.length) hb+=`<span class="mark poc" title="${v.pocs.length} PoC(s)">&#128165; PoC&#215;${v.pocs.length}</span>`;
+      if(v.inKev)    hb+=`<span class="mark kev" title="CISA KEV">${icon('flame')} KEV</span>`;
+      if(v.pocs?.length) hb+=`<span class="mark poc" title="${v.pocs.length} PoC(s)">${icon('bug')} PoC&#215;${v.pocs.length}</span>`;
       eb.innerHTML=hb;
     }
   });

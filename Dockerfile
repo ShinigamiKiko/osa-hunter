@@ -13,6 +13,8 @@ FROM deps AS application
 COPY backend ./
 COPY policy.yaml ./policy.yaml
 COPY frontend/public/assets/osa.png ./frontend/public/assets/osa.png
+COPY frontend/public/assets/icons ./frontend/public/assets/icons
+COPY frontend/public/js/icons.js frontend/public/js/icon-renderer.js ./frontend/public/js/
 RUN mkdir -p /app/.trivy-cache
 
 # Stage 2: runtime

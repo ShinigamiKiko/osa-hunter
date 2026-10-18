@@ -90,7 +90,7 @@
   <div class="page" id="page-img-form">
     <div class="img-form-wrap">
       <div class="img-hero">
-          <div class="img-hero-icon">🐋</div>
+          <div class="img-hero-icon"><span data-brand="docker"></span></div>
         <h2>Docker Image Scan</h2>
         <p>Scan any image for OS &amp; library vulnerabilities<br/>powered by Trivy</p>
       </div>
@@ -101,7 +101,6 @@
       <div class="fld"><label>Description</label><input id="imgDesc" placeholder="PROJ-42 production base image (optional)"/></div>
       <button class="btn-primary blue-btn wide" id="btnImgScan" onclick="doImageScan()">Scan Image</button>
       <div class="form-hint">
-        <span class="form-hint-icon">🐱</span>
         <span>Large images can take a few minutes to scan.</span>
       </div>
       <div id="imgErr" class="merr" hidden></div>
@@ -133,7 +132,6 @@
       </div>
       <button class="btn-primary purple wide" id="btnGhScan" onclick="doGhScan()">Scan Repository</button>
       <div class="form-hint purple">
-        <span class="form-hint-icon">🐝</span>
         <span>
           The repository is cloned, scanned and deleted.<br/>
           <span class="form-hint-aside">Public repositories on github.com only.</span>
@@ -155,7 +153,7 @@
   <div class="modal" onclick="event.stopPropagation()">
     <div class="mhdr">
       <span class="mtitle">Add library scan</span>
-      <button class="mclose" onclick="closeLibModal()">✕</button>
+      <button class="mclose" aria-label="Close" onclick="closeLibModal()"><span data-icon="x"></span></button>
     </div>
     <div class="eco-lbl">Ecosystem</div>
     <div class="eco-grid" id="ecoGrid"></div>
@@ -164,7 +162,7 @@
     <div class="mfld"><label>Version</label><input id="fVer" placeholder="4.17.15  (blank = any)"/></div>
     <div id="lmerr" class="merr" hidden></div>
     <div class="mactions">
-      <button class="btn-go" id="btnLibGo" onclick="doLibScan()">▶ Scan</button>
+      <button class="btn-go" id="btnLibGo" onclick="doLibScan()"><span data-icon="play"></span> Scan</button>
     </div>
   </div>
 </div>
@@ -173,7 +171,7 @@
   <div class="modal" onclick="event.stopPropagation()">
     <div class="mhdr">
       <span class="mtitle">Dependency Scan</span>
-      <button class="mclose" onclick="closeDepModal()">✕</button>
+      <button class="mclose" aria-label="Close" onclick="closeDepModal()"><span data-icon="x"></span></button>
     </div>
     <div class="eco-lbl">Package System</div>
     <div class="eco-grid" id="depEcoGrid"></div>
@@ -182,7 +180,7 @@
     <div class="mfld"><label>Version</label><input id="dVer" placeholder="latest  (blank = resolve latest)"/></div>
     <div id="dmerr" class="merr" hidden></div>
     <div class="mactions">
-      <button class="btn-go purple" id="btnDepGo" onclick="doDepScan()">▶ Scan</button>
+      <button class="btn-go purple" id="btnDepGo" onclick="doDepScan()"><span data-icon="play"></span> Scan</button>
     </div>
   </div>
 </div>
@@ -191,7 +189,7 @@
   <div class="modal" onclick="event.stopPropagation()">
     <div class="mhdr">
       <span class="mtitle">OS Package Scan</span>
-      <button class="mclose" onclick="closeOsModal()">✕</button>
+      <button class="mclose" aria-label="Close" onclick="closeOsModal()"><span data-icon="x"></span></button>
     </div>
     <div class="eco-lbl">Distribution</div>
     <div class="eco-grid" id="osDistroGrid"></div>
@@ -201,15 +199,17 @@
     <div class="mfld"><label>Description</label><input id="osDesc" placeholder="PROJ-42 audit (optional)"/></div>
     <div id="osmerr" class="merr" hidden></div>
     <div class="modal-note">
-      ⚠️ <strong>VEX status</strong> can lag behind the vendor's actual patch status.
+      <strong>VEX status</strong> can lag behind the vendor's actual patch status.
       Check your distribution's <a href="https://security-tracker.debian.org" target="_blank" rel="noopener">security tracker</a> before relying on it.
     </div>
     <div class="mactions">
-      <button class="btn-go orange" id="btnOsGo" onclick="doOsScan()">▶ Scan</button>
+      <button class="btn-go orange" id="btnOsGo" onclick="doOsScan()"><span data-icon="play"></span> Scan</button>
     </div>
   </div>
 </div>
 
+<script src="/js/icons.js"></script>
+<script src="/js/icon-renderer.js"></script>
 <script src="/js/utils.js"></script>
 <script src="/js/canvas.js"></script>
 <script src="/js/ui-export.js"></script>

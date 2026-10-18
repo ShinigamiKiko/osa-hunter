@@ -27,7 +27,7 @@
   window.exportBtnHtml = function(type, params){
     const key = 'exp_' + type + '_' + Date.now() + '_' + Math.random().toString(36).slice(2);
     _store[key] = params;
-    return `<button class="btn-secondary" onclick="exportPdf('${type}','${key}')">⬇ Download artifact</button>`;
+    return `<button class="btn-secondary" onclick="exportPdf('${type}','${key}')">${icon('download')} Download artifact</button>`;
   };
 
   window.exportPdf = async function(type, key){

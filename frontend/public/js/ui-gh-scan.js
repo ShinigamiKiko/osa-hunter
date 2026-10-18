@@ -18,7 +18,7 @@ async function doGhScan(){
   if(!/^https:\/\/github\.com\/[^/]+\/[^/]+/.test(url))
     return showErr('ghErr','Only public GitHub repositories are supported (https://github.com/owner/repo)');
 
-  setBtn('btnGhScan', true, '⏳ Scanning…');
+  setBtn('btnGhScan', true);
   try {
     const r = await fetch('/api/ghscan', {
       method:'POST',
@@ -70,16 +70,16 @@ async function renderGhList(){
       .map(function(sv){return '<span class="sev sm '+sv+'">'+counts[sv]+' '+sv+'</span>';}).join(' ');
     var total = (s.findings||[]).length;
     return '<tr class="row" onclick="navTo(\'gh-detail\',{scan:ghScans['+i+']})">' +
-      '<td><div class="row-main"><span class="row-icon sm">🔬</span><div>' +
+      '<td><div class="row-main"><span class="row-icon sm">'+icon('file-search')+'</span><div>' +
       '<div class="row-name">'+esc(s.repo)+'</div>' +
       '<div class="row-sub">'+esc(s.url)+'</div>' +
       '<div class="row-flag">'+_toxicBadgeHtml(s.toxic)+'</div>' +
       '</div></div></td>' +
       '<td><div class="row-desc">'+esc(s.desc||'—')+'</div></td>' +
       '<td><span class="sev '+(s.complete === true ? esc(s.topSev) : 'UNKNOWN')+'">'+(s.complete === true ? esc(s.topSev) : 'RESCAN')+'</span></td>' +
-      '<td>'+(total===0 ? (s.complete === true ? '<span class="row-clean">✓ clean</span>' : '<span class="text-note">Not verified</span>') : (pills||'<span class="row-count">'+total+'</span>'))+'</td>' +
+      '<td>'+(total===0 ? (s.complete === true ? '<span class="row-clean">'+icon('check')+' clean</span>' : '<span class="text-note">Not verified</span>') : (pills||'<span class="row-count">'+total+'</span>'))+'</td>' +
       '<td class="row-date">'+fmtDate(s.scannedAt)+'</td>' +
-      '<td><button class="row-del" onclick="event.stopPropagation();ghScans.splice('+i+',1);saveGh();updateGhBadge();renderGhList()">✕</button></td>' +
+      '<td><button class="row-del" onclick="event.stopPropagation();ghScans.splice('+i+',1);saveGh();updateGhBadge();renderGhList()">'+icon('x')+'</button></td>' +
       '</tr>';
   }).join('');
   el.innerHTML =
@@ -101,69 +101,69 @@ function cweToLabel(cweArr) {
   var id = parseCweId(cweArr);
   if (!id) return null;
   var map = {
-    89:   { label: 'SQL Injection',            icon: '💉' },
-    79:   { label: 'XSS',                      icon: '🔥' },
-    78:   { label: 'Command Injection',         icon: '⚡' },
-    94:   { label: 'Code Injection',            icon: '💀' },
-    95:   { label: 'Eval Injection',            icon: '💀' },
-    22:   { label: 'Path Traversal',            icon: '📂' },
-    73:   { label: 'Path Traversal',            icon: '📂' },
-    798:  { label: 'Hardcoded Secret',          icon: '🔑' },
-    259:  { label: 'Hardcoded Secret',          icon: '🔑' },
-    321:  { label: 'Hardcoded Secret',          icon: '🔑' },
-    918:  { label: 'SSRF',                      icon: '🌐' },
-    611:  { label: 'XXE',                       icon: '📄' },
-    502:  { label: 'Insecure Deserialization',  icon: '📦' },
-    601:  { label: 'Open Redirect',             icon: '↪️' },
-    352:  { label: 'CSRF',                      icon: '🎭' },
-    942:  { label: 'CORS Misconfiguration',     icon: '🌍' },
-    347:  { label: 'JWT Issue',                 icon: '🎫' },
-    327:  { label: 'Weak Cryptography',         icon: '🔓' },
-    328:  { label: 'Weak Cryptography',         icon: '🔓' },
-    117:  { label: 'Log Injection',             icon: '📝' },
-    1321: { label: 'Prototype Pollution',       icon: '☠️' },
-    338:  { label: 'Weak Randomness',           icon: '🎲' },
-    1004: { label: 'Insecure Cookie',           icon: '🍪' },
-    400:  { label: 'DoS / ReDoS',               icon: '💣' },
-    200:  { label: 'Information Exposure',      icon: '👁' },
-    209:  { label: 'Information Exposure',      icon: '👁' },
-    116:  { label: 'Improper Encoding',         icon: '🔤' },
-    434:  { label: 'Unrestricted Upload',       icon: '📤' },
-    285:  { label: 'Improper Authorization',    icon: '🚫' },
-    284:  { label: 'Improper Authorization',    icon: '🚫' },
-    306:  { label: 'Missing Authentication',    icon: '🔐' },
-    307:  { label: 'Brute Force',               icon: '🔨' },
-    287:  { label: 'Improper Authentication',   icon: '🔐' },
-    190:  { label: 'Integer Overflow',          icon: '🔢' },
-    476:  { label: 'Null Dereference',          icon: '💥' },
-    416:  { label: 'Use After Free',            icon: '💥' },
-    125:  { label: 'Out-of-bounds Read',        icon: '📍' },
-    787:  { label: 'Out-of-bounds Write',       icon: '📍' }
+    89:   { label: 'SQL Injection' },
+    79:   { label: 'XSS' },
+    78:   { label: 'Command Injection' },
+    94:   { label: 'Code Injection' },
+    95:   { label: 'Eval Injection' },
+    22:   { label: 'Path Traversal' },
+    73:   { label: 'Path Traversal' },
+    798:  { label: 'Hardcoded Secret' },
+    259:  { label: 'Hardcoded Secret' },
+    321:  { label: 'Hardcoded Secret' },
+    918:  { label: 'SSRF' },
+    611:  { label: 'XXE' },
+    502:  { label: 'Insecure Deserialization' },
+    601:  { label: 'Open Redirect' },
+    352:  { label: 'CSRF' },
+    942:  { label: 'CORS Misconfiguration' },
+    347:  { label: 'JWT Issue' },
+    327:  { label: 'Weak Cryptography' },
+    328:  { label: 'Weak Cryptography' },
+    117:  { label: 'Log Injection' },
+    1321: { label: 'Prototype Pollution' },
+    338:  { label: 'Weak Randomness' },
+    1004: { label: 'Insecure Cookie' },
+    400:  { label: 'DoS / ReDoS' },
+    200:  { label: 'Information Exposure' },
+    209:  { label: 'Information Exposure' },
+    116:  { label: 'Improper Encoding' },
+    434:  { label: 'Unrestricted Upload' },
+    285:  { label: 'Improper Authorization' },
+    284:  { label: 'Improper Authorization' },
+    306:  { label: 'Missing Authentication' },
+    307:  { label: 'Brute Force' },
+    287:  { label: 'Improper Authentication' },
+    190:  { label: 'Integer Overflow' },
+    476:  { label: 'Null Dereference' },
+    416:  { label: 'Use After Free' },
+    125:  { label: 'Out-of-bounds Read' },
+    787:  { label: 'Out-of-bounds Write' }
   };
-  return map[id] || { label: 'CWE-'+id, icon: '⚠️' };
+  return map[id] || { label: 'CWE-'+id };
 }
 
 function ruleIdToLabel(ruleId) {
   var r = (ruleId || '').toLowerCase();
-  if (/sql.?inject|sqli/.test(r))                                       return { label: 'SQL Injection',           icon: '💉' };
-  if (/xss|cross.site.script|html.inject/.test(r))                      return { label: 'XSS',                     icon: '🔥' };
-  if (/command.inject|cmd.inject|shell.inject/.test(r))                 return { label: 'Command Injection',       icon: '⚡' };
-  if (/eval|exec.inject|rce/.test(r))                                   return { label: 'Code Injection',          icon: '💀' };
-  if (/path.travers|directory.travers|lfi|rfi/.test(r))                 return { label: 'Path Traversal',          icon: '📂' };
-  if (/secret|hardcode|api.key|token|password|credential|private.key/.test(r)) return { label: 'Hardcoded Secret', icon: '🔑' };
-  if (/ssrf|server.side.request/.test(r))                               return { label: 'SSRF',                    icon: '🌐' };
-  if (/xxe|xml.inject|xml.external/.test(r))                            return { label: 'XXE',                     icon: '📄' };
-  if (/deserializ|unsafe.deserial/.test(r))                             return { label: 'Insecure Deserialization', icon: '📦' };
-  if (/open.redirect/.test(r))                                          return { label: 'Open Redirect',           icon: '↪️' };
-  if (/csrf|cross.site.request/.test(r))                                return { label: 'CSRF',                    icon: '🎭' };
-  if (/\bcors\b/.test(r))                                               return { label: 'CORS Misconfiguration',   icon: '🌍' };
-  if (/jwt|token.verif/.test(r))                                        return { label: 'JWT Issue',               icon: '🎫' };
-  if (/crypto|weak.hash|md5|sha1/.test(r))                              return { label: 'Weak Cryptography',       icon: '🔓' };
-  if (/prototype.pollu/.test(r))                                        return { label: 'Prototype Pollution',     icon: '☠️' };
-  if (/\bcookie\b/.test(r))                                             return { label: 'Insecure Cookie',         icon: '🍪' };
-  if (/\bdos\b|redos/.test(r))                                          return { label: 'DoS / ReDoS',             icon: '💣' };
-  if (/debug|stack.trace|info.leak/.test(r))                            return { label: 'Information Exposure',    icon: '👁' };
-  return { label: 'Security Issue', icon: '⚠️' };
+  if (/sql.?inject|sqli/.test(r))                                       return { label: 'SQL Injection' };
+  if (/xss|cross.site.script|html.inject/.test(r))                      return { label: 'XSS' };
+  if (/command.inject|cmd.inject|shell.inject/.test(r))                 return { label: 'Command Injection' };
+  if (/eval|exec.inject|rce/.test(r))                                   return { label: 'Code Injection' };
+  if (/path.travers|directory.travers|lfi|rfi/.test(r))                 return { label: 'Path Traversal' };
+  if (/secret|hardcode|api.key|token|password|credential|private.key/.test(r)) return { label: 'Hardcoded Secret' };
+  if (/ssrf|server.side.request/.test(r))                               return { label: 'SSRF' };
+  if (/xxe|xml.inject|xml.external/.test(r))                            return { label: 'XXE' };
+  if (/deserializ|unsafe.deserial/.test(r))                             return { label: 'Insecure Deserialization' };
+  if (/open.redirect/.test(r))                                          return { label: 'Open Redirect' };
+  if (/csrf|cross.site.request/.test(r))                                return { label: 'CSRF' };
+  if (/\bcors\b/.test(r))                                               return { label: 'CORS Misconfiguration' };
+  if (/jwt|token.verif/.test(r))                                        return { label: 'JWT Issue' };
+  if (/crypto|weak.hash|md5|sha1/.test(r))                              return { label: 'Weak Cryptography' };
+  if (/prototype.pollu/.test(r))                                        return { label: 'Prototype Pollution' };
+  if (/\bcookie\b/.test(r))                                             return { label: 'Insecure Cookie' };
+  if (/\bdos\b|redos/.test(r))                                          return { label: 'DoS / ReDoS' };
+  if (/debug|stack.trace|info.leak/.test(r))                            return { label: 'Information Exposure' };
+  return { label: 'Security Issue' };
 }
 
 function ghVulnType(finding) {
@@ -227,7 +227,7 @@ function renderGhDetail(scan){
         '<span class="finding-path">'+esc(fname)+'<span class="finding-line">'+esc(lineStr)+'</span></span>' +
         '<span class="sev xs '+sev+'">'+sev+'</span>' +
         (f.isBlocking?'<span class="finding-blocking">BLOCKING</span>':'') +
-        '<span class="finding-chev">▶</span>' +
+        '<span class="finding-chev">'+icon('chevron-right')+'</span>' +
         '</div>' +
         '<div class="finding-body">'+ghFindingBodyHtml(f)+'</div>' +
         '</div>';
@@ -236,11 +236,10 @@ function renderGhDetail(scan){
     return '<div class="pkg-group attached" data-group="'+esc(vtype.label)+'">' +
       '<div class="pkg-group-hdr" onclick="togglePkgGroup(this)">' +
       '<div class="vbar '+topSev+'"></div>' +
-      '<span class="pkg-group-icon">'+vtype.icon+'</span>' +
       '<span class="pkg-group-label">'+esc(vtype.label)+'</span>' +
       '<div class="pkg-group-stats">'+pills+
       '<span class="pkg-group-count">'+items.length+' finding'+(items.length>1?'s':'')+'</span>' +
-      '<span class="pkg-chev">▼</span>' +
+      '<span class="pkg-chev">'+icon('chevron-down')+'</span>' +
       '</div></div>' +
       '<div class="pkg-group-body">'+fileRows+filePage.html+'</div>' +
       '</div>';
@@ -253,14 +252,14 @@ function renderGhDetail(scan){
     '<div class="detail-icon purple"><img src="/assets/osa.png" alt=""/></div>' +
     '<div class="detail-info">' +
     '<div class="detail-name">'+esc(scan.repo)+'</div>' +
-    '<div class="detail-sub"><a href="'+esc(safeUrl(scan.url))+'" target="_blank" rel="noopener">'+esc(scan.url)+' ↗</a>'+(scan.desc?' · '+esc(scan.desc):'')+' · '+findings.length+' finding'+(findings.length!==1?'s':'')+' in '+fileCount+' file'+(fileCount!==1?'s':'')+' · '+sortedGroups.length+' vuln type'+(sortedGroups.length!==1?'s':'')+' · scanned '+fmtDate(scan.scannedAt)+'</div>' +
+    '<div class="detail-sub"><a href="'+esc(safeUrl(scan.url))+'" target="_blank" rel="noopener">'+esc(scan.url)+' '+icon('external-link')+'</a>'+(scan.desc?' · '+esc(scan.desc):'')+' · '+findings.length+' finding'+(findings.length!==1?'s':'')+' in '+fileCount+' file'+(fileCount!==1?'s':'')+' · '+sortedGroups.length+' vuln type'+(sortedGroups.length!==1?'s':'')+' · scanned '+fmtDate(scan.scannedAt)+'</div>' +
     '<div class="detail-badges">'+_toxicBadgeHtml(scan.toxic)+'</div>' +
     '</div>' +
-    '<div class="detail-chips">'+(chips||(scan.complete === true ? '<span class="sev NONE">✅ CLEAN</span>' : '<span class="sev UNKNOWN">RESCAN REQUIRED</span>'))+'</div>' +
+    '<div class="detail-chips">'+(chips||(scan.complete === true ? '<span class="sev NONE">'+icon('check')+' CLEAN</span>' : '<span class="sev UNKNOWN">RESCAN REQUIRED</span>'))+'</div>' +
     '<div class="detail-actions">'+exportBtnHtml('sast','__SAST_SCAN__')+'</div>' +
     '</div>' +
     _ghCompletenessHtml(scan) +
-    (findings.length===0 ? (scan.complete === true ? '<div class="detail-empty">✅ No findings — this repository looks clean!</div>' : '') : groupHtml + groupPage.html);
+    (findings.length===0 ? (scan.complete === true ? '<div class="detail-empty">'+icon('check')+' No findings — this repository looks clean!</div>' : '') : groupHtml + groupPage.html);
 
   el.querySelector('.pkg-group')?.classList.add('open');
 }

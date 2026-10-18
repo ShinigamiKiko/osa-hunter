@@ -2,14 +2,14 @@ async function openLibFromDep(ev, systemId, name, version){
   try{
     if(ev) ev.stopPropagation();
     const map = {
-      'NPM':      { ecoId:'npm',      osv:'npm',        label:'npm',       logo:'📦' },
-      'PYPI':     { ecoId:'pypi',     osv:'PyPI',       label:'PyPI',      logo:'🐍' },
-      'GO':       { ecoId:'go',       osv:'Go',         label:'Go',        logo:'🐹' },
-      'CARGO':    { ecoId:'crates',   osv:'crates.io',  label:'Rust',      logo:'🦀' },
-      'MAVEN':    { ecoId:'maven',    osv:'Maven',      label:'Maven',     logo:'☕' },
-      'NUGET':    { ecoId:'nuget',    osv:'NuGet',      label:'NuGet',     logo:'💠' },
-      'RUBYGEMS': { ecoId:'rubygems', osv:'RubyGems',   label:'RubyGems',  logo:'💎' },
-      'COMPOSER': { ecoId:'composer', osv:'Packagist',  label:'Composer',  logo:'🐘' },
+      'NPM':      { ecoId:'npm',      osv:'npm',        label:'npm' },
+      'PYPI':     { ecoId:'pypi',     osv:'PyPI',       label:'PyPI' },
+      'GO':       { ecoId:'go',       osv:'Go',         label:'Go' },
+      'CARGO':    { ecoId:'crates',   osv:'crates.io',  label:'Rust' },
+      'MAVEN':    { ecoId:'maven',    osv:'Maven',      label:'Maven' },
+      'NUGET':    { ecoId:'nuget',    osv:'NuGet',      label:'NuGet' },
+      'RUBYGEMS': { ecoId:'rubygems', osv:'RubyGems',   label:'RubyGems' },
+      'COMPOSER': { ecoId:'composer', osv:'Packagist',  label:'Composer' },
     };
     const eco = map[systemId] || map[(systemId||'').toUpperCase()];
     if(!eco) throw new Error('Unknown ecosystem for lib jump: '+systemId);
@@ -25,7 +25,7 @@ async function openLibFromDep(ev, systemId, name, version){
     if(existing !== -1) libScans.splice(existing, 1);
     libScans.unshift({
       id:Date.now(), pkg:data.package, ver:data.version||'',
-      eco:eco.ecoId, ecoLabel:eco.label, ecoLogo:eco.logo, desc:'',
+      eco:eco.ecoId, ecoLabel:eco.label, desc:'',
       _cacheKey:_ck, vulns, toxic:data.toxic, topSev:data.topSeverity||'NONE', scannedAt:data.scannedAt,
     });
     if(libScans.length>SCAN_HISTORY_MAX) libScans=libScans.slice(0,SCAN_HISTORY_MAX);

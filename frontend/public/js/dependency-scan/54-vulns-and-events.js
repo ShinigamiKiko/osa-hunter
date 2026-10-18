@@ -21,8 +21,8 @@ function enrichDepPkgVulns(vulns){
     const eb=document.getElementById('dpveb-'+vi);
     if(eb){
       let hb='';
-      if(v.inKev)    hb+='<span class="mark kev" title="CISA Known Exploited">&#128293; KEV</span>';
-      if(v.pocs?.length) hb+=`<span class="mark poc" title="${v.pocs.length} PoC(s)">&#128165; PoC&#215;${v.pocs.length}</span>`;
+      if(v.inKev)    hb+=`<span class="mark kev" title="CISA Known Exploited">${icon('flame')} KEV</span>`;
+      if(v.pocs?.length) hb+=`<span class="mark poc" title="${v.pocs.length} PoC(s)">${icon('bug')} PoC&#215;${v.pocs.length}</span>`;
       eb.innerHTML=hb;
     }
   });

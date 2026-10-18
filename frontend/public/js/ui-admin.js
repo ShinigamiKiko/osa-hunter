@@ -241,9 +241,9 @@ function showKeyModal(key, name) {
   modal.className = 'key-modal';
   modal.innerHTML = `
     <div class="key-modal-card">
-      <button class="key-modal-close" onclick="closeKeyModal()" aria-label="Close">✕</button>
+      <button class="key-modal-close" onclick="closeKeyModal()" aria-label="Close">${icon('x')}</button>
       <div class="key-modal-head">
-        <span class="key-modal-icon">🔑</span>
+        <span class="key-modal-icon">${icon('key-round')}</span>
         <span class="key-modal-title">API Key Created</span>
       </div>
       <div class="key-modal-note">Key <b>${esc(name)}</b> — copy it now, it will never be shown again.</div>
@@ -264,9 +264,9 @@ function copyModalKey() {
   const key = document.getElementById('modalKeyVal').textContent.trim();
   navigator.clipboard.writeText(key).then(() => {
     const btn = document.getElementById('copyModalBtn');
-    btn.textContent = '✓ Copied!';
+    btn.innerHTML = icon('check') + ' Copied!';
     btn.classList.add('copied');
-    setTimeout(() => { btn.textContent = 'Copy Key'; btn.classList.remove('copied'); }, 2000);
+    setTimeout(() => { btn.innerHTML = icon('copy') + ' Copy Key'; btn.classList.remove('copied'); }, 2000);
   });
 }
 

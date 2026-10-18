@@ -19,7 +19,7 @@ function ui(entries) {
   };
   ctx.window = ctx; vm.createContext(ctx);
   vm.runInContext('let depScans=[], osScans=[], imgScans=[], ghScans=[];', ctx);
-  for (const file of ['utils.js', 'ui-library-scan.js', 'ui-scan-history.js'])
+  for (const file of ['icons.js', 'icon-renderer.js', 'utils.js', 'ui-library-scan.js', 'ui-scan-history.js'])
     vm.runInContext(fs.readFileSync(path.join(__dirname, '../../frontend/public/js', file), 'utf8'), ctx, { filename: file });
   return { ctx, nodes };
 }

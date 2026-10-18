@@ -26,18 +26,18 @@
           <span class="user-chip-avatar">${esc(user.username[0].toUpperCase())}</span>
           <span class="user-chip-name">${esc(user.username)}</span>
           ${user.role === 'admin' ? '<span class="user-chip-role">ADMIN</span>' : ''}
-          <span class="user-chip-caret">▼</span>
+          <span class="user-chip-caret">${icon('chevron-down')}</span>
         </div>
         <div id="authMenu" class="user-menu">
           ${user.role === 'admin' ? `
           <div class="user-menu-item" onclick="navTo('admin');document.getElementById('authMenu')?.classList.remove('open')">
-            👥 Manage Users
+            ${icon('users')} Manage Users
           </div>` : ''}
           <div class="user-menu-item" onclick="openPasswordModal();document.getElementById('authMenu')?.classList.remove('open')">
             Change password
           </div>
           <div class="user-menu-item danger" onclick="doLogout()">
-            ⎋ Sign Out
+            ${icon('log-out')} Sign Out
           </div>
         </div>
       `;
@@ -66,7 +66,7 @@
     ov.innerHTML = `
       <div class="modal pw-modal" onclick="event.stopPropagation()">
         <div class="mhdr"><span class="mtitle">Change password</span>
-          <button class="mclose" id="pwClose">✕</button></div>
+          <button class="mclose" id="pwClose">${icon('x')}</button></div>
         <div class="pw-body">
           <label>Current password
             <input id="pwCur" type="password" autocomplete="current-password"/>

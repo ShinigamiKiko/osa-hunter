@@ -13,7 +13,14 @@ function esc(s){ return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;')
 function safeUrl(u){ try{ const p=new URL(u); return['http:','https:'].includes(p.protocol)?u:'#'; }catch{ return '#'; } }
 function fmtDate(iso){ if(!iso)return'—'; const d=new Date(iso); return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); }
 function showErr(id,msg){ const e=document.getElementById(id); if(e){ e.textContent=msg; e.hidden=false; } }
-function setBtn(id,loading,label){ const b=document.getElementById(id); if(!b)return; b.disabled=loading; if(label)b.textContent=loading?'⏳ Scanning…':label; }
+function setBtn(id, loading, label) {
+  const button = document.getElementById(id);
+  if (!button) return;
+  button.disabled = loading;
+  button.setAttribute('aria-busy', String(loading));
+  const caption = loading ? 'Scanning…' : (label || 'Scan');
+  button.innerHTML = icon(loading ? 'loader-circle' : 'play', loading ? 'spin' : '') + ' ' + esc(caption);
+}
 function safeLoad(key,def){ try{ const v=localStorage.getItem(key); return v?JSON.parse(v):def; }catch{ return def; } }
 // Scan lists keep up to 150 entries. When the browser's storage quota is full,
 // keep the newest entries that fit instead of silently saving nothing.
@@ -56,14 +63,14 @@ async function readJson(r){
 
 function _toxicBadgeHtml(toxic){
   if(!toxic?.found)
-    return '<span class="toxic-badge clean">✅ Not in toxic-repos</span>';
+    return `<span class="toxic-badge clean">${icon('check')} Not in toxic-repos</span>`;
   const LABELS={ddos:'DDoS tool',hostile_actions:'Hostile actions',political_slogan:'Political slogan',malware:'Malware',ip_blocking:'IP blocking'};
   const label=LABELS[toxic.problem_type]||toxic.problem_type||'Toxic';
   const full=toxic.description||'';
   const preview=full.length>60?full.slice(0,60):full;
   const more=full.length>60
     ?`<button class="toxic-more" onclick="this.parentElement.classList.add('expanded');this.remove()">…</button><span class="toxic-full">${esc(full.slice(60))}</span>`:'';
-  return `<span class="toxic-badge found">☠ <strong>Toxic: ${esc(label)}</strong>${full?' — '+esc(preview)+more:''}</span>`;
+  return `<span class="toxic-badge found">${icon('skull')} <strong>Toxic: ${esc(label)}</strong>${full?' — '+esc(preview)+more:''}</span>`;
 }
 
 // Pagination

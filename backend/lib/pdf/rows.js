@@ -1,5 +1,5 @@
 'use strict';
-const { esc, epssCell, cvssCell, badges, fixCell, sevBadge } = require('./style');
+const { icon, esc, epssCell, cvssCell, badges, fixCell, sevBadge } = require('./style');
 
 function vulnThead(hasPackage) {
   const pkgTh = hasPackage ? '<th class="col-pkg">Package</th>' : '';
@@ -36,8 +36,8 @@ function vulnRow(v, idx, pkgHtml) {
     <td>
       <div class="vuln-desc">${summary}</div>
       <div class="vuln-links">
-        ${nvdUrl ? `<a href="${nvdUrl}">NVD ↗</a>` : ''}
-        ${osvUrl ? `<a href="${osvUrl}">OSV ↗</a>` : ''}
+        ${nvdUrl ? `<a href="${nvdUrl}">NVD ${icon('external-link')}</a>` : ''}
+        ${osvUrl ? `<a href="${osvUrl}">OSV ${icon('external-link')}</a>` : ''}
       </div>
     </td>
   </tr>`;
@@ -45,14 +45,14 @@ function vulnRow(v, idx, pkgHtml) {
 
 function vulnRows(vulns) {
   if (!vulns || !vulns.length) {
-    return '<tr><td colspan="6" style="text-align:center;color:#34d399;padding:18px;font-size:13px">✅ No vulnerabilities found</td></tr>';
+    return `<tr><td colspan="6" style="text-align:center;color:#34d399;padding:18px;font-size:13px">${icon('check')} No vulnerabilities found</td></tr>`;
   }
   return vulns.map((v, i) => vulnRow(v, i, '')).join('');
 }
 
 function vulnRowsOs(vulns) {
   if (!vulns || !vulns.length) {
-    return '<tr><td colspan="7" style="text-align:center;color:#34d399;padding:18px;font-size:13px">✅ No vulnerabilities found</td></tr>';
+    return `<tr><td colspan="7" style="text-align:center;color:#34d399;padding:18px;font-size:13px">${icon('check')} No vulnerabilities found</td></tr>`;
   }
   return vulns.map((v, i) => {
     const pkgName = v.PkgName || v.pkgName || v.package || '';

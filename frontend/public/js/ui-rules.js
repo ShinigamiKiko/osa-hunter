@@ -215,14 +215,14 @@ function _ruleCard(rule, index) {
   const folded = _rulesCollapsed.has(key);
   return `<div class="rule-card ${disabled ? 'off' : ''} ${folded ? 'folded' : ''}" data-rule="${index}" data-key="${esc(key)}">
     <div class="rule-head">
-      <button class="rule-fold" data-fold="${esc(key)}" title="${folded ? 'Expand' : 'Collapse'}">${folded ? '▸' : '▾'}</button>
+      <button class="rule-fold" data-fold="${esc(key)}" title="${folded ? 'Expand' : 'Collapse'}">${folded ? icon('chevron-right') : icon('chevron-down')}</button>
       <span class="rule-lead">name</span>
       <input class="rule-id" data-field="id" data-rule="${index}" value="${esc(rule.id || '')}" placeholder="rule-id"/>
       <select class="rule-action ${rule.action}" data-field="action" data-rule="${index}">
         ${['deny', 'warn', 'allow'].map(a => `<option value="${a}"${rule.action === a ? ' selected' : ''}>${a}</option>`).join('')}
       </select>
       <label class="rule-toggle"><input type="checkbox" data-field="enabled" data-rule="${index}" ${disabled ? '' : 'checked'}/> enabled</label>
-      <button class="rule-del" data-del="${index}" title="Delete rule">✕</button>
+      <button class="rule-del" data-del="${index}" title="Delete rule">${icon('x')}</button>
     </div>
     <div class="rule-when">
       <span class="when-lead">${advanced ? 'when' : `match <select class="cond-match" data-rule="${index}">
@@ -250,7 +250,7 @@ function _nameCard(entry) {
   const folded = _rulesCollapsed.has(key);
   return `<div class="rule-card name-card ${enabled ? '' : 'off'} ${folded ? 'folded' : ''}" data-name="${ref}" data-key="${esc(key)}">
     <div class="rule-head">
-      <button class="rule-fold" data-fold="${esc(key)}" title="${folded ? 'Expand' : 'Collapse'}">${folded ? '▸' : '▾'}</button>
+      <button class="rule-fold" data-fold="${esc(key)}" title="${folded ? 'Expand' : 'Collapse'}">${folded ? icon('chevron-right') : icon('chevron-down')}</button>
       <span class="rule-lead">name</span>
       <input class="rule-id" data-name-field="pattern" data-name="${ref}"
              value="${esc(pattern)}" placeholder="curl"/>
@@ -258,7 +258,7 @@ function _nameCard(entry) {
         ${['deny', 'allow'].map(a => `<option value="${a}"${action === a ? ' selected' : ''}>${a}</option>`).join('')}
       </select>
       <label class="rule-toggle"><input type="checkbox" data-name-field="enabled" data-name="${ref}" ${enabled ? 'checked' : ''}/> enabled</label>
-      <button class="rule-del" data-name-del="${ref}" title="Delete rule">✕</button>
+      <button class="rule-del" data-name-del="${ref}" title="Delete rule">${icon('x')}</button>
     </div>
     <div class="rule-when">
       <span class="when-lead">match</span>
@@ -307,7 +307,7 @@ function _conditionRow(row, ruleIndex, condIndex) {
   }
 
   return `<div class="cond-row">${factSelect}${control}
-    <button class="cond-del" data-rule="${ruleIndex}" data-del-cond="${condIndex}">✕</button></div>`;
+    <button class="cond-del" data-rule="${ruleIndex}" data-del-cond="${condIndex}">${icon('x')}</button></div>`;
 }
 
 // editing
@@ -719,7 +719,7 @@ function _rulesModal(title, html) {
   ov.className = 'ov'; ov.id = 'rulesOv';
   ov.innerHTML = `<div class="modal rules-modal" onclick="event.stopPropagation()">
       <div class="mhdr"><span class="mtitle">${esc(title)}</span>
-        <button class="mclose" id="rulesModalClose">✕</button></div>
+        <button class="mclose" id="rulesModalClose">${icon('x')}</button></div>
       <div class="rules-modal-body">${html}</div>
     </div>`;
   document.body.appendChild(ov);

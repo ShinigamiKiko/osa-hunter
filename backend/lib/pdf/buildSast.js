@@ -1,5 +1,5 @@
 'use strict';
-const { esc, safeSeverity, wrapHtml, buildHeader, buildChips, buildAlerts, buildFooter, sevBadge } = require('./style');
+const { icon, esc, safeSeverity, wrapHtml, buildHeader, buildChips, buildAlerts, buildFooter, sevBadge } = require('./style');
 
 function parseCweId(cweArr) {
   const raw = (cweArr||[])[0] || '';
@@ -11,36 +11,36 @@ function cweToLabel(cweArr) {
   const id = parseCweId(cweArr);
   if (!id) return null;
   const map = {
-    89:{ label:'SQL Injection', icon:'💉' }, 79:{ label:'XSS', icon:'🔥' },
-    78:{ label:'Command Injection', icon:'⚡' }, 94:{ label:'Code Injection', icon:'💀' },
-    95:{ label:'Eval Injection', icon:'💀' }, 22:{ label:'Path Traversal', icon:'📂' },
-    798:{ label:'Hardcoded Secret', icon:'🔑' }, 259:{ label:'Hardcoded Secret', icon:'🔑' },
-    321:{ label:'Hardcoded Secret', icon:'🔑' }, 918:{ label:'SSRF', icon:'🌐' },
-    611:{ label:'XXE', icon:'📄' }, 502:{ label:'Insecure Deserialization', icon:'📦' },
-    601:{ label:'Open Redirect', icon:'↪️' }, 352:{ label:'CSRF', icon:'🎭' },
-    942:{ label:'CORS Misconfiguration', icon:'🌍' }, 347:{ label:'JWT Issue', icon:'🎫' },
-    327:{ label:'Weak Cryptography', icon:'🔓' }, 328:{ label:'Weak Cryptography', icon:'🔓' },
-    117:{ label:'Log Injection', icon:'📝' }, 1321:{ label:'Prototype Pollution', icon:'☠️' },
-    338:{ label:'Weak Randomness', icon:'🎲' }, 1004:{ label:'Insecure Cookie', icon:'🍪' },
-    400:{ label:'DoS / ReDoS', icon:'💣' }, 200:{ label:'Information Exposure', icon:'👁' },
-    209:{ label:'Information Exposure', icon:'👁' },
+    89:{ label:'SQL Injection' }, 79:{ label:'XSS' },
+    78:{ label:'Command Injection' }, 94:{ label:'Code Injection' },
+    95:{ label:'Eval Injection' }, 22:{ label:'Path Traversal' },
+    798:{ label:'Hardcoded Secret' }, 259:{ label:'Hardcoded Secret' },
+    321:{ label:'Hardcoded Secret' }, 918:{ label:'SSRF' },
+    611:{ label:'XXE' }, 502:{ label:'Insecure Deserialization' },
+    601:{ label:'Open Redirect' }, 352:{ label:'CSRF' },
+    942:{ label:'CORS Misconfiguration' }, 347:{ label:'JWT Issue' },
+    327:{ label:'Weak Cryptography' }, 328:{ label:'Weak Cryptography' },
+    117:{ label:'Log Injection' }, 1321:{ label:'Prototype Pollution' },
+    338:{ label:'Weak Randomness' }, 1004:{ label:'Insecure Cookie' },
+    400:{ label:'DoS / ReDoS' }, 200:{ label:'Information Exposure' },
+    209:{ label:'Information Exposure' },
   };
-  return map[id] || { label:`CWE-${id}`, icon:'⚠️' };
+  return map[id] || { label:`CWE-${id}` };
 }
 
 function ruleIdToLabel(ruleId) {
   const r = (ruleId||'').toLowerCase();
-  if (/sql.?inject|sqli/.test(r))   return { label:'SQL Injection', icon:'💉' };
-  if (/xss|html.inject/.test(r))    return { label:'XSS', icon:'🔥' };
-  if (/command.inject|cmd.inject/.test(r)) return { label:'Command Injection', icon:'⚡' };
-  if (/eval|exec.inject|rce/.test(r)) return { label:'Code Injection', icon:'💀' };
-  if (/path.travers|lfi|rfi/.test(r)) return { label:'Path Traversal', icon:'📂' };
-  if (/secret|hardcode|api.key|token|password|credential/.test(r)) return { label:'Hardcoded Secret', icon:'🔑' };
-  if (/ssrf/.test(r))               return { label:'SSRF', icon:'🌐' };
-  if (/csrf/.test(r))               return { label:'CSRF', icon:'🎭' };
-  if (/jwt/.test(r))                return { label:'JWT Issue', icon:'🎫' };
-  if (/prototype.pollu/.test(r))    return { label:'Prototype Pollution', icon:'☠️' };
-  return { label:'Security Issue', icon:'⚠️' };
+  if (/sql.?inject|sqli/.test(r))   return { label:'SQL Injection' };
+  if (/xss|html.inject/.test(r))    return { label:'XSS' };
+  if (/command.inject|cmd.inject/.test(r)) return { label:'Command Injection' };
+  if (/eval|exec.inject|rce/.test(r)) return { label:'Code Injection' };
+  if (/path.travers|lfi|rfi/.test(r)) return { label:'Path Traversal' };
+  if (/secret|hardcode|api.key|token|password|credential/.test(r)) return { label:'Hardcoded Secret' };
+  if (/ssrf/.test(r))               return { label:'SSRF' };
+  if (/csrf/.test(r))               return { label:'CSRF' };
+  if (/jwt/.test(r))                return { label:'JWT Issue' };
+  if (/prototype.pollu/.test(r))    return { label:'Prototype Pollution' };
+  return { label:'Security Issue' };
 }
 
 function vulnType(f) {
@@ -113,7 +113,7 @@ function buildSastReportHtml(scan, { osaPngB64 = '' } = {}) {
 
     return `<div class="section">
       <div class="sec-hdr">
-        <span class="sec-title">${vtype.icon} ${vtype.label}${cweLabel}</span>
+        <span class="sec-title">${esc(vtype.label)}${cweLabel}</span>
         <span class="sec-count">${items.length} finding${items.length!==1?'s':''}</span>
       </div>
       ${rows}
@@ -121,7 +121,7 @@ function buildSastReportHtml(scan, { osaPngB64 = '' } = {}) {
   }).join('');
 
   const emptyHtml = findings.length === 0
-    ? (scan.complete === true ? '<div style="text-align:center;padding:60px;color:#34d399;font-size:14px">✅ No findings — this repository looks clean!</div>' : '')
+    ? (scan.complete === true ? `<div style="text-align:center;padding:60px;color:#34d399;font-size:14px">${icon('check')} No findings — this repository looks clean!</div>` : '')
     : groupSections;
 
   return wrapHtml(header + chips + alerts + emptyHtml + buildFooter(date));

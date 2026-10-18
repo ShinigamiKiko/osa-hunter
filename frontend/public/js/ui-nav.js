@@ -102,7 +102,7 @@ async function navTo(page, opts={}){
   }else if(page==='lib-detail'){
     const s=opts.scan;
     tl.innerHTML=`
-      <button class="back-btn" onclick="navTo('lib-list')">← Back</button>
+      <button class="back-btn" onclick="navTo('lib-list')">${icon('arrow-left')} Back</button>
       <div class="breadcrumb">
         <span class="bc-root" onclick="navTo('lib-list')">Library Scan</span>
         <span class="bc-sep">/</span>
@@ -119,7 +119,7 @@ async function navTo(page, opts={}){
   }else if(page==='dep-detail'){
     const s=opts.scan;
     tl.innerHTML=`
-      <button class="back-btn" onclick="navTo('dep-list')">← Back</button>
+      <button class="back-btn" onclick="navTo('dep-list')">${icon('arrow-left')} Back</button>
       <div class="breadcrumb">
         <span class="bc-root" onclick="navTo('dep-list')">Dependency Scan</span>
         <span class="bc-sep">/</span>
@@ -131,7 +131,7 @@ async function navTo(page, opts={}){
   }else if(page==='dep-pkg'){
     const {dep,scan}=opts;
     tl.innerHTML=`
-      <button class="back-btn" onclick="navTo('dep-detail',{scan:currentDepScan})">← Back</button>
+      <button class="back-btn" onclick="navTo('dep-detail',{scan:currentDepScan})">${icon('arrow-left')} Back</button>
       <div class="breadcrumb">
         <span class="bc-root" onclick="navTo('dep-list')">Dependency Scan</span>
         <span class="bc-sep">/</span>
@@ -154,7 +154,7 @@ async function navTo(page, opts={}){
   }else if(page==='img-detail'){
     const s=opts.scan;
     tl.innerHTML=`
-      <button class="back-btn" onclick="navTo('img-list')">← Back</button>
+      <button class="back-btn" onclick="navTo('img-list')">${icon('arrow-left')} Back</button>
       <div class="breadcrumb">
         <span class="bc-root" onclick="navTo('img-list')">Image Scan</span>
         <span class="bc-sep">/</span>
@@ -171,7 +171,7 @@ async function navTo(page, opts={}){
   }else if(page==='os-detail'){
     const s=opts.scan;
     tl.innerHTML=`
-      <button class="back-btn" onclick="navTo('os-list')">← Back</button>
+      <button class="back-btn" onclick="navTo('os-list')">${icon('arrow-left')} Back</button>
       <div class="breadcrumb">
         <span class="bc-root" onclick="navTo('os-list')">OS Packages</span>
         <span class="bc-sep">/</span>
@@ -192,7 +192,7 @@ async function navTo(page, opts={}){
   }else if(page==='gh-detail'){
     const s=opts.scan;
     tl.innerHTML=`
-      <button class="back-btn" onclick="navTo('gh-list')">← Back</button>
+      <button class="back-btn" onclick="navTo('gh-list')">${icon('arrow-left')} Back</button>
       <div class="breadcrumb">
         <span class="bc-root" onclick="navTo('gh-list')">GitHub Scan</span>
         <span class="bc-sep">/</span>

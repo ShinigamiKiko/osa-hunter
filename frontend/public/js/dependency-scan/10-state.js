@@ -1,11 +1,11 @@
 const DEP_SYSTEMS = [
-  { id:'NPM',      label:'npm',      logo:'📦', hint:'express, lodash…' },
-  { id:'PYPI',     label:'PyPI',     logo:'🐍', hint:'django, requests…' },
-  { id:'GO',       label:'Go',       logo:'🐹', hint:'github.com/gin-gonic/gin' },
-  { id:'CARGO',    label:'Rust',     logo:'🦀', hint:'tokio, serde…' },
-  { id:'MAVEN',    label:'Maven',    logo:'☕', hint:'com.google.guava:guava' },
-  { id:'NUGET',    label:'NuGet',    logo:'🔷', hint:'Newtonsoft.Json…' },
-  { id:'COMPOSER', label:'Composer', logo:'🐘', hint:'monolog/monolog' },
+  { id:'NPM',      label:'npm', hint:'express, lodash…' },
+  { id:'PYPI',     label:'PyPI', hint:'django, requests…' },
+  { id:'GO',       label:'Go', hint:'github.com/gin-gonic/gin' },
+  { id:'CARGO',    label:'Rust', hint:'tokio, serde…' },
+  { id:'MAVEN',    label:'Maven', hint:'com.google.guava:guava' },
+  { id:'NUGET',    label:'NuGet', hint:'Newtonsoft.Json…' },
+  { id:'COMPOSER', label:'Composer', hint:'monolog/monolog' },
 ];
 
 const depStored = safeLoad('es_dep', []);

@@ -4,7 +4,7 @@ function renderDepDetail(scan){
   window._lastDepScan=scan;
   currentDepScan=scan;
   const el=document.getElementById('depDetailContent');
-  const sysInfo=DEP_SYSTEMS.find(x=>x.id===scan.system)||{logo:'📦',label:scan.system};
+  const sysInfo=DEP_SYSTEMS.find(x=>x.id===scan.system)||{label:scan.system};
   const sm={ ...scan.summary };
   if (Array.isArray(scan.deps) && scan.deps.length)
     Object.assign(sm, findingCounts(scan.deps.flatMap(d => d.vulns || [])));
@@ -25,9 +25,9 @@ function renderDepDetail(scan){
     const cveId=[...(v.aliases||[]),v.id].find(x=>x&&x.startsWith('CVE-'))||v.id||'';
     const sev=v.severity||'UNKNOWN';
     const cveLink=cveId.startsWith('CVE-')
-      ?`<a class="vi-cve" href="https://nvd.nist.gov/vuln/detail/${esc(cveId)}" target="_blank" onclick="event.stopPropagation()">${esc(cveId)} &#8599;</a><span class="vi-cve-sep">/</span>`
+      ?`<a class="vi-cve" href="https://nvd.nist.gov/vuln/detail/${esc(cveId)}" target="_blank" onclick="event.stopPropagation()">${esc(cveId)} ${icon('external-link')}</a><span class="vi-cve-sep">/</span>`
       :'';
-    const fixRow=v.fix?`<span class="vk">Fixed in</span><span class="vv"><span class="fix-tag">&#8594; ${esc(v.fix)}</span></span>`:'';
+    const fixRow=v.fix?`<span class="vk">Fixed in</span><span class="vv"><span class="fix-tag">${icon('arrow-right')} ${esc(v.fix)}</span></span>`:'';
     const descText = v.details||v.summary||'';
     const detRow=descText?`<span class="vk">Description</span><span class="vv prose">${esc(descText.slice(0,500))}${descText.length>500?'&#8230;':''}</span>`:'';
     const nvdScore = v.cvss?.cvss3?.score||null;
@@ -43,7 +43,7 @@ function renderDepDetail(scan){
         <div class="vi-sum">${esc(v.summary||'No summary')}</div>
         <span class="enrich-badges" id="dvieb-${depIdx}-${vi}"></span>
         <span class="vi-sev ${sev}">${sev}</span>
-        <span class="vi-chev">&#9660;</span>
+        <span class="vi-chev">${icon('chevron-down')}</span>
       </div>
       <div class="vi-body">
         <div class="vgrid">
@@ -66,10 +66,10 @@ function renderDepDetail(scan){
     const fixVer  =dep.vulns?.find(v=>v.fix)?.fix;
     const cveCount=dep.vulns?.length||0;
 
-    const cleanBadge ='<span class="sev xs NONE">&#10003;</span>';
-    const noCvesDiv  ='<div class="card-note">&#x2705; No vulnerabilities found</div>';
-    const toxicBadge =isToxic?'<span class="pkg-flag toxic">&#9760; TOXIC</span>':'';
-    const fixBadge   =fixVer?`<span class="fix-tag">&#8594; ${esc(fixVer)}</span>`:'';
+    const cleanBadge =`<span class="sev xs NONE">${icon('check')}</span>`;
+    const noCvesDiv  =`<div class="card-note">${icon('check')} No vulnerabilities found</div>`;
+    const toxicBadge =isToxic?`<span class="pkg-flag toxic">${icon('skull')} TOXIC</span>`:'';
+    const fixBadge   =fixVer?`<span class="fix-tag">${icon('arrow-right')} ${esc(fixVer)}</span>`:'';
     const cveLabel   =cveCount?`<span class="pkg-group-count">${cveCount} CVE${cveCount>1?'s':''}</span>`:'';
     const vulnsBody  =cveCount?(dep.vulns||[]).map((v,vi)=>depMiniVulnRow(v,vi,depIdx)).join(''):noCvesDiv;
     const sysId      =esc(scan.system);
@@ -87,7 +87,7 @@ function renderDepDetail(scan){
         <div class="pkg-group-stats">
           ${cveCount?pills:cleanBadge}
           ${cveLabel}
-          <span class="pkg-chev">&#9660;</span>
+          <span class="pkg-chev">${icon('chevron-down')}</span>
         </div>
       </div>
       <div class="pkg-group-body">${vulnsBody}</div>
@@ -101,7 +101,7 @@ function renderDepDetail(scan){
         <span class="dep-section-tag">${tag}</span>
         <span class="dep-section-label">${esc(label)}</span>
         <span class="dep-section-count">(${count})</span>
-        <span class="dep-section-right">${right}<span class="dep-section-chev">&#9660;</span></span>
+        <span class="dep-section-right">${right}<span class="dep-section-chev">${icon('chevron-down')}</span></span>
       </div>
       <div class="dep-section-body">${body}</div>
     </div>`;
@@ -112,14 +112,14 @@ function renderDepDetail(scan){
     deps.forEach(d=>(d.vulns||[]).forEach(v=>{const s=(v.severity||'').toUpperCase();if(s in cnt)cnt[s]++;}));
     const pills=['CRITICAL','HIGH','MEDIUM','LOW','UNKNOWN'].filter(k=>cnt[k])
       .map(k=>`<span class="sev xs ${k}">${cnt[k]}</span>`).join('');
-    const clean='<span class="dep-section-note ok">&#x2705; all clean</span>';
+    const clean=`<span class="dep-section-note ok">${icon('check')} all clean</span>`;
     const body = deps.length ? (()=>{
       const page=paginate('dep-section:'+key,deps,()=>renderDepDetail(scan),scan);
       return page.rows.map(([d])=>depPkgCard(d,allDeps.indexOf(d))).join('')+page.html;
-    })() : `<div class="dep-section-empty">&#128065; No ${isTransitive?'transitive':'direct'} dependencies found</div>`;
+    })() : `<div class="dep-section-empty">No ${isTransitive?'transitive':'direct'} dependencies found</div>`;
     return sectionHtml({
       key, kind: isTransitive?'transitive':'direct',
-      tag: isTransitive?'&#8627; Transitive':'&#8679; Direct', label, count: deps.length,
+      tag: isTransitive?`${icon('arrow-down')} Transitive`:`${icon('arrow-up')} Direct`, label, count: deps.length,
       right: deps.length ? (pills||clean) : '<span class="dep-section-note">&mdash; empty</span>',
       body,
     });
@@ -131,7 +131,7 @@ function renderDepDetail(scan){
     .map(sv=>`<span class="sev ${sv}">${rootCnt[sv]} ${sv}</span>`).join('');
 
   const chipsHtml = scan.complete === false ? '<span class="sev UNKNOWN">RESCAN REQUIRED</span>'
-    : chips||rootChips||'<span class="sev NONE">&#x2705; CLEAN</span>';
+    : chips||rootChips||`<span class="sev NONE">${icon('check')} CLEAN</span>`;
   const exportBtn      =(typeof exportBtnHtml==='function')?exportBtnHtml('dep','__DEP_SCAN__'):'';
 
   const rootPills = ['CRITICAL','HIGH','MEDIUM','LOW','UNKNOWN'].filter(k=>rootCnt[k])
@@ -139,10 +139,10 @@ function renderDepDetail(scan){
   const rootIsClean  = rootVulns.length === 0;
   const rootVulnsHtml = sectionHtml({
     key: 'root', kind: rootIsClean?'clean':'vulnerable',
-    tag: `${rootIsClean?'&#x2705;':'&#9888;'} Own Vulnerabilities`, label: scan.package, count: rootVulns.length,
-    right: rootIsClean ? '<span class="dep-section-note ok">&#x2705; clean</span>' : rootPills,
+    tag: `${rootIsClean?icon('check'):icon('triangle-alert')} Own Vulnerabilities`, label: scan.package, count: rootVulns.length,
+    right: rootIsClean ? `<span class="dep-section-note ok">${icon('check')} clean</span>` : rootPills,
     body: rootIsClean
-      ? '<div class="card-note">&#x2705; No own vulnerabilities found</div>'
+      ? `<div class="card-note">${icon('check')} No own vulnerabilities found</div>`
       : rootVulns.map((v,vi)=>depMiniVulnRow(v,vi,-1)).join(''),
   });
 
@@ -157,29 +157,29 @@ function renderDepDetail(scan){
   const noVulnsHtml    =scan.complete === false
     ? '<span class="warn">Scan incomplete — rescan required</span>'
     : hasVulnerabilities
-    ?`<span class="warn">&#9888; ${sm.withVulns||'Some'} deps · ${vulnCount||'?'} vulnerabilities</span>`
-    :'<span class="ok">&#10003; no vulns</span>';
+    ?`<span class="warn">${icon('triangle-alert')} ${sm.withVulns||'Some'} deps · ${vulnCount||'?'} vulnerabilities</span>`
+    :`<span class="ok">${icon('check')} no vulns</span>`;
   const emptyHtml=(!direct.length&&!indirect.length)
     ?'<div class="detail-empty muted">No dependencies found in the graph.</div>'
     :'';
 
   el.innerHTML=`
     <div class="detail-header clickable" onclick="openDepPkg(-1)">
-      <div class="detail-icon green">${esc(sysInfo.logo)}</div>
+      <div class="detail-icon green">${brandIcon(scan.system)}</div>
       <div class="detail-info">
         <div class="detail-name lg">
           ${esc(scan.package)} <span class="detail-ver">${esc(scan.resolvedVersion)}</span>
           <span class="dep-hdr-stats">
-            <span>&#128230; ${totalCount} total</span>
-            <span class="direct">&#8679; ${directCount} direct</span>
-            <span class="transitive">&#8681; ${transitiveCount} transitive</span>
+            <span>${icon('package')} ${totalCount} total</span>
+            <span class="direct">${icon('arrow-up')} ${directCount} direct</span>
+            <span class="transitive">${icon('arrow-down')} ${transitiveCount} transitive</span>
             ${noVulnsHtml}
           </span>
         </div>
         <div class="detail-sub">${esc(sysInfo.label)} &middot; ${esc(scan.desc||'No description')} &middot; scanned ${fmtDate(scan.scannedAt)}</div>
         <div class="detail-badges" onclick="event.stopPropagation()">
           ${_toxicBadgeHtml(scan.toxic)}
-          <div id="depDetailActivityBadge"><span class="activity-pending">&#9203; Checking activity&#8230;</span></div>
+          <div id="depDetailActivityBadge"><span class="activity-pending">${icon('loader-circle', 'spin')} Checking activity&#8230;</span></div>
         </div>
       </div>
       <div class="detail-chips stacked" onclick="event.stopPropagation()">
