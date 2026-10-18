@@ -53,13 +53,13 @@ async function runMigrations() {
       [file]
     );
     if (rows.length) {
-      console.log(`[migrations] ✓ ${file} already applied`);
+      console.log(`[migrations] ${file} already applied`);
       continue;
     }
     const sql = fs.readFileSync(path.join(migDir, file), 'utf8');
     await pool.query(sql);
     await pool.query('INSERT INTO _migrations (name) VALUES ($1)', [file]);
-    console.log(`[migrations] ✅ applied ${file}`);
+    console.log(`[migrations] applied ${file}`);
   }
 }
 

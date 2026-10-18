@@ -1,14 +1,14 @@
 networks:
-  osvguard:
+  osa-hunter:
     driver: bridge
 
 services:
 
   postgres:
     image: postgres:16-alpine
-    container_name: osvguard-postgres
+    container_name: osa-hunter-postgres
     networks:
-      - osvguard
+      - osa-hunter
     environment:
       POSTGRES_DB:       ${PGDATABASE:-osa}
       POSTGRES_USER:     ${PGUSER:-osa}
@@ -26,9 +26,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: osvguard-backend
+    container_name: osa-hunter-backend
     networks:
-      - osvguard
+      - osa-hunter
     ports:
        - "127.0.0.1:3001:3001"
        - "127.0.0.1:${METRICS_PORT:-9100}:9100"
@@ -70,9 +70,9 @@ services:
   nexus:
     profiles: ["nexus"]
     image: sonatype/nexus3:3.70.1
-    container_name: osvguard-nexus
+    container_name: osa-hunter-nexus
     networks:
-      - osvguard
+      - osa-hunter
     ports:
       - "8081:8081"
     volumes:
@@ -89,9 +89,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.frontend
-    container_name: osvguard-frontend
+    container_name: osa-hunter-frontend
     networks:
-      - osvguard
+      - osa-hunter
     ports:
       - "127.0.0.1:${FRONTEND_PORT:-3000}:80"
     depends_on:
