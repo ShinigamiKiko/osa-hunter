@@ -2,7 +2,6 @@
 
 ![OSA Hunter — package security gate and vulnerability dashboard](docs/banner-v2.svg)
 
-[![Tests](https://github.com/ShinigamiKiko/osa-hunter/actions/workflows/test.yml/badge.svg)](https://github.com/ShinigamiKiko/osa-hunter/actions/workflows/test.yml)
 [![Node.js](docs/badges/node.svg)](https://nodejs.org)
 [![PostgreSQL](docs/badges/postgresql.svg)](https://postgresql.org)
 [![Docker](docs/badges/docker.svg)](https://docs.docker.com/compose)
