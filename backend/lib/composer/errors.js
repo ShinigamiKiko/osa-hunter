@@ -13,13 +13,13 @@ function classifyComposerError(pkg, constraint, errMsg) {
   const msg = String(errMsg || '');
 
   if (/could not find (a matching|any) package|no matching package found|package .* not found/i.test(msg)) {
-    return new HttpError(404, `Пакет «${pkg}» не найден в Packagist (или версия недоступна).`);
+    return new HttpError(404, `Package ${pkg} was not found on Packagist, or the version is not available.`);
   }
 
   if (/affected by security advisories|block-insecure|security advisories/i.test(msg)) {
     return new HttpError(
       409,
-      `Composer заблокировал разрешение зависимостей для «${pkg}@${constraint}» из-за security advisories (Packagist audit).`,
+      `Composer refused to resolve ${pkg}@${constraint} because of security advisories (Packagist audit).`,
       { kind: 'security_advisories' }
     );
   }
@@ -27,7 +27,7 @@ function classifyComposerError(pkg, constraint, errMsg) {
   if (/requires php|requires ext-|composer-runtime-api|php extension/i.test(msg)) {
     return new HttpError(
       409,
-      `Не удалось разрешить «${pkg}@${constraint}»: platform requirements (версия PHP / ext-*).`,
+      `Could not resolve ${pkg}@${constraint}: its platform requirements (PHP version or ext-*) are not met.`,
       { kind: 'platform_requirements' }
     );
   }
@@ -35,7 +35,7 @@ function classifyComposerError(pkg, constraint, errMsg) {
   if (/Your requirements could not be resolved|conflict|cannot be resolved to an installable set/i.test(msg)) {
     return new HttpError(
       409,
-      `Не удалось разрешить зависимости для «${pkg}@${constraint}»: конфликт ограничений зависимостей.`,
+      `Could not resolve the dependencies of ${pkg}@${constraint}: their version constraints conflict.`,
       { kind: 'dependency_conflict' }
     );
   }
@@ -43,12 +43,12 @@ function classifyComposerError(pkg, constraint, errMsg) {
   if (/Could not parse version constraint|Invalid version string/i.test(msg)) {
     return new HttpError(
       400,
-      `Неверный constraint версии для «${pkg}»: «${constraint}». Используй, например, "3.0.0", "^3.0", "~3.0", "*" или "dev-main".`,
+      `Invalid version constraint for ${pkg}: "${constraint}". Use, for example, "3.0.0", "^3.0", "~3.0", "*" or "dev-main".`,
       { kind: 'bad_constraint' }
     );
   }
 
-  return new HttpError(502, `Composer scan failed for «${pkg}@${constraint}».`);
+  return new HttpError(502, `Composer scan failed for ${pkg}@${constraint}.`);
 }
 
 module.exports = { HttpError, classifyComposerError };

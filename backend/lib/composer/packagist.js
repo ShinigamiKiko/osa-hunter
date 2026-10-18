@@ -10,7 +10,7 @@ async function precheckPackagist(pkg, version) {
     const checkRes = await fetch(checkUrl, { signal: AbortSignal.timeout(10000) });
 
     if (checkRes.status === 404) {
-      return { ok: false, status: 404, error: `Пакет «${pkg}» не найден в Packagist.` };
+      return { ok: false, status: 404, error: `Package ${pkg} was not found on Packagist.` };
     }
 
     if (version && /^\d+\.\d+\.\d+([.-][0-9A-Za-z.-]+)?$/.test(String(version).trim())) {
@@ -22,7 +22,7 @@ async function precheckPackagist(pkg, version) {
           const want = normalizeVersion(version.trim());
           const exists = pkgVersions.some(v => normalizeVersion(v.version) === want);
           if (!exists) {
-            return { ok: false, status: 404, error: `Версия «${version}» пакета «${pkg}» не существует в Packagist.` };
+            return { ok: false, status: 404, error: `Version ${version} of ${pkg} does not exist on Packagist.` };
           }
         }
       } else {

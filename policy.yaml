@@ -54,8 +54,8 @@ rules:
 exceptions:
   allow: []
   deny:
-    - curl                # блок по имени во всех экосистемах (deb/ubuntu/rpm/apk/…)
-    - cowsay              # демо: не установлен → чистый `apt install cowsay` даст 403
+    - curl                # blocked by name in every ecosystem (deb, rpm, apk, ...)
+    - cowsay              # demo: not installed, so `apt install cowsay` gets a 403
     # - left-pad
     # - event-stream
     # - "crossenv*"

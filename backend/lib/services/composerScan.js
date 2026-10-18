@@ -16,7 +16,7 @@ async function scanComposer({ name, version, ignorePlatformReqs }) {
   if (!isComposerPackageName(pkg)) {
     throw new HttpError(
       400,
-      `Неверное имя пакета: «${pkg}». Для Composer нужно "vendor/package" (например, "symfony/console").`
+      `Invalid package name ${pkg}: Composer packages are named "vendor/package", for example "symfony/console".`
     );
   }
 

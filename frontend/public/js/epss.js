@@ -18,12 +18,12 @@ async function pollEpssStatus(){
     if(d.loaded){
       dot.className='sdot ok'; lbl.textContent='EPSS API'; sub.textContent='api.first.org · online';
     } else {
-      dot.className='sdot err'; lbl.textContent='EPSS API'; sub.textContent='недоступен';
+      dot.className='sdot err'; lbl.textContent='EPSS API'; sub.textContent='unavailable';
     }
   }catch{
     const dot=document.getElementById('epssDot');
     const sub=document.getElementById('epssStatusSub');
     if(dot) dot.className='sdot err';
-    if(sub) sub.textContent='ошибка';
+    if(sub) sub.textContent='status check failed';
   }
 }

@@ -120,8 +120,7 @@
         background:rgba(94,240,200,.05);border:1px solid rgba(94,240,200,.13);border-radius:8px">
         <span style="font-size:20px">🐱</span>
         <span style="font-size:14px;color:var(--muted2);line-height:1.7">
-          Сканирование может занять некоторое время, пожалуйста подождите.<br/>
-          <span style="color:var(--muted)">А пока — самое время сходить за чаем и печеньем ☕🍪</span>
+          Large images can take a few minutes to scan.
         </span>
       </div>
       <div id="imgErr" style="display:none" class="merr"></div>
@@ -157,8 +156,8 @@
         background:rgba(167,139,250,.05);border:1px solid rgba(167,139,250,.13);border-radius:8px">
         <span style="font-size:20px">🐝</span>
         <span style="font-size:14px;color:var(--muted2);line-height:1.7">
-          Репозиторий будет склонирован, отсканирован и удалён.<br/>
-          <span style="color:var(--muted)">Только публичные репозитории · GitHub.com</span>
+          The repository is cloned, scanned and deleted.<br/>
+          <span style="color:var(--muted)">Public repositories on github.com only.</span>
         </span>
       </div>
       <div id="ghErr" style="display:none" class="merr"></div>
@@ -223,8 +222,8 @@
     <div class="mfld"><label>Description</label><input id="osDesc" placeholder="PROJ-42 audit (optional)"/></div>
     <div id="osmerr" style="display:none" class="merr"></div>
     <div style="margin:10px 14px 0;padding:10px 12px;background:rgba(249,115,22,.06);border:1px solid rgba(249,115,22,.2);border-radius:8px;font-size:14px;color:var(--muted2);line-height:1.6">
-      ⚠️ <strong style="color:var(--muted2)">VEX Status</strong> может не отражать актуальный патч-статус вендора.
-      Всегда проверяйте <a href="https://security-tracker.debian.org" target="_blank" style="color:#f97316">security tracker</a> вашего дистрибутива.
+      ⚠️ <strong style="color:var(--muted2)">VEX status</strong> can lag behind the vendor's actual patch status.
+      Check your distribution's <a href="https://security-tracker.debian.org" target="_blank" rel="noopener" style="color:#f97316">security tracker</a> before relying on it.
     </div>
     <div class="mactions">
       <button class="btn-go" id="btnOsGo" style="background:#f97316;color:#fff" onclick="doOsScan()">▶ Scan</button>

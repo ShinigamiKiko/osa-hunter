@@ -62,7 +62,7 @@ async function resolveLock({ tmpRoot, env }, { ignorePlatformReqs, pkg, constrai
   const lockRaw = await fsp.readFile(path.join(tmpRoot, 'composer.lock'), 'utf8').catch(() => null);
   if (!lockRaw) {
     const { HttpError } = require('./errors');
-    throw new HttpError(502, 'composer.lock не был создан — зависимости не разрешены.');
+    throw new HttpError(502, 'composer.lock was not created: the dependencies could not be resolved.');
   }
 
   const lock = safeJson(lockRaw, { packages: [], 'packages-dev': [] });
