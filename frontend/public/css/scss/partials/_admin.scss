@@ -1,0 +1,313 @@
+// Admin page: user accounts and API keys
+
+.admin { padding: 24px 32px; }
+
+.admin-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.admin-title { font-size: 22px; font-weight: 900; color: #fff; }
+.admin-sub   { font-size: 13px; color: #a6b4c4; margin-top: 2px; }
+
+.admin-panel {
+  background: #0b0f18;
+  border: 1px solid #1a2030;
+  border-radius: 12px;
+  overflow: hidden;
+
+  &.spaced { margin-top: 24px; }
+}
+
+.admin-panel-head {
+  padding: 16px 20px;
+  border-bottom: 1px solid #111820;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.admin-panel-title { font-size: 14px; font-weight: 700; color: #fff; }
+.admin-panel-sub   { font-size: 14px; color: #a6b4c4; margin-top: 2px; }
+
+.admin-panel-sub code {
+  background: #111827;
+  padding: 1px 6px;
+  border-radius: 4px;
+  color: #5ef0c8;
+}
+
+.admin-empty {
+  text-align: center;
+  padding: 40px;
+  color: #a6b4c4;
+  font-size: 13px;
+
+  &.compact { padding: 32px; }
+  &.tight   { padding: 24px; }
+  &.error   { color: #ff6b6b; }
+}
+
+// Inline forms (new account, new API key)
+.admin-form {
+  display: none;
+  background: #0b0f18;
+  border: 1px solid #1a2030;
+  border-radius: 12px;
+  padding: 20px 24px;
+  margin-bottom: 20px;
+
+  &.open { display: block; }
+}
+
+.admin-form-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #8a9ab0;
+  margin-bottom: 16px;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+
+.admin-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.admin-form-row { display: flex; gap: 10px; align-items: flex-end; }
+.admin-form-row > .grow { flex: 1; }
+.admin-form-actions { display: flex; gap: 8px; }
+
+.key-form {
+  display: none;
+  padding: 16px 20px;
+  border-bottom: 1px solid #111820;
+  background: #080b10;
+
+  &.open { display: block; }
+}
+
+.field-label {
+  font-size: 14px;
+  font-weight: 700;
+  color: #a6b4c4;
+  margin-bottom: 5px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+
+  &.plain { letter-spacing: normal; }
+}
+
+.field-input {
+  width: 100%;
+  padding: 9px 12px;
+  background: #080b10;
+  border: 1px solid #1a2030;
+  border-radius: 8px;
+  color: #e5e7eb;
+  font-size: 13px;
+  outline: none;
+  box-sizing: border-box;
+
+  &.on-panel { background: #0b0f18; }
+}
+
+select.field-input { width: auto; }
+
+.form-error {
+  display: none;
+  color: #ff6b6b;
+  font-size: 14px;
+  margin-top: 10px;
+
+  &.tight { margin-top: 8px; }
+}
+
+.btn-primary.btn-sm,
+.btn-secondary.btn-sm { padding: 9px 18px; font-size: 13px; flex-shrink: 0; }
+.btn-secondary.btn-sm { padding: 9px 14px; }
+.btn-primary.btn-xs   { padding: 7px 14px; font-size: 14px; }
+
+// Users and keys tables
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+
+  thead tr { background: #080b10; }
+
+  th {
+    padding: 10px 16px;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    color: #a6b4c4;
+    text-align: left;
+
+    &.actions { width: 80px; }
+  }
+
+  tbody tr { border-top: 1px solid #111820; }
+  td { padding: 12px 16px; }
+
+  .cell-strong { font-size: 13px; font-weight: 600; color: #e5e7eb; }
+  .cell-muted  { font-size: 14px; color: #a6b4c4; }
+  .cell-dim    { font-size: 14px; color: #8a9ab0; }
+}
+
+.user-cell { display: flex; align-items: center; gap: 9px; }
+
+.user-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #5ef0c8;
+  color: #07090f;
+  font-size: 14px;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.user-you { font-size: 9px; color: #a6b4c4; margin-left: 4px; }
+
+.role-badge {
+  font-size: 13px;
+  font-weight: 800;
+  padding: 2px 9px;
+  border-radius: 4px;
+  background: #0d1219;
+  border: 1px solid #1a2030;
+  color: #8a9ab0;
+
+  &.admin { background: #0a2018; border-color: #34d399; color: #34d399; }
+}
+
+.key-prefix {
+  background: #080b10;
+  border: 1px solid #1a2030;
+  border-radius: 5px;
+  padding: 3px 8px;
+  color: #5ef0c8;
+  font-size: 14px;
+  font-family: var(--font-mono);
+}
+
+.btn-row-action {
+  background: none;
+  border: 1px solid #1a2030;
+  border-radius: 6px;
+  color: #a6b4c4;
+  cursor: pointer;
+  padding: 4px 10px;
+  font-size: 14px;
+  transition: all .13s;
+
+  &:hover { color: #ff6b6b; border-color: #ff3b30; }
+}
+
+// One-time display of a new API key
+.key-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  background: rgba(0,0,0,.72);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.key-modal-card {
+  position: relative;
+  background: #0b0f18;
+  border: 1px solid #34d399;
+  border-radius: 16px;
+  padding: 36px 40px;
+  max-width: 620px;
+  width: 100%;
+  max-height: calc(100dvh - 40px);
+  overflow-y: auto;
+}
+
+.key-modal-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 30px;
+  height: 30px;
+  background: #111827;
+  border: 1px solid #1a2030;
+  border-radius: 7px;
+  color: #8a9ab0;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.key-modal-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.key-modal-icon { font-size: 20px; }
+.key-modal-title { font-size: 16px; font-weight: 800; color: #fff; }
+.key-modal-note { font-size: 13px; color: #a6b4c4; margin-bottom: 24px; }
+.key-modal-note b { color: #e5e7eb; }
+
+.key-modal-box {
+  background: #060910;
+  border: 1px solid #1a2030;
+  border-radius: 10px;
+  padding: 16px 18px;
+  margin-bottom: 20px;
+}
+
+.key-modal-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: #a6b4c4;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  margin-bottom: 8px;
+}
+
+.key-modal-value {
+  display: block;
+  color: #5ef0c8;
+  font-size: 14px;
+  font-family: var(--font-mono);
+  word-break: break-all;
+  line-height: 1.6;
+}
+
+.key-modal-usage {
+  background: #051a0f;
+  border: 1px solid #1a3020;
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 24px;
+  font-size: 14px;
+  color: #8a9ab0;
+  overflow-wrap: anywhere;
+
+  code { color: #a78bfa; font-family: var(--font-mono); }
+}
+
+.key-modal-actions { display: flex; gap: 10px; }
+
+.key-modal-copy {
+  flex: 1;
+  padding: 11px;
+  background: #5ef0c8;
+  border: none;
+  border-radius: 8px;
+  color: #07090f;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+
+  &.copied { background: #34d399; }
+}

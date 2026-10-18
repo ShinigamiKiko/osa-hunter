@@ -17,6 +17,7 @@
 //   _proxy        — proxy activity tabs, table, pager
 //   _rules        — gate policy editor: rule cards, exceptions, revisions
 //   _pager        — 50/100/150 row pager shared by every long list
+//   _admin        — user accounts and API keys
 
 @use 'partials/base';
 @use 'partials/sidebar';
@@ -32,3 +33,4 @@
 @use 'partials/proxy';
 @use 'partials/rules';
 @use 'partials/pager';
+@use 'partials/admin';
