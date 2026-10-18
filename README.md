@@ -1,65 +1,54 @@
-<div align="center">
+# OSA Hunter
 
-![OSA Hunter — package security gate and vulnerability dashboard](docs/banner-v2.svg)
+A self-hosted package gate and vulnerability scanner.
 
-[![Node.js](docs/badges/node.svg)](https://nodejs.org)
-[![PostgreSQL](docs/badges/postgresql.svg)](https://postgresql.org)
-[![Docker](docs/badges/docker.svg)](https://docs.docker.com/compose)
-[![License](docs/badges/license.svg)](LICENSE)
+OSA sits between package managers and their registries (directly or through
+Nexus). For each artifact request it resolves the package and version, checks
+them against a policy and either streams the download through or refuses it.
+The same instance has a web UI for scanning packages, dependency trees,
+container images, OS packages and public GitHub repositories.
 
-**Self-hosted package firewall and vulnerability scanner for your software supply chain.**
+![Proxy activity](docs/screenshots/proxy-activity.png)
 
-Check packages before they reach your builds. Investigate vulnerabilities in one dashboard.
+## Package gate
 
-[Quick start](#quick-start) · [How it works](#how-it-works) · [Scanners](#scan-your-stack) · [Production](#production) · [Documentation](#documentation)
-
-</div>
-
-![Proxy activity dashboard showing allowed downloads, policy blocks and unavailable security checks](docs/screenshots/proxy-activity.png)
-
-<p align="center"><sub>Real dashboard from a local test instance: npm, PyPI and Go downloads, with the verdict and its reason beside each request.</sub></p>
-
-## Why OSA Hunter?
-
-OSA sits between your package managers and their upstream registries or Nexus. It checks requested artifacts against your policy, then streams allowed downloads to the client. The same instance gives your team a dashboard for scanning packages, dependency trees, container images, OS packages and public GitHub repositories.
-
-- **Set your own rules.** Block package names or versions, vulnerability severities, known exploited CVEs, exploit probability, public PoCs or toxic repository matches.
-- **See why a download was blocked.** Follow the decision from proxy activity to the matching rule in the UI.
-- **Investigate the whole stack.** Inspect CVEs, dependency findings and SAST results; export reports as PDF.
-- **Run on your infrastructure.** Docker Compose, PostgreSQL, browser sessions, API keys and Prometheus metrics. Security checks use external data sources.
-
-## How it works
-
-Point a package manager at `/api/gate/<repository>/...`. For an artifact request, OSA resolves the package and version before evaluating the active policy:
+Point a package manager at `/api/gate/<repository>/...`:
 
 ```mermaid
 flowchart LR
-    Client[Package manager] --> Gate[OSA package gate]
-    Gate --> Policy[Your policy + security checks]
-    Policy -->|Allow or warn| Upstream[Registry or Nexus]
-    Upstream -->|Stream through OSA| Client
-    Policy -->|Deny| Block[403 · blocked by policy]
-    Policy -->|Required data unavailable| Retry[503 · retry later]
+    Client[Package manager] --> Gate[OSA gate]
+    Gate --> Policy[Policy and security checks]
+    Policy -->|allow or warn| Upstream[Registry or Nexus]
+    Upstream -->|streamed through OSA| Client
+    Policy -->|deny| Block[403]
+    Policy -->|required data unavailable| Retry[503]
 ```
 
-| Signal | What it tells you |
-|---|---|
-| **OSV / CVSS** | Known vulnerabilities and their severity |
-| **CISA KEV** | Vulnerabilities known to be exploited |
-| **EPSS** | Estimated probability of exploitation |
-| **Public PoCs** | Available proof-of-concept exploit references |
-| **Toxic repositories** | Matches against the configured repository/package feed |
-| **Your rules** | Package-name patterns, versions, CVE IDs and combined conditions |
+Policy rules can match on:
 
-Metadata is forwarded without scanning every historical version. Allowed archives are streamed; the gateway does not install or execute packages. With `on_gate_error: deny`, an unavailable required security check returns **503** with `Retry-After`; a policy block returns **403**. Unavailable checks are never cached as a verdict. Enrichment sources are configurable; the default policy and your network access determine which checks run.
+- package name patterns, versions and CVE IDs;
+- OSV vulnerabilities and CVSS severity;
+- CISA KEV (known exploited vulnerabilities);
+- EPSS (exploit probability);
+- public proof-of-concept exploits;
+- matches in the toxic-repos feed.
 
-**Supported gateway ecosystems:** npm · PyPI · Go · Composer/Packagist · Maven · NuGet · Cargo/crates.io · RubyGems · Debian/Ubuntu · Alpine · RPM distributions.
+Metadata requests are forwarded without scanning every published version.
+Allowed archives are streamed to the client; the gate never installs or runs
+packages. A policy block returns 403. With `on_gate_error: deny`, a required
+check that cannot be completed returns 503 with `Retry-After`, and that
+result is not cached.
 
-See the package gate guide in [English](docs/package-gate.en.md) or [Русский](docs/package-gate.ru.md) for policy facts, artifact formats and upstream mappings.
+Supported ecosystems: npm, PyPI, Go, Composer/Packagist, Maven, NuGet,
+Cargo/crates.io, RubyGems, Debian/Ubuntu, Alpine and RPM distributions.
+
+The [package gate guide](docs/package-gate.en.md)
+([Russian](docs/package-gate.ru.md)) covers policy facts, artifact formats and
+upstream mappings.
 
 ## Quick start
 
-For a local instance, install **Docker with Compose** and **Node.js 22+**, then run:
+Requires Docker with Compose and Node.js 22+.
 
 ```bash
 git clone https://github.com/ShinigamiKiko/osa-hunter.git
@@ -68,17 +57,21 @@ node scripts/init-env.cjs --development
 docker compose up --build
 ```
 
-Open **http://localhost:3000** and sign in as **admin** with the unique `ADMIN_PASSWORD` from the generated `.env`. The helper preserves an existing `.env` and never prints credentials.
+Open http://localhost:3000 and sign in as `admin` with the `ADMIN_PASSWORD`
+from the generated `.env`. The script keeps an existing `.env` and does not
+print credentials.
 
-### Route package downloads through OSA
+### Routing downloads through OSA
 
-Configure your upstream repositories before pointing clients at the gate. Nexus is optional; each repository can use a direct registry or a Nexus upstream. For example, add these direct mappings to `.env`:
+Map the repositories in `.env` first. Each one can use a registry directly or
+a Nexus upstream; Nexus is optional:
 
 ```env
 OSA_NEXUS_REPOSITORIES={"npm-proxy":{"ecosystem":"npm","upstream":"https://registry.npmjs.org","direct":true},"pypi-proxy":{"ecosystem":"PyPI","upstream":"https://pypi.org","direct":true},"go-proxy":{"ecosystem":"Go","upstream":"https://proxy.golang.org","direct":true}}
 ```
 
-Recreate the backend after changing `.env`: `docker compose up -d backend`. Test the local routes without changing your global package-manager configuration:
+Restart the backend with `docker compose up -d backend`, then try the routes
+without touching your global package manager configuration:
 
 ```bash
 npm pack is-odd@3.0.1 --ignore-scripts \
@@ -90,75 +83,58 @@ GOPROXY=http://localhost:3000/api/gate/go-proxy \
   go mod download github.com/google/uuid@v1.6.0
 ```
 
-The HTTP examples above are for the local development instance. Use your HTTPS endpoint for production clients.
+Production clients should use the HTTPS endpoint instead.
 
-## Scan your stack
+## Scanners
 
-![Six scanner modules: libraries, dependencies, Composer, container images, OS packages and GitHub SAST](docs/features.svg)
+| Scanner | What it checks | Backend |
+|---|---|---|
+| Library | one package version | OSV, with CVSS, EPSS, CISA KEV and PoC data |
+| Dependencies | the transitive dependency tree | deps.dev and OSV |
+| Composer | PHP dependency resolution | Packagist |
+| Container image | OS and language packages in an image | Trivy |
+| OS package | Ubuntu, Debian, RHEL, Alpine and SUSE packages | Grype |
+| GitHub | static analysis of a public repository | Semgrep |
 
-| Scanner | What it checks |
-|---|---|
-| 📦 **Library** | A package version against OSV, with CVSS, EPSS, CISA KEV and PoC enrichment |
-| 🔗 **Dependencies** | Transitive dependencies and their vulnerabilities via deps.dev |
-| 🐘 **Composer** | PHP dependency resolution through Packagist |
-| 🐋 **Container image** | OS and language packages with Trivy; registry hosts are configurable |
-| 🐧 **OS package** | Ubuntu, Debian, RHEL, Alpine and SUSE packages with Grype |
-| 🔍 **GitHub SAST** | Static analysis of public repositories with Semgrep |
+Results can be exported as PDF reports.
 
-![Library scan report for lodash 4.17.20 with CVE severity and vulnerability details](docs/screenshots/library-scan.png)
+![Library scan](docs/screenshots/library-scan.png)
 
-<p align="center"><sub>A real library scan: inspect individual findings, severity and available fixes from the same dashboard.</sub></p>
+### Toxic repositories
 
-### Toxic repository detection
-
-![Toxic repository detection illustration](docs/toxic.svg)
-
-Check package identities and source repositories against a curated feed. Matches use the full repository identity or an explicit package URL/PURL; a shared basename alone does not identify a toxic repository. Feed categories include malware, DDoS tools, destructive behavior, embedded IP blocking and political payloads.
-
-Enable the feed and use `toxic.found` in your policy to act on matches. See [identity matching and supported metadata lookups](docs/operations.md#toxic-repository-matching).
-
-<details>
-<summary><strong>See the scanner terminal illustration</strong></summary>
-
-![Illustrative animated scanner terminal](docs/terminal.svg)
-
-<sub>Illustration of the scan workflow; live results depend on the package, version and available security data.</sub>
-
-</details>
+Packages and their source repositories can be checked against the
+[toxic-repos](https://github.com/toxic-repos/toxic-repos) feed (malware,
+DDoS tools, destructive code, IP blocking, political payloads). A match needs
+the full repository identity or an explicit package URL; a shared repository
+name alone is not enough. Enable the feed and use `toxic.found` in the policy
+to act on matches; see [operations](docs/operations.md#toxic-repository-matching).
 
 ## Production
 
-Deploy behind an external **nginx or Ingress that terminates HTTPS**:
+Run it behind nginx or an Ingress that terminates HTTPS:
 
 ```bash
 node scripts/init-env.cjs
 docker compose -f docker-compose.yml -f docker-compose.production.yml up --build -d
 ```
 
-Use this setup for a fresh production environment. If `.env` already exists, the helper preserves it; follow the guide to update credentials and migrate an existing instance. Production requires strong credentials and secure cookies. The frontend, backend and metrics listeners are published on localhost.
-
-The [production deployment guide](deploy/production/README.md) includes the external nginx configuration, proxy headers, credential requirements, existing-database migration and backup guidance.
+The frontend, backend and metrics ports are published on localhost only.
+[deploy/production](deploy/production/README.md) has the nginx configuration,
+proxy headers, credential requirements, and notes on migrating and backing up
+an existing database.
 
 ## Documentation
 
-| Guide | Contents |
-|---|---|
-| [Package gate · English](docs/package-gate.en.md) / [Русский](docs/package-gate.ru.md) | Request flow, policy facts, supported formats and repository mappings |
-| [Operations and API](docs/operations.md) | API examples, accounts, live policy editing, Nexus, metrics, queues, caches and backups |
-| [Production deployment](deploy/production/README.md) | External HTTPS nginx/Ingress and production credentials |
-| [Environment settings](.env.example) | Available environment variables and defaults |
-| [Default policy](policy.yaml) | Policy imported into PostgreSQL on first boot |
+- [Package gate](docs/package-gate.en.md): request flow, policy facts, formats, repository mappings
+- [Operations and API](docs/operations.md): API examples, accounts, policy editing, Nexus, metrics, queues, caches, backups
+- [Production deployment](deploy/production/README.md)
+- [.env.example](.env.example): environment variables and defaults
+- [policy.yaml](policy.yaml): the policy imported into PostgreSQL on first start
 
-The active policy lives in PostgreSQL and is managed under **Rules**. Export YAML to keep a reviewed copy in Git; changing the seed file does not replace an existing database policy.
+The active policy is stored in PostgreSQL and edited under Rules. Export it as
+YAML to keep a reviewed copy in git; editing `policy.yaml` does not replace a
+policy that is already in the database.
 
 ## License
 
-OSA Hunter is released under the [MIT License](LICENSE).
-
-<div align="center">
-
-**[⭐ Star OSA Hunter](https://github.com/ShinigamiKiko/osa-hunter/stargazers)** if it helps you keep track of your dependencies.
-
-<sub>Built with ☕ and mild existential dread about open source dependencies.</sub>
-
-</div>
+[MIT](LICENSE)

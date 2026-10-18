@@ -265,11 +265,11 @@ follow `on_gate_error`. Feed entries retain the categories assigned by its autho
 
 | Category | Description |
 |---|---|
-| 💀 DDoS Tool | Packages designed to flood networks or amplify attacks |
-| 🦠 Malware | Trojans, ransomware, or data-stealing payloads |
-| ⚡ Hostile Actions | Code that destroys data or sabotages systems |
-| 🚫 IP Blocking | Geofencing or censorship embedded in a library |
-| 📢 Political Slogan | Activist payloads that hijack package behavior |
+| DDoS tool | Packages designed to flood networks or amplify attacks |
+| Malware | Trojans, ransomware, or data-stealing payloads |
+| Hostile actions | Code that destroys data or sabotages systems |
+| IP blocking | Geofencing or censorship embedded in a library |
+| Political slogan | Activist payloads that hijack package behavior |
 
 ## Security
 
