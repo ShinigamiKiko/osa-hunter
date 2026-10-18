@@ -16,8 +16,8 @@ function ui(stored = {}) {
   ctx.window = ctx; vm.createContext(ctx);
   vm.runInContext('let libScans=[], depScans=[], osScans=[]; let currentDepScan;', ctx);
   const load = file => vm.runInContext(fs.readFileSync(path.join(__dirname, '../../frontend/public/js', file), 'utf8'), ctx, { filename: file });
-  for (const file of ['icons.js', 'icon-renderer.js', 'utils.js', 'ui-image-scan.js', 'ui-gh-scan.js', 'dependency-scan/30-scan.js',
-    'dependency-scan/51-list.js', 'dependency-scan/52-detail.js', 'ui-scan-history.js']) load(file);
+  for (const file of ['icons.js', 'icon-renderer.js', 'utils.js', 'ui-image-scan.js', 'ui-gh-scan.js', 'dependency-scan/scan.js',
+    'dependency-scan/list.js', 'dependency-scan/detail.js', 'ui-scan-history.js']) load(file);
   return { ctx, nodes };
 }
 const trivy = { _cacheKey: 'img:registry.test:5000/app:1', _cachedAt: new Date().toISOString(),
