@@ -69,12 +69,24 @@ function loadRepositories() {
   return out;
 }
 
+function decodeArtifactPath(value) {
+  let decoded;
+  try { decoded = decodeURIComponent(value); }
+  catch { throw Object.assign(new Error('invalid path encoding'), { status: 400 }); }
+  if (decoded.split('/').some(part => part === '.' || part === '..')
+      || /[\x00-\x20\x7f\\?#]/.test(decoded) || decoded.includes('://')
+      || /%[0-9a-f]{2}/i.test(decoded)) {
+    throw Object.assign(new Error('invalid path'), { status: 400 });
+  }
+  return decoded;
+}
+
 function parseArtifact(repository, artifactPath) {
   const repoCfg = REPOSITORIES[repository];
   if (!repoCfg) return null;
   const adapter = adapterFor(repoCfg.ecosystem);
   if (!adapter) return null;
-  const path = decodeURIComponent(artifactPath).replace(/^\/+/, '');
+  const path = decodeArtifactPath(artifactPath).replace(/^\/+/, '');
   const r = adapter.parse(path);
   return r ? { ecosystem: repoCfg.ecosystem, ...r } : null;
 }
@@ -135,12 +147,8 @@ router.all('/*', async (req, res) => {
     return res.status(405).json({ error: 'method not allowed' });
   }
   const pathOnly = req.originalUrl.split('?')[0].replace(/^\/api\/gate/, '') || '/';
-  let decodedPath = pathOnly;
-  try { decodedPath = decodeURIComponent(pathOnly); } catch { /* keep raw */ }
-  if (/\.\.(\/|\\|$)/.test(decodedPath) || /[\x00-\x1f\x7f]/.test(pathOnly)
-      || decodedPath.includes('\\') || decodedPath.includes('://')) {
-    return res.status(400).json({ error: 'invalid path' });
-  }
+  try { decodeArtifactPath(pathOnly); }
+  catch (error) { return res.status(400).json({ error: error.message }); }
   const parts = pathOnly.replace(/^\/+/, '').split('/');
   if (!parts[0]) return res.status(400).json({ error: 'Expected /api/gate/<repo>/...' });
 
@@ -152,7 +160,11 @@ router.all('/*', async (req, res) => {
     if (!adapter) return res.status(400).json({ error: `unsupported ecosystem "${repoCfg.ecosystem}"` });
     const artifactPath = parts.slice(1).join('/');
     const query = req.originalUrl.includes('?') ? `?${req.originalUrl.split('?')[1]}` : '';
-    const artifact = parseArtifact(repository, artifactPath);
+    let artifact = parseArtifact(repository, artifactPath);
+    if (adapter.resolveArtifact) {
+      const resolved = await adapter.resolveArtifact(repoCfg, repository, decodeArtifactPath(artifactPath));
+      artifact = resolved ? { ecosystem: repoCfg.ecosystem, ...resolved } : null;
+    }
 
     if (!artifact && req.method === 'GET' && adapter.serveIndex) {
       if (await adapter.serveIndex(req, res, repoCfg, repository, artifactPath)) return;
@@ -202,7 +214,7 @@ router.all('/*', async (req, res) => {
         return res.status(403).json({ error: `Blocked by OSA gate — ${why}`, reasons: verdict.reasons });
       }
       recordEvent(req, { decision: 'allow', ecosystem: artifact.ecosystem, name: artifact.name, version: artifact.version, repository });
-      if (adapter.download) return await adapter.download(req, res, repoCfg, repository, artifactPath);
+      if (adapter.download) return await adapter.download(req, res, repoCfg, repository, artifactPath, artifact);
       return await proxyResponse(req, res, fwd(repoCfg, repository, artifactPath).path + query, repoCfg);
     }
 

@@ -6,7 +6,7 @@ function normalizeVersion(v) {
 }
 
 function isComposerPackageName(name) {
-  return /^[a-z0-9]([_.-]?[a-z0-9]+)*\/[a-z0-9](([_.]?|-{0,2})[a-z0-9]+)*$/i.test(String(name || '').trim());
+  return /^[a-z0-9]+(?:[_.-][a-z0-9]+)*\/[a-z0-9]+(?:(?:[_.]|-{1,2})[a-z0-9]+)*$/i.test(String(name || '').trim());
 }
 
 function normalizeComposerConstraint(v) {

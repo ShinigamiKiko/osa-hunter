@@ -136,6 +136,7 @@ router.delete('/auth/users/:id', requireAdmin, async (req, res) => {
 // the current password is required - an admin reset does not ask for it.
 const MIN_PASSWORD = 8;
 const changeLimiter = new RateLimiter(5, 60000);
+const changeAccountLimiter = new RateLimiter(5, 60000);
 
 router.post('/auth/password', async (req, res) => {
   const user = req.session?.user;
@@ -152,18 +153,18 @@ router.post('/auth/password', async (req, res) => {
     return res.status(400).json({ error: 'New password must differ from the current one' });
   }
 
+  // Reserve before bcrypt, including concurrent requests and attempts from other IPs.
+  // Cheap form errors above do not consume a credential-guessing attempt.
+  const ip = req.ip || req.socket?.remoteAddress || 'unknown';
+  if (!changeAccountLimiter.check(user.id) || !changeLimiter.check(ip)) {
+    return res.status(429).json({ error: 'Too many attempts. Please wait.' });
+  }
+
   try {
     const { rows } = await getPool().query('SELECT password FROM users WHERE id = $1', [user.id]);
     if (!rows.length) return res.status(404).json({ error: 'User not found' });
 
     if (!await bcrypt.compare(currentPassword, rows[0].password)) {
-      // Only wrong guesses count against the limit. Charging the budget for a
-      // mistyped new password would lock someone out of their own account for
-      // fumbling the form, without anyone guessing anything.
-      const ip = req.ip || req.socket?.remoteAddress || 'unknown';
-      if (!changeLimiter.check(ip)) {
-        return res.status(429).json({ error: 'Too many attempts. Please wait.' });
-      }
       return res.status(403).json({ error: 'Current password is incorrect' });
     }
 
