@@ -3,10 +3,14 @@ const { withCache, ScanError } = require('../auth/scanCache');
 
 const express      = require('express');
 const router = require('../utils/router')();
-const { execFile } = require('child_process');
+const { runBoundedProcess } = require('../utils/runBoundedProcess');
 const fs           = require('fs');
 const path         = require('path');
 const os           = require('os');
+const { Semaphore } = require('../shared/primitives');
+const { GHSCAN_CONCURRENCY, GHSCAN_QUEUE_SIZE } = require('../config');
+const { downloadRepository } = require('../utils/githubArchive');
+const scanSlots = new Semaphore(GHSCAN_CONCURRENCY, GHSCAN_QUEUE_SIZE);
 const { semgrepSnippet } = require('../utils/semgrepSnippet');
 const { scanLimiter, rateLimit, checkToxic, SEV_ORD } = require('../shared');
 
@@ -19,21 +23,9 @@ function parseRepoName(url) {
   const m = url.match(GH_RE);
   return m ? `${m[1]}/${m[2]}` : url;
 }
-function exec(cmd, args, opts) {
-  return new Promise((resolve, reject) => {
-    execFile(cmd, args, opts, (err, stdout, stderr) => {
-      if (err) return reject(Object.assign(err, { stdout, stderr }));
-      resolve({ stdout, stderr });
-    });
-  });
-}
 function cleanup(dir) {
   try { fs.rmSync(dir, { recursive: true, force: true }); } catch {}
 }
-function cleanupFile(filePath) {
-  try { fs.unlinkSync(filePath); } catch {}
-}
-
 function ruleShortName(ruleId) {
   const parts = (ruleId || '').split('.');
   const skip = new Set(['security','audit','correctness','performance','best-practice','lang','rules']);
@@ -69,65 +61,31 @@ router.post('/ghscan', rateLimit(scanLimiter), async (req, res) => {
   if (!url) return res.status(400).json({ error: 'url is required' });
   if (!validGhUrl(url)) return res.status(400).json({ error: 'Only public GitHub URLs supported' });
 
-  const repo     = parseRepoName(url);
+  const repo     = parseRepoName(url.trim());
   const _cacheKey = `sast:${repo}`;
 
   return withCache(_cacheKey, 'sast', res, async () => {
-  const cloneUrl = url.endsWith('.git') ? url : `${url}.git`;
-  const tmpDir   = path.join(os.tmpdir(), `ghscan-${Date.now()}-${Math.random().toString(36).slice(2)}`);
-
+  const release = await scanSlots.acquire();
+  if (!release) throw new ScanError(503, 'GitHub scan queue is full');
+  let workspace;
+  try {
+  workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'ghscan-'));
+  const tmpDir = path.join(workspace, 'source');
   console.log(`[GHScan] ${repo} → ${tmpDir} (ip: ${ip})`);
 
   try {
-    const check = await fetch(`https://api.github.com/repos/${repo}`, {
-      signal: AbortSignal.timeout(8000),
-      headers: { 'User-Agent': 'OSAHunter/1.0' },
-    });
-    if (check.status === 404) throw new ScanError(404, `Repository "${repo}" not found on GitHub`);
+    await downloadRepository(repo, workspace);
   } catch (e) {
-    if (e instanceof ScanError) throw e;
-    throw new ScanError(502, 'GitHub unreachable: ' + e.message);
+    throw new ScanError(e.status || 502, `Repository download failed: ${e.message}`);
   }
-
-  try {
-    await exec('git', [
-      '-c', 'credential.helper=',
-      '-c', 'core.askPass=',
-      'clone', '--depth=1', '--single-branch',
-      '--filter=blob:limit=2m',
-      cloneUrl, tmpDir,
-    ], {
-      timeout: 120_000,
-      env: { ...process.env, GIT_TERMINAL_PROMPT: '0', GIT_ASKPASS: 'echo' },
-    });
-  } catch (e) {
-    cleanup(tmpDir);
-    throw new ScanError(502, `Clone failed: ${e.message}`);
-  }
-
-  try {
-    const { stdout } = await exec('du', ['-sm', tmpDir], { timeout: 10_000 });
-    const mb = parseInt(stdout.split('\t')[0], 10);
-    console.log(`[GHScan] ${repo} — size: ${mb}MB`);
-    if (mb > 700) {
-      cleanup(tmpDir);
-      throw new ScanError(413, `Repository too large (${mb}MB). Limit is 700MB.`);
-    }
-  } catch (e) {
-    if (e instanceof ScanError) throw e;
-    console.warn(`[GHScan] size check failed: ${e.message}`);
-  }
-
-  const jsonOut = path.join(os.tmpdir(), `semgrep-${Date.now()}-${Math.random().toString(36).slice(2)}.json`);
-  console.log(`[GHScan] ${repo} — starting semgrep p/security-audit → ${jsonOut}`);
-
+  console.log(`[GHScan] ${repo} — starting semgrep p/security-audit`);
+  let semgrepOutput;
   let semgrepErr = '';
   try {
-    const { stderr } = await exec('semgrep', [
+    const { stdout, stderr } = await runBoundedProcess('semgrep', [
       '--config', 'p/security-audit',
       '--metrics=off',
       '--json',
-      '--output', jsonOut,
       '--no-error',
       '--no-git-ignore',
       '--jobs', '1',
@@ -136,13 +94,14 @@ router.post('/ghscan', rateLimit(scanLimiter), async (req, res) => {
       tmpDir,
     ], {
       timeout: 300_000,
-      maxBuffer: 1 * 1024 * 1024,
+      maxBuffer: 50 * 1024 * 1024,
       env: {
         ...process.env,
         SEMGREP_SEND_METRICS: 'off',
         NO_COLOR: '1',
       },
     });
+    semgrepOutput = stdout;
     semgrepErr = stderr || '';
     console.log(`[GHScan] ${repo} — semgrep done`);
     if (semgrepErr) console.log(`[GHScan] semgrep stderr: ${semgrepErr.slice(0, 300)}`);
@@ -151,23 +110,18 @@ router.post('/ghscan', rateLimit(scanLimiter), async (req, res) => {
     console.log(`[GHScan] semgrep exit: code=${e.code} signal=${e.signal} killed=${e.killed}`);
     console.log(`[GHScan] semgrep stderr: ${semgrepErr.slice(0, 500)}`);
     cleanup(tmpDir);
-    cleanupFile(jsonOut);
-    throw new ScanError(502, 'Semgrep failed: ' + (semgrepErr.slice(0,200) || e.message));
+    throw new ScanError(e.status || 502, 'Semgrep failed: ' + (semgrepErr.slice(0,200) || e.message));
   }
 
   let parsed;
   try {
-    const raw = fs.readFileSync(jsonOut, 'utf8');
+    const raw = semgrepOutput;
     parsed = JSON.parse(raw);
-    console.log(`[GHScan] ${repo} — JSON file read, ${raw.length} bytes`);
+    console.log(`[GHScan] ${repo} — JSON received, ${raw.length} bytes`);
   } catch (e) {
-    console.error('[GHScan] JSON file read/parse failed:', e.message);
+    console.error('[GHScan] JSON parse failed:', e.message);
     cleanup(tmpDir);
-    cleanupFile(jsonOut);
     throw new ScanError(500, 'Failed to read Semgrep JSON output: ' + e.message);
-  } finally {
-    cleanupFile(jsonOut);
-    console.log(`[GHScan] ${repo} — JSON file deleted`);
   }
 
   if (!Array.isArray(parsed?.results) || (parsed.errors !== undefined && !Array.isArray(parsed.errors))) {
@@ -244,6 +198,10 @@ router.post('/ghscan', rateLimit(scanLimiter), async (req, res) => {
   return { repo, url, desc: desc||'', findings, counts, topSev, toxic,
     complete: scanErrors.length === 0, errors: scanErrors.length, errorSamples: scanErrors.slice(0, 20),
     scannedAt: new Date().toISOString() };
+  } finally {
+    if (workspace) cleanup(workspace);
+    release();
+  }
   });
 });
 

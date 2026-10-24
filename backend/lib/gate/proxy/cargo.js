@@ -27,8 +27,8 @@ async function serveIndex(req, res, repoCfg, repository, artifactPath) {
   return true;
 }
 
-async function download(req, res, repoCfg, _repository, artifactPath) {
-  const artifact = parse(artifactPath);
+async function download(req, res, repoCfg, _repository, artifactPath, checkedArtifact) {
+  const artifact = checkedArtifact || parse(decodeURIComponent(artifactPath));
   if (!artifact) return res.status(404).json({ error: 'invalid Cargo artifact path' });
   const base = repoCfg.downloadUpstream || repoCfg.upstream;
   const url = `${base}/${encodeURIComponent(artifact.name)}/${encodeURIComponent(artifact.name)}-${encodeURIComponent(artifact.version)}.crate`;

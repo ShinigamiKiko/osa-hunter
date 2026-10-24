@@ -3,6 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const yaml = require('js-yaml');
+const { validatePolicyData } = require('./policyLimits');
 
 // Gate policy: turns the facts of a single package scan into an allow/deny/warn
 // decision. Kept as plain JS so it ships with zero new deps; the shape is
@@ -127,6 +128,7 @@ function conditionMatches(condition, facts) {
 }
 
 function compilePolicy(source) {
+  validatePolicyData(source);
   if (!source || typeof source !== 'object') throw new Error('Policy must be an object');
   const defaults = source.defaults || {};
   const rules = (source.rules || []).filter(rule => rule.enabled !== false).map(rule => {
