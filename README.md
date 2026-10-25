@@ -170,6 +170,25 @@ The [production deployment guide](deploy/production/README.md) includes the exte
 
 The active policy lives in PostgreSQL and is managed under **Gate rules**. Export YAML to keep a reviewed copy in Git; changing the seed file does not replace an existing database policy.
 
+
+## Scan limits and registry metadata
+
+Public GitHub scans download the default branch source archive from `codeload.github.com`.
+`GHSCAN_CONCURRENCY` (default `1`) and `GHSCAN_QUEUE_SIZE` (default `4`) bound uncached scans;
+a full queue returns HTTP 503. Each scan allows at most 700 MiB for the staged archive and
+extracted file blocks combined, 20,000 files/directories and 50 MiB of Semgrep JSON output.
+Oversized repositories fail explicitly. Repository archives containing symbolic links, hard
+links or special files are rejected rather than producing an incomplete clean report.
+The downloaded archive is checked against GitHub’s tracked file manifest and blob hashes.
+Archives that omit or transform tracked files (for example via `export-ignore` or LFS)
+fail explicitly; changes to the default branch during download may require a retry.
+
+The RubyGems gateway confirms artifact filenames against the upstream compact index
+(`info/<gem>`), including platform builds and gem names containing numeric components.
+Unavailable metadata fails closed; missing or conflicting identities are blocked rather
+than checking a guessed name/version. Compact index responses are limited to 1 MiB,
+and filenames with more than eight candidate name/version boundaries are rejected.
+
 ## License
 
 OSA Hunter is released under the [MIT License](LICENSE).

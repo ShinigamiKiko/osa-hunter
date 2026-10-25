@@ -2,6 +2,7 @@
 
 const crypto = require('crypto');
 const { getPool } = require('./db');
+const { sessionExpired, noteActivity } = require('./sessionPolicy');
 
 function hashKey(key) {
   return crypto.createHash('sha256').update(key).digest('hex');
@@ -19,6 +20,15 @@ async function requireAuth(req, res, next) {
   ];
   if (open.includes(req.path)) return next();
 
+  let expired = false;
+  if (req.session?.user && sessionExpired(req.session)) {
+    // Drop it from the store, not only from this request: an expired session
+    // must not come back if the cookie is replayed.
+    expired = true;
+    await new Promise(resolve => req.session.destroy ? req.session.destroy(() => resolve()) : resolve());
+    req.session = null;
+  }
+
   if (req.session?.user) {
     try {
       const { rows } = await getPool().query(
@@ -27,6 +37,7 @@ async function requireAuth(req, res, next) {
       if (user && user.session_version === req.session.user.sessionVersion) {
         req.user = { id: user.id, username: user.username, role: user.role };
         req.session.user = { ...req.user, sessionVersion: user.session_version };
+        noteActivity(req.session);
         return next();
       }
       delete req.session.user;
@@ -61,7 +72,7 @@ async function requireAuth(req, res, next) {
 
   // API authentication must return 401 even for browser navigation headers.
   // nginx auth_request rejects redirects and turns them into HTTP 500.
-  return res.status(401).json({ error: 'Unauthorized' });
+  return res.status(401).json({ error: expired ? 'Session expired' : 'Unauthorized' });
 }
 
 function requireAdmin(req, res, next) {

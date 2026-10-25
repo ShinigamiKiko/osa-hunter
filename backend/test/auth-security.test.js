@@ -43,7 +43,10 @@ function app() {
   app.use((req, res, next) => {
     const [id, version, role] = (req.get('test-session') || '').split(':');
     req.session = { regenerate: cb => cb(), destroy: cb => cb() };
-    if (id) req.session.user = { id: Number(id), sessionVersion: Number(version), role: role || 'admin' };
+    if (id) {
+      req.session.user = { id: Number(id), sessionVersion: Number(version), role: role || 'admin' };
+      req.session.authenticatedAt = req.session.lastSeenAt = Date.now();
+    }
     next();
   });
   app.use('/api', requireAuth, auth, policy);

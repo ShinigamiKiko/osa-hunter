@@ -2,6 +2,7 @@
 
 const fs = require('fs');
 const yaml = require('js-yaml');
+const { validatePolicyData } = require('./policyLimits');
 const { getPool } = require('../auth/db');
 const { compilePolicy, formatException, POLICY_FILE } = require('./policy');
 
@@ -71,6 +72,7 @@ function exceptionReasons(list) {
 }
 
 function normalizeBody(input) {
+  validatePolicyData(input);
   if (!input || typeof input !== 'object' || Array.isArray(input)) {
     throw new Error('Policy must be an object');
   }
@@ -114,6 +116,7 @@ function normalizeBody(input) {
 // Disabled rules and disabled name entries stay in the body (so the UI can show
 // them) but never compile, and therefore never affect a verdict.
 function compileBody(body, version) {
+  validatePolicyData(body);
   const compiled = compilePolicy({
     ...body,
     rules: (body.rules || []).filter(r => r.enabled !== false),
@@ -203,6 +206,7 @@ async function getActivePolicy() {
 }
 
 function toYaml(body) {
+  validatePolicyData(body);
   return yaml.dump(body, { lineWidth: 100, noRefs: true });
 }
 

@@ -1,10 +1,11 @@
 'use strict';
 const test = require('node:test');
+process.env.GHSCAN_QUEUE_SIZE = '1';
 const assert = require('node:assert/strict');
 const express = require('express');
 const fs = require('node:fs');
 const nativeFetch = global.fetch;
-let graphSize = 0, scanned = [], saved = [], semgrepOutput, semgrepError, created = [];
+let graphSize = 0, scanned = [], saved = [], semgrepOutput, semgrepError, created = [], onDownload;
 const dbPath = require.resolve('../lib/auth/db');
 require.cache[dbPath] = { id: dbPath, filename: dbPath, loaded: true, exports: { getPool: () => ({
   query: async (sql, args) => { if (sql.includes('INSERT INTO scan_cache')) saved.push(JSON.parse(args[2])); return { rows: [] }; },
@@ -16,26 +17,31 @@ require.cache[sharedPath].exports = { ...shared,
   checkToxic: async () => ({ found: false }),
   bulkEnrich: async () => ({ epssMap: {}, kevSet: new Set(), cvssMap: {}, pocMap: {} }),
 };
-const cp = require('node:child_process'), nativeExec = cp.execFile;
-cp.execFile = (command, args, options, callback) => {
-  if (command === 'git') { fs.mkdirSync(args.at(-1), { recursive: true }); created.push(args.at(-1)); return callback(null, '', ''); }
-  if (command === 'du') return callback(null, '1\tfixture', '');
-  if (command === 'semgrep') {
-    const file = args[args.indexOf('--output') + 1];
-    fs.writeFileSync(file, JSON.stringify(semgrepOutput)); created.push(file);
-    return callback(semgrepError, '', semgrepError ? 'scan failed' : '');
-  }
-  throw new Error('unexpected executable: ' + command);
-};
+const archivePath = require.resolve('../lib/utils/githubArchive');
+require.cache[archivePath] = { id: archivePath, filename: archivePath, loaded: true, exports: {
+  downloadRepository: async (_repo, workspace) => {
+    const source = require('node:path').join(workspace, 'source');
+    fs.mkdirSync(source); created.push(workspace);
+    if (onDownload) await onDownload();
+    return source;
+  },
+} };
+const processPath = require.resolve('../lib/utils/runBoundedProcess');
+require.cache[processPath] = { id: processPath, filename: processPath, loaded: true, exports: {
+  runBoundedProcess: async command => {
+    assert.equal(command, 'semgrep');
+    if (semgrepError) throw Object.assign(semgrepError, { stderr: 'scan failed' });
+    return { stdout: JSON.stringify(semgrepOutput), stderr: '' };
+  },
+} };
 const depsRoute = require('../lib/routes/dependency-scan.route');
 const ghRoute = require('../lib/routes/ghscan.route');
-test.after(() => { cp.execFile = nativeExec; });
 test.beforeEach(() => {
-  graphSize = 0; scanned = []; saved = []; created = []; semgrepOutput = { results: [], errors: [] }; semgrepError = null;
+  graphSize = 0; scanned = []; saved = []; created = []; semgrepOutput = { results: [], errors: [] }; semgrepError = null; onDownload = null;
   global.fetch = async (url, options) => {
     const value = String(url);
     if (value.startsWith('http://127.0.0.1:')) return nativeFetch(url, options);
-    if (value.startsWith('https://api.github.com/')) return { status: 200 };
+    if (value.startsWith('https://api.github.com/')) return { status: 200, ok: true };
     if (!value.startsWith('https://api.deps.dev/')) assert.fail('unexpected external request');
     const doc = value.endsWith(':dependencies') ? { nodes: [
       { versionKey: { name: 'root', version: '1.0.0', system: 'NPM' } },
@@ -99,4 +105,37 @@ test('a successful empty Semgrep scan remains a complete, cacheable clean result
   const response = await request(ghRoute, 'ghscan', { url: 'https://github.com/example/clean' });
   assert.equal(response.status, 200); assert.equal(response.body.complete, true);
   assert.equal(response.body.topSev, 'NONE'); assert.equal(saved.length, 1);
+});
+
+test('distinct repositories share a bounded queue and duplicate scans share the active slot', async () => {
+  const { Semaphore } = require('../lib/shared/primitives');
+  const originalAcquire = Semaphore.prototype.acquire;
+  let allowDownload, firstStarted, queueStarted, acquisitions = 0;
+  const hold = new Promise(resolve => { allowDownload = resolve; });
+  const started = new Promise(resolve => { firstStarted = resolve; });
+  const queued = new Promise(resolve => { queueStarted = resolve; });
+  onDownload = async () => { acquisitions++; firstStarted(); await hold; };
+  Semaphore.prototype.acquire = function() {
+    const result = originalAcquire.call(this);
+    if (this.queue.length === 1) queueStarted();
+    return result;
+  };
+  const body = url => ({ url: 'https://github.com/example/' + url });
+  const requests = [];
+  try {
+    requests.push(request(ghRoute, 'ghscan', body('queued-first')));
+    await started;
+    requests.push(request(ghRoute, 'ghscan', body('queued-second')));
+    await queued;
+    requests.push(request(ghRoute, 'ghscan', body('queued-first')));
+    const overflow = await request(ghRoute, 'ghscan', body('queued-overflow'));
+    assert.equal(overflow.status, 503);
+    assert.equal(acquisitions, 1, 'only one acquisition can run at a time');
+    allowDownload();
+    const responses = await Promise.all(requests);
+    assert.deepEqual(responses.map(r => r.status), [200, 200, 200]);
+    assert.equal(acquisitions, 2, 'a duplicate request must not acquire another scan slot');
+  } finally {
+    allowDownload(); await Promise.allSettled(requests); Semaphore.prototype.acquire = originalAcquire;
+  }
 });

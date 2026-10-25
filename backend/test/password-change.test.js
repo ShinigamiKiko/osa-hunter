@@ -38,10 +38,11 @@ require.cache[dbPath] = {
 
 const authRoutes = require('../lib/auth/routes');
 
-function server({ user = { id: 7, username: 'dev', role: 'user' } } = {}) {
+function server({ ip, user = { id: 7, username: 'dev', role: 'user' } } = {}) {
   const app = express();
   app.use(express.json());
   app.use((req, res, next) => {
+    if (ip) Object.defineProperty(req, 'ip', { value: ip });
     // Minimal stand-in for express-session.
     req.session = user ? { user, regenerate: cb => cb(null) } : { regenerate: cb => cb(null) };
     next();
@@ -147,4 +148,22 @@ test('repeated wrong guesses are rate limited, like the login form', async () =>
     }
     assert.ok(sawLimit, 'guessing the current password must not be unlimited');
   });
+});
+
+test('an exhausted account budget rejects correct passwords and changing IP before bcrypt or database work', async () => {
+  const originalCompare = bcrypt.compare;
+  let comparisons = 0;
+  bcrypt.compare = (...args) => { comparisons++; return originalCompare(...args); };
+  const before = queries.length;
+  try {
+    // The previous test exhausted this account's budget.
+    for (const ip of ['198.51.100.1', '198.51.100.2']) {
+      await withServer({ ip }, async s => {
+        const r = await change(s, { currentPassword: 'old-password', newPassword: 'a-new-password' });
+        assert.equal(r.status, 429);
+      });
+    }
+    assert.equal(comparisons, 0);
+    assert.equal(queries.length, before);
+  } finally { bcrypt.compare = originalCompare; }
 });
