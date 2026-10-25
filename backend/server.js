@@ -13,6 +13,7 @@ const { closePool, getPool, runMigrations, seedAdmin } = require('./lib/auth/db'
 const { purgeExpired }        = require('./lib/auth/scanCache');
 const { purgeProxyData }      = require('./lib/gate/retention');
 const { requireAuth }         = require('./lib/auth/middleware');
+const { MAX_MS: SESSION_MAX_MS, sessionExpired } = require('./lib/auth/sessionPolicy');
 const { jsonBodyErrors }      = require('./lib/utils/bodyErrors');
 const { installConsoleLogger, logError, logRequest, write } = require('./lib/observability/logger');
 const { metricsHandler, requestMetrics } = require('./lib/observability/metrics');
@@ -113,7 +114,7 @@ runMigrations()
     const seededPolicy = await bootstrapPolicy();
     write('info', 'policy_ready', { version: seededPolicy.version, source: seededPolicy.source });
 
-    app.use(session({
+    const sessionMiddleware = session({
       name: cookieName,
       store: new pgSession({
         pool: getPool(),
@@ -128,9 +129,15 @@ runMigrations()
         httpOnly: true,
         sameSite: 'lax',
         path: '/',
-        maxAge: 7 * 24 * 60 * 60 * 1000,
+        // The browser may keep the cookie no longer than a session can live;
+        // requireAuth enforces the idle and absolute limits on the server.
+        maxAge: SESSION_MAX_MS,
       },
-    }));
+    });
+    // The UI polls /api/health every 20s. Loading the session there would keep
+    // it alive in the store for as long as a tab stays open.
+    const SESSIONLESS = new Set(['/api/health', '/api/ready']);
+    app.use((req, res, next) => (SESSIONLESS.has(req.path) ? next() : sessionMiddleware(req, res, next)));
 
     app.use((req, res, next) => {
       if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) return next();
@@ -164,7 +171,7 @@ runMigrations()
     app.use('/api', scanHistoryRoutes);
 
     app.get('/', (req, res, next) => {
-      if (!req.session?.user) return res.redirect('/login.html');
+      if (!req.session?.user || sessionExpired(req.session)) return res.redirect('/login.html');
       next();
     });
 

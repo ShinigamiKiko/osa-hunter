@@ -56,8 +56,9 @@ no automatic fallback after a sandbox failure. The image includes
 Any signed-in user changes their own password from the account menu in the top
 right: `POST /api/auth/password` with `currentPassword` and `newPassword`. The
 current password is required, the new one must be at least 8 characters, and the
-session id is rotated on success. Only a wrong current password counts against
-the rate limit, so a mistyped form cannot lock anyone out.
+session id is rotated on success. Each attempt that reaches the password check
+counts against a limit of five per minute per account and per IP; form errors
+such as a too-short new password do not.
 
 Sign-in attempts are limited to ten per minute per IP and per trimmed,
 case-sensitive username. Unknown users still run a cost-12 bcrypt comparison
@@ -70,6 +71,13 @@ Password changes revoke other browser sessions; an admin reset revokes all of
 that account's browser sessions. Account deletion and role changes are checked
 on every authenticated request, including `/api/auth/me`. API keys remain
 separate credentials. Only administrators can save the gateway policy.
+
+A browser session ends after `SESSION_IDLE_MINUTES` without a request (default
+30) or `SESSION_MAX_HOURS` after sign-in (default 12), whichever comes first.
+The server enforces both and deletes the expired session; the UI then returns
+to the sign-in page. The status poll (`/api/health`) does not count as
+activity, so an open but unused tab still times out. Sessions created before
+these limits existed must sign in again once.
 
 The session-version migration requires existing users to sign in again once.
 The enrichment migration discards old library, dependency, OS and gate cache

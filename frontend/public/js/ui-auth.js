@@ -1,3 +1,16 @@
+// A session can expire while the page is open (idle or absolute limit). Send
+// the user to sign in instead of letting every action fail with Unauthorized.
+(function () {
+  const nativeFetch = window.fetch.bind(window);
+  window.fetch = async (input, init) => {
+    const response = await nativeFetch(input, init);
+    const path = new URL(typeof input === 'string' ? input : input.url, location.href).pathname;
+    if (response.status === 401 && path.startsWith('/api/') && path !== '/api/auth/login')
+      window.location.replace('/login.html?expired=1');
+    return response;
+  };
+})();
+
 (function () {
   fetch('/api/auth/me', { credentials: 'same-origin' })
     .then(r => r.ok ? r.json() : Promise.reject())

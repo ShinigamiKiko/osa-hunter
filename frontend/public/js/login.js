@@ -1,6 +1,7 @@
 fetch('/api/auth/me', { credentials: 'same-origin' }).then(r => {
   if (r.ok) window.location.replace('/');
 });
+if (new URLSearchParams(location.search).has('expired')) showErr('Your session expired. Sign in again.');
 
 document.getElementById('password').addEventListener('keydown', e => {
   if (e.key === 'Enter') doLogin();

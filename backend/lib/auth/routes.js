@@ -5,6 +5,7 @@ const bcrypt   = require('bcryptjs');
 const router   = require('../utils/router')();
 const { getPool } = require('./db');
 const { requireAdmin } = require('./middleware');
+const { startSession } = require('./sessionPolicy');
 const { RateLimiter } = require('../shared/primitives');
 
 const loginLimiter = new RateLimiter(10, 60000);
@@ -60,6 +61,7 @@ router.post('/auth/login', (req, res, next) => {
         return res.status(500).json({ error: 'Login failed' });
       }
       req.session.user = sessionUser;
+      startSession(req.session);
       req.session.save((saveErr) => {
         if (saveErr) {
           console.error('[auth/login] save', saveErr.message);
@@ -180,6 +182,8 @@ router.post('/auth/password', async (req, res) => {
     return req.session.regenerate(err => {
       if (err) return res.status(500).json({ error: 'Password changed, please sign in again' });
       req.session.user = { id: account.id, username: account.username, role: account.role, sessionVersion: account.session_version };
+      // Re-entering the current password is a fresh sign-in.
+      startSession(req.session);
       return res.json({ ok: true });
     });
   } catch (e) {
